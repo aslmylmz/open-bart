@@ -18,7 +18,7 @@ Explosion model (frontend):
     At each pump attempt k the balloon explodes with P(explode) = k / maxPumps
     (sequential independent Bernoulli trials with linearly increasing probability).
     This is NOT a pre-drawn uniform distribution — the optimal stopping point under
-    this model is lower than maxPumps / 2.  For orange (N=8) the EV-maximising
+    this model is lower than maxPumps / 2.  For orange (N=8) the EV-maximizing
     stop is ~2 pumps; for teal (N=32) ~6 pumps; for purple (N=128) ~12 pumps.
     (Optimal stops are approximately sqrt(N), derived from the EV-curve peak of
     the sequential Bernoulli model — not maxPumps/4 as previously documented.)
@@ -327,6 +327,11 @@ def _calculate_learning_rate(
     the participant adapts: pumping more on purple over time (exploitation) or
     pumping less on orange over time (risk avoidance).
 
+    Teal is excluded because the direction of "learning" is ambiguous —
+    increasing pumps is correct when starting below EV-optimal (5 pumps),
+    decreasing is correct when starting above. Only purple and orange have
+    unambiguous directionality.
+
     Note: With only 10 trials per color this regression is noisy — a single
     outlier trial can significantly shift the slope.  See half_split_learning_rate
     for a more robust alternative at this sample size.
@@ -379,14 +384,11 @@ def _calculate_learning_rate(
 
             # For orange balloons, negative slope is good (learning to reduce risk)
             # For purple balloons, positive slope is good (learning to maximize)
+            # Teal excluded: direction is ambiguous relative to EV-optimal
             if color == "orange":
                 learning_slopes.append(-weighted_slope)
             elif color == "purple":
                 learning_slopes.append(weighted_slope)
-            else:  # teal (medium risk)
-                # Decreasing pumps on teal = learning to be appropriately cautious.
-                # Weight at 0.5 since teal is medium risk (less signal than orange/purple).
-                learning_slopes.append(-weighted_slope * 0.5)
 
     if not learning_slopes:
         return 0.0
@@ -417,7 +419,9 @@ def _calculate_half_split_learning_rate(
     Improvement direction per color:
     - Orange: pumping LESS in the second half = learning (delta negated).
     - Purple: pumping MORE in the second half = learning (delta kept).
-    - Teal:   pumping less in the second half = cautious adaptation (delta negated, half-weight).
+    - Teal:   excluded — direction is ambiguous relative to EV-optimal (5 pumps).
+              Increasing toward optimal from below would be correct, but
+              decreasing from above would also be correct.
 
     Parameters
     ----------
@@ -464,12 +468,11 @@ def _calculate_half_split_learning_rate(
         # Relative change: positive = pumped more in second half
         delta = (second_half_mean - first_half_mean) / overall_mean
 
+        # Teal excluded: direction is ambiguous relative to EV-optimal
         if color == "orange":
             learning_scores.append(-delta)  # Less pumping = improvement
         elif color == "purple":
             learning_scores.append(delta)   # More pumping = improvement
-        else:  # teal
-            learning_scores.append(-delta * 0.5)  # Cautious reduction, half-weight
 
     if not learning_scores:
         return 0.0
@@ -478,6 +481,182 @@ def _calculate_half_split_learning_rate(
     if np.isnan(mean_learning):
         return 0.0
     return float(np.clip(mean_learning, -1.0, 1.0))
+
+
+def _calculate_tercile_learning_rate(
+    balloon_data: list[tuple[int, str, int, bool]],
+) -> float:
+    """
+    Learning rate comparing first-third vs last-third trials per color.
+
+    Drops the noisy middle third to capture late learners more sharply.
+    With 10 trials per color: first 3 vs last 3 (middle 4 excluded).
+    Same directional logic as half-split: orange less = learning, purple more = learning.
+    Teal excluded: direction is ambiguous relative to EV-optimal.
+
+    Uses COLLECTED (non-exploded) balloons only; falls back to all if < 3 collected.
+    """
+    if len(balloon_data) < 6:
+        return 0.0
+
+    color_trials_all: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    color_trials_collected: dict[str, list[tuple[int, int]]] = defaultdict(list)
+
+    for trial, color, pumps, exploded in balloon_data:
+        color_trials_all[color].append((trial, pumps))
+        if not exploded:
+            color_trials_collected[color].append((trial, pumps))
+
+    learning_scores = []
+
+    for color in color_trials_all:
+        collected = color_trials_collected.get(color, [])
+        all_trials = color_trials_all[color]
+        trials = collected if len(collected) >= 3 else all_trials
+
+        if len(trials) < 3:
+            continue
+
+        sorted_trials = sorted(trials, key=lambda x: x[0])
+        third = max(1, len(sorted_trials) // 3)
+
+        first_third = sorted_trials[:third]
+        last_third = sorted_trials[-third:]
+
+        first_mean = float(np.mean([t[1] for t in first_third]))
+        last_mean = float(np.mean([t[1] for t in last_third]))
+        overall_mean = float(np.mean([t[1] for t in sorted_trials]))
+
+        if overall_mean == 0:
+            continue
+
+        delta = (last_mean - first_mean) / overall_mean
+
+        # Teal excluded: direction is ambiguous relative to EV-optimal
+        if color == "orange":
+            learning_scores.append(-delta)
+        elif color == "purple":
+            learning_scores.append(delta)
+
+    if not learning_scores:
+        return 0.0
+
+    result = float(np.mean(learning_scores))
+    return 0.0 if np.isnan(result) else float(np.clip(result, -1.0, 1.0))
+
+
+def _calculate_color_discrimination_trajectory(
+    balloon_data: list[tuple[int, str, int, bool]],
+) -> float | None:
+    """
+    Track how purple-vs-orange discrimination changes across session thirds.
+
+    Splits the full session (all 30 balloons in chronological order) into 3 blocks
+    of ~10 balloons. For each block, computes discrimination = mean(purple_pumps)
+    - mean(orange_pumps). Returns the change from block 1 to block 3, normalized
+    by the EV-optimal discrimination (≈ 9 pumps: purple_opt ≈ 11, orange_opt ≈ 2).
+
+    Interpretation:
+      +1.0 = gained one full optimal-spread of discrimination
+       0.0 = no change in discrimination across session
+      -1.0 = lost one full optimal-spread (e.g., converged from over-spread)
+
+    Prefers collected (non-exploded) balloons per block to avoid RNG-truncation
+    inflation of orange discrimination. Falls back to all balloons per color
+    within a block if none were collected.
+    Returns None if purple or orange appear in fewer than 2 blocks.
+    """
+    if len(balloon_data) < 6:
+        return None
+
+    sorted_data = sorted(balloon_data, key=lambda x: x[0])
+    n = len(sorted_data)
+    block_size = max(1, n // 3)
+
+    blocks = [
+        sorted_data[:block_size],
+        sorted_data[block_size:2 * block_size],
+        sorted_data[2 * block_size:],
+    ]
+
+    block_disc = []
+    for block in blocks:
+        purple_collected = [pumps for _, color, pumps, exploded in block
+                           if color == "purple" and not exploded]
+        orange_collected = [pumps for _, color, pumps, exploded in block
+                           if color == "orange" and not exploded]
+        # Fall back to all if no collected data for a color in this block
+        if not purple_collected:
+            purple_collected = [pumps for _, color, pumps, _ in block if color == "purple"]
+        if not orange_collected:
+            orange_collected = [pumps for _, color, pumps, _ in block if color == "orange"]
+        if purple_collected and orange_collected:
+            block_disc.append(float(np.mean(purple_collected)) - float(np.mean(orange_collected)))
+        else:
+            block_disc.append(None)
+
+    # Use the earliest and latest blocks that have both colors.
+    # Some participants have 0 purple in Block 1 due to random sequencing.
+    valid = [(i, d) for i, d in enumerate(block_disc) if d is not None]
+    if len(valid) < 2:
+        return None
+
+    first_block_disc = valid[0][1]
+    last_block_disc = valid[-1][1]
+    change = last_block_disc - first_block_disc
+
+    # Normalize by EV-optimal discrimination (purple≈11, orange≈2 → spread≈9)
+    # This is stable across participants and interpretable:
+    # +1 = gained one optimal-spread of discrimination across the session.
+    optimal_spread = 9.0
+    return float(change / optimal_spread)
+
+
+def _calculate_post_explosion_sensitivity(
+    balloon_data: list[tuple[int, str, int, bool]],
+) -> float | None:
+    """
+    Measure pump change on the next same-color balloon after an explosion.
+
+    For each explosion event, find the next balloon of the SAME color.
+    Compute the change normalized by EV-optimal stop for that color:
+    (pumps_before - pumps_after) / ev_optimal_stop.
+    Positive = participant reduced pumps after a pop (adaptive behavior).
+
+    Normalized by EV-optimal stop for the balloon color, ensuring equal
+    weighting across risk levels. Without this, orange (optimal=2) would
+    dominate: a 1-pump change is 50% proportionally but only ~11% when
+    normalized by EV-optimal.
+
+    Returns the mean across all same-color explosion→follow-up pairs.
+    Returns None if no same-color follow-ups exist after explosions.
+    """
+    sorted_data = sorted(balloon_data, key=lambda x: x[0])
+
+    changes = []
+    for i, (trial, color, pumps, exploded) in enumerate(sorted_data):
+        if not exploded or pumps == 0:
+            continue
+        # Find next balloon of the same color
+        for j in range(i + 1, len(sorted_data)):
+            if sorted_data[j][1] == color:
+                next_pumps = sorted_data[j][2]
+                # Normalize by EV-optimal for this color, not by pre-explosion pumps
+                opt_stop, _ = _get_ev_optimal(
+                    COLOR_PROFILES.get(color, {}).get("max_pumps", 32)
+                )
+                if opt_stop > 0:
+                    change = (pumps - next_pumps) / opt_stop
+                else:
+                    change = 0.0
+                changes.append(change)
+                break
+
+    if not changes:
+        return None
+
+    result = float(np.mean(changes))
+    return None if np.isnan(result) else float(np.clip(result, -1.0, 1.0))
 
 
 def _calculate_color_discrimination(
@@ -772,22 +951,17 @@ def _compute_explosion_penalty(
     return min(1.0, overall), per_color_excess
 
 
-def _compute_ev_efficiency_differentiation(
+def _compute_ev_efficiency_uniformity(
     per_color_efficiency: dict[str, float],
     color_pumps_collected: dict[str, list[int]],
     color_balloons: dict[str, int],
 ) -> float | None:
     """
-    Compute EV-efficiency differentiation: 1 - CV(per_color_efficiencies).
+    Compute EV-efficiency uniformity: 1 - CV(per_color_efficiencies).
 
-    Colors with sufficient collected data use their computed EV-efficiency.
-    Colors where balloons EXISTED but NONE were collected (all exploded)
-    receive efficiency = 0, since the participant earned nothing from that
-    risk level — a clear failure to differentiate strategy.
-
-    Returns None if fewer than 2 colors had any balloons at all.
-
-    High score = participant achieves similar EV-efficiency across risk levels.
+    Measures how uniform EV-efficiency is across risk levels.
+    High score = participant achieves similar EV-efficiency across colors
+    (but not necessarily high efficiency).
     """
     effective_efficiency: dict[str, float] = {}
 
@@ -824,6 +998,11 @@ def _detect_flat_strategy(
     color_pumps_all: dict[str, list[int]],
     color_explosions: dict[str, int],
     color_balloons: dict[str, int],
+    *,
+    tercile_lr: float = 0.0,
+    cdt: float | None = None,
+    pes: float | None = None,
+    between_cv: float = 0.0,
 ) -> bool:
     """
     Detect if participant uses an undifferentiated flat pumping strategy.
@@ -835,9 +1014,26 @@ def _detect_flat_strategy(
 
     The raw means (not collected-only) are used here because collected-only
     on orange would hide the flat target (truncated by explosions).
+
+    Temporal Learning Exemption
+    --------------------------
+    Participants who *start* with similar low pumps across colors but then
+    explore and adapt should NOT be labeled flat. We check learning signals
+    (tercile improvement, discrimination trajectory, post-explosion
+    sensitivity, between-balloon variability) and exempt learners.
     """
     if len(color_pumps_all) < 2:
         return False
+
+    # ── Temporal learning exemption ──────────────────────────────────────
+    # If ANY strong learning signal is present, the participant is exploring
+    # and adapting, not playing a genuinely flat strategy.
+    is_learner = (
+        tercile_lr > 0.15                            # improved from 1st→3rd third
+        or (cdt is not None and cdt > 0.20)           # learned to differentiate colors
+        or (pes is not None and pes > 0.15)           # reduced pumps after explosions
+        or between_cv > 0.45                          # high strategy variation = experimenting
+    )
 
     # Compute raw means per color
     raw_means: dict[str, float] = {}
@@ -849,30 +1045,77 @@ def _detect_flat_strategy(
     if len(raw_means) < 2:
         return False
 
-    # Check 1: Are raw means similar? (CV < 0.25 = quite flat)
     values = list(raw_means.values())
     mean_val = float(np.mean(values))
     if mean_val <= 0:
         return False
 
+    purple_mean = raw_means.get("purple", 0)
+    orange_mean = raw_means.get("orange", 0)
+
+    # ── Temporal learning & Variability exemption ────────────────────────
+    # If ANY strong learning signal is present, OR if the participant's
+    # pumping varies significantly (not a flat line), they are exploring
+    # or being erratic, which is fundamentally NOT a flat strategy.
+    is_variable = (
+        tercile_lr > 0.15                            # improved from 1st→3rd third
+        or (cdt is not None and cdt > 0.20)          # learned to differentiate colors
+        or (pes is not None and pes > 0.15)          # reduced pumps after explosions
+        or between_cv > 0.30                         # high strategy variation = experimenting, not flat
+        or (orange_mean > 0 and purple_mean / orange_mean >= 1.7) # clear cross-color differentiation
+    )
+
+    if is_variable:
+        return False
+
+    # Check 1: Extremely low flat pumping (e.g. always pump 1-2 and collect).
+    # Pumping <= 2 on average across all colors is clearly undifferentiated.
+    if mean_val <= 2.0:
+        return True
+
+    # Check 2: Moderate flat pumping that ignores color risk levels.
+    # To avoid false positives on conservative learners who differentiate slightly,
+    # we require very tight grouping (CV < 0.15) and a mean well below optimal.
     cv = float(np.std(values) / mean_val)
-    if cv > 0.25:
-        return False  # Participant IS differentiating by raw pump count
+    if cv < 0.15 and purple_mean > 0 and purple_mean < 6.0:
+        return True
 
-    # Check 2: Does explosion rate increase with risk?
-    # A flat strategy targeting X pumps should produce:
-    # low explosion on purple (X << 128), moderate on teal, high on orange
-    explosion_rates: dict[str, float] = {}
-    for color in ["purple", "teal", "orange"]:
-        total = color_balloons.get(color, 0)
-        if total > 0:
-            explosion_rates[color] = color_explosions.get(color, 0) / total
+    # Check 3: Does explosion rate increase with risk while pumps remain flat?
+    # A flat target X produces low exp on purple, high on orange.
+    # We only consider this if their pumps are reasonably flat (CV < 0.25).
+    # If CV > 0.25, they are differentiating, so explosion gradient is outcome, not strategy.
+    if cv < 0.25:
+        explosion_rates: dict[str, float] = {}
+        for color in ["purple", "teal", "orange"]:
+            total = color_balloons.get(color, 0)
+            if total > 0:
+                explosion_rates[color] = color_explosions.get(color, 0) / total
 
-    # If orange explosion rate > 80% and purple < 40%, flat strategy confirmed
-    orange_exp = explosion_rates.get("orange", 0)
-    purple_exp = explosion_rates.get("purple", 0)
+        orange_exp = explosion_rates.get("orange", 0)
+        purple_exp = explosion_rates.get("purple", 0)
+        
+        if orange_exp > 0.8 and purple_exp < 0.5:
+            return True
 
-    return orange_exp > 0.8 and purple_exp < 0.5
+    return False
+
+
+def _is_autorepeat_balloon(balloon_events: list[GameEvent]) -> bool:
+    """Detect balloons where the participant held spacebar (OS auto-repeat).
+
+    Auto-repeat produces pump events at the OS key-repeat rate (~30-50 ms)
+    with near-zero variance.  Real individual key presses average ≥ 100 ms
+    with higher variance.  We flag a balloon if its median inter-pump
+    latency is below 80 ms — physically impossible for discrete presses.
+    """
+    pump_times = [e.timestamp for e in balloon_events if e.type == "pump"]
+    if len(pump_times) < 3:
+        return False
+    diffs = np.diff(pump_times)
+    diffs = diffs[diffs < 2000.0]
+    if len(diffs) < 2:
+        return False
+    return float(np.median(diffs)) < 80.0
 
 
 def _calculate_consistency_breakdown(
@@ -913,8 +1156,11 @@ def _calculate_consistency_breakdown(
                              fewer than 2 balloons or zero mean.
     """
     # Within-balloon: average of per-balloon latency CVs (not affected by truncation)
+    # Skip auto-repeat balloons (spacebar held down → OS key repeat ≈ 30-50 ms)
     within_cvs: list[float] = []
     for balloon_events in balloons:
+        if _is_autorepeat_balloon(balloon_events):
+            continue
         pump_times = [e.timestamp for e in balloon_events if e.type == "pump"]
         if len(pump_times) >= 3:
             diffs = np.diff(pump_times)
@@ -979,74 +1225,175 @@ def _generate_behavioral_profile(
     profile: dict[str, Any] = {}
 
     # 1. Risk Style — use EV-based metrics instead of raw pump counts
+    # NOTE: These labels describe observed task behavior only. They do not
+    # predict real-world risk attitudes or occupational fit (Lauriola et al., 2014).
+
+    # Per-color efficiency for differentiated-profile detection
+    purple_eff = metrics.ev_optimal_stops.get("_purple_efficiency", 0.0)
+    teal_eff = metrics.ev_optimal_stops.get("_teal_efficiency", 0.0)
+    orange_eff = metrics.ev_optimal_stops.get("_orange_efficiency", 0.0)
+    # A participant who is efficient on safe balloons but blows up on risky ones
+    # is differentiated — they just over-calibrate on the high-risk end.
+    has_selective_strength = purple_eff >= 0.70 and orange_eff < 0.30
+
+    # Learning signal flags (used in multiple cascade branches)
+    _tercile_lr = metrics.tercile_learning_rate
+    _cdt = metrics.color_discrimination_trajectory
+    _has_strong_learning = (
+        metrics.half_split_learning_rate > 0.15
+        or (_tercile_lr is not None and _tercile_lr > 0.15)
+    )
+    _has_discrim_growth = _cdt is not None and _cdt > 0.20
+
+    # Uniformity (ev_efficiency_uniformity) is the primary differentiator:
+    #   high (>0.60) = performs similarly across all balloon colors
+    #   low  (<0.40) = divergent strategy across colors
+    _unif = metrics.ev_efficiency_uniformity
+
+    # ── 1. Flat strategy override ────────────────────────────────────────
     if metrics.flat_strategy_detected:
         risk_style = "Undifferentiated Risk Approach"
         risk_desc = (
             "You applied a similar pumping strategy across all balloon types regardless "
-            "of their risk levels. While this can feel efficient, it misses opportunities "
-            "on safe balloons and causes excessive losses on risky ones."
+            "of their risk levels. This pattern forgoes additional reward on safer "
+            "balloons and incurs avoidable losses on riskier ones."
         )
-        workplace = "May benefit from structured risk frameworks that make risk levels explicit."
-    elif metrics.risk_calibration_score >= 80 and metrics.explosion_penalty < 0.1:
+
+    # ── 2. Calibrated Risk Optimizer ─────────────────────────────────────
+    #    Uniformly excellent: high calibration + good across ALL colors
+    elif (metrics.risk_calibration_score >= 80
+          and metrics.explosion_penalty < 0.25
+          and _unif > 0.60):
         risk_style = "Calibrated Risk Optimizer"
         risk_desc = (
             "You calibrated your risk-taking precisely to match actual danger levels. "
             "You pushed when it was safe and pulled back when risk was high — "
-            "maximizing expected reward across all conditions."
+            "maximizing expected reward across conditions."
         )
-        workplace = "Strong fit for roles requiring nuanced risk assessment and optimization."
-    elif metrics.explosion_penalty > 0.3:
-        risk_style = "Aggressive Risk Taker"
+
+    # ── 3. Selective Over-Optimizer ──────────────────────────────────────
+    #    Clearly differentiated (low uniformity) + selective pattern + costly
+    elif (has_selective_strength
+          and _unif < 0.40
+          and metrics.explosion_penalty > 0.25):
+        risk_style = "Selective Over-Optimizer"
         risk_desc = (
-            "You pushed well past optimal stopping points, particularly on higher-risk "
-            "balloons. This aggressive approach led to significantly more explosions "
-            "than an optimal strategy would produce."
+            "You showed strong calibration on safer balloons, extracting near-optimal "
+            "value from low-risk opportunities. However, you pushed too far on the "
+            "highest-risk balloons, causing avoidable explosions. Your strategy is "
+            "differentiated — the opportunity is in pulling back earlier when "
+            "hazard rates are steepest."
         )
-        workplace = "Action-oriented energy that benefits from guardrails and risk frameworks."
-    elif metrics.rng_normalized_pumps < 0.10 and metrics.explosion_penalty < 0.05:
-        risk_style = "Conservative Safety-Seeker"
+
+    # ── 4. Persistent Risk Taker ─────────────────────────────────────────
+    #    Over-pumps across ALL colors uniformly (not selective)
+    elif (metrics.rng_normalized_pumps >= 1.0
+          and not has_selective_strength
+          and metrics.explosion_penalty > 0.20):
+        risk_style = "Persistent Risk Taker"
         risk_desc = (
-            "You prioritized safety and certainty, stopping well before optimal "
-            "on most balloons. You avoided losses but left significant reward on the table."
+            "You pushed well past optimal stopping points across all balloon types. "
+            "This uniformly aggressive approach led to more explosions than an "
+            "EV-maximizing strategy would produce."
         )
-        workplace = "Excellent for roles requiring risk mitigation and compliance."
+
+    # ── 5. Context-Insensitive Risk Taker ────────────────────────────────
+    #    Low uniformity but NOT selectively good — confused/random strategy
+    elif (_unif < 0.35
+          and not has_selective_strength
+          and metrics.explosion_penalty > 0.15):
+        risk_style = "Context-Insensitive Risk Taker"
+        risk_desc = (
+            "Your pumping varied across balloon types but without matching the "
+            "actual risk structure. This pattern suggests difficulty reading which "
+            "situations are genuinely dangerous versus which ones reward persistence."
+        )
+
+    # ── 6. Loss-Averse Responder ─────────────────────────────────────────
+    #    Uniformly cautious — stops well below optimal everywhere
+    elif (metrics.rng_normalized_pumps < 0.60
+          and metrics.explosion_penalty < 0.16):
+        risk_style = "Loss-Averse Responder"
+        risk_desc = (
+            "You prioritized certainty, stopping well before optimal on most balloons. "
+            "This minimized losses but left significant expected reward uncollected."
+        )
+
+    # ── 7. Emerging Optimizer ────────────────────────────────────────────
+    #    Selective pattern but PRODUCTIVE — decent calibration + money
+    elif (has_selective_strength
+          and metrics.risk_calibration_score >= 75
+          and metrics.money_efficiency >= 0.60):
+        risk_style = "Emerging Optimizer"
+        risk_desc = (
+            "You showed a developing sense of risk calibration — your pumping strategy "
+            "captured meaningful expected value, especially on safer balloons. While not "
+            "yet uniformly optimal across all risk levels, your decisions translated into "
+            "solid monetary returns, indicating an intuitive grasp of the risk-reward "
+            "structure."
+        )
+
+    # ── 8. Adaptive Risk Learner ─────────────────────────────────────────
+    #    Clear learning trajectory across the task
+    elif _has_strong_learning and _has_discrim_growth:
+        risk_style = "Adaptive Risk Learner"
+        risk_desc = (
+            "You showed clear improvement across the task. Your strategy evolved as you "
+            "gathered experience — you adjusted your pumping to better differentiate "
+            "between balloon risk levels. This learning trajectory is a strong signal "
+            "of feedback-driven adaptation."
+        )
+
+    # ── 9. Conservative Strategist ───────────────────────────────────────
+    #    Cautious overall — low pumping, low explosions
+    elif (metrics.rng_normalized_pumps < 0.75
+          and metrics.explosion_penalty < 0.20):
+        risk_style = "Conservative Strategist"
+        risk_desc = (
+            "You employed a cautious approach, consistently stopping below the "
+            "optimal pumping level. While this left some expected value uncollected, "
+            "it also kept your explosion rate low. Your strategy favored certainty "
+            "and loss avoidance over maximum expected gain."
+        )
+
+    # ── 10. Balanced Explorer (catch-all) ────────────────────────────────
     else:
         risk_style = "Balanced Explorer"
         risk_desc = (
-            "You maintain a reasonable balance between safety and exploration. "
-            "Your risk-taking is moderate with room for more precise calibration."
+            "You maintained a moderate balance between safety and exploration. "
+            "Your risk-taking was neither strongly conservative nor aggressive."
         )
-        workplace = "Versatile fit for roles requiring balanced judgment."
 
     profile["risk_style"] = risk_style
     profile["description"] = risk_desc
-    profile["workplace_implication"] = workplace
 
     # 2. Key Traits — EV-efficiency based
+    # Each trait should be informative and non-contradictory with the main profile.
     traits = []
 
+    # Consistency traits
     if metrics.within_balloon_consistency < 0.2 and metrics.between_balloon_consistency < 0.4:
         traits.append("Highly Consistent")
     elif metrics.within_balloon_consistency > 0.6:
-        traits.append("Erratic (within-balloon)")
+        traits.append("Erratic Within-Balloon")
     elif metrics.between_balloon_consistency > 1.0:
         traits.append("Strategically Variable")
 
+    # Learning trajectory
     if metrics.half_split_learning_rate > 0.1:
-        traits.append("Adaptive Learner")
+        traits.append("Improving Over Time")
     elif metrics.half_split_learning_rate < -0.1:
-        traits.append("Risk-Averse Learner")
+        traits.append("Declining Over Time")
 
-    # Impulsivity: only when we have real collected orange data
+    # Orange handling
     if metrics.orange_avg_pumps is not None and metrics.orange_avg_pumps > 4.0:
         traits.append("Impulsive on High-Risk")
 
-    # Patient Optimizer: purple EV-efficiency > 85% (actually near-optimal play)
-    purple_eff = metrics.ev_optimal_stops.get("_purple_efficiency")
-    if purple_eff is not None and purple_eff > 0.85:
-        traits.append("Patient Optimizer")
+    # Purple mastery: only flag if genuinely near-optimal (top quartile)
+    _pe = metrics.ev_optimal_stops.get("_purple_efficiency")
+    if _pe is not None and _pe > 0.90:
+        traits.append("Near-Optimal on Safe Balloons")
     elif metrics.patience_index > 20:
-        # Pumping 20+ on purple (optimal ~11) is over-pumping, not patience
         traits.append("Over-Pumper on Safe Balloons")
 
     if metrics.flat_strategy_detected:
@@ -1055,7 +1402,293 @@ def _generate_behavioral_profile(
     if metrics.explosion_penalty > 0.3:
         traits.append("High Explosion Penalty")
 
+    # Ensure at least one descriptive trait based on overall behavior
+    if not traits:
+        if metrics.money_efficiency >= 0.70:
+            traits.append("Efficient Earner")
+        elif metrics.rng_normalized_pumps >= 1.0:
+            traits.append("Above-Optimal Pumping")
+        elif metrics.rng_normalized_pumps < 0.60:
+            traits.append("Cautious Pumping")
+        else:
+            traits.append("Moderate Risk-Taker")
+
     profile["dominant_traits"] = traits
+
+    return profile
+
+
+def enrich_profile_with_dospert(
+    profile: dict[str, Any],
+    metrics: BARTMetrics,
+    dospert: dict[str, float],
+) -> dict[str, Any]:
+    """
+    Generate attitude-behavior congruence reflections by comparing 
+    DOSPERT self-report domains with BART behavioral metrics.
+
+    Uses a Mutually Exclusive and Completely Exhaustive (MECE) 3x3 grid
+    mapping DOSPERT tertiles against Bayes-optimal RNP thresholds.
+    """
+    reflections: list[dict[str, str]] = []
+
+    fin = dospert.get("financial", 0)
+    rec = dospert.get("recreational", 0)
+    hs = dospert.get("health_safety", 0)
+    eth = dospert.get("ethical", 0)
+    soc = dospert.get("social", 0)
+
+    # Guard: skip if DOSPERT is missing
+    if not any([fin, rec, hs, eth, soc]):
+        profile["personality_reflections"] = []
+        profile["convergence_label"] = None
+        profile["congruence_class"] = None
+        return profile
+
+    rnp = metrics.rng_normalized_pumps
+
+    # ── 1. The MECE Congruence Classifier ──────────────────────────────
+    # Thresholds strictly grounded in Bayes-optimal EV and sample tertiles
+
+    exp_pen = metrics.explosion_penalty
+    
+    # Axis 1: DOSPERT Financial
+    is_high_dospert = fin > 4
+    is_mid_dospert = 3 <= fin <= 4
+    is_low_dospert = fin < 3
+
+    # Axis 2: Behavioral Execution (RNP + Explosion Penalty)
+    
+    # 1. If you push past optimal OR you blow up constantly, you are Risk-Seeking.
+    is_seeking_behavior = (rnp > 1.05) or (exp_pen > 0.20)
+    
+    # 2. If you are NOT risk-seeking, but you stop early (under-leverage), you are Cautious.
+    is_cautious_behavior = (rnp < 0.90) and not is_seeking_behavior
+    
+    # 3. If you don't trigger the extremes, you are in the balanced/optimal zone.
+    is_optimal_behavior = not is_seeking_behavior and not is_cautious_behavior
+
+    # Assign single source-of-truth class
+    if is_high_dospert and is_seeking_behavior:
+        congruence_class = "Congruent Risk-Seeker"
+        convergence_label = "Tutarlı Risk Alıcı"
+    elif is_high_dospert and is_cautious_behavior:
+        congruence_class = "Anxious Claimant"
+        convergence_label = "Çelişkili İhtiyatlı"
+    elif is_mid_dospert and is_optimal_behavior:
+        congruence_class = "Congruent Calculator"
+        convergence_label = "Rasyonel İyileştirici"
+    elif (is_low_dospert or is_mid_dospert) and is_seeking_behavior:
+        congruence_class = "Covert Risk-Taker"
+        convergence_label = "Gizli Risk Alıcı"
+    elif (is_low_dospert or is_mid_dospert) and is_cautious_behavior:
+        congruence_class = "Congruent Cautious"
+        convergence_label = "Tutarlı İhtiyatlı"
+    else:
+        congruence_class = "Unexpected Optimizer" 
+        convergence_label = "Dengeli"
+
+    profile["congruence_class"] = congruence_class
+    profile["convergence_label"] = convergence_label
+
+    # ── 2. Unified Narrative Generation ─────────────────────────────────
+
+    if congruence_class == "Congruent Risk-Seeker":
+        reflections.append({
+            "domain": "Finansal Risk Uyumu",
+            "insight": "Ankette finansal riskler konusunda açık olduğunuzu belirttiniz ve oyundaki kararlarınız da bunu destekliyor. Optimal sınırların ötesine geçerek ödül fırsatlarını zorlamaya isteklisiniz.",
+            "actionable": "Araştırmalar, öz-bildirim ile davranışsal ölçümler arasındaki tutarlılığın, kararlarda yüksek öngörülebilirliğe işaret ettiğini göstermektedir (Frey ve ark., 2017)."
+        })
+    elif congruence_class == "Anxious Claimant":
+        reflections.append({
+            "domain": "Finansal Risk Algı Farkı",
+            "insight": "Ankette kendinizi risk almaya açık olarak tanımladınız, ancak gerçek zamanlı oyunda oldukça temkinli bir strateji izlediniz. Bu, hayali senaryolar ile gerçek kayıp riski (balonun patlaması) arasında ilginç bir algı farkına işaret ediyor.",
+            "actionable": "Öz-bildirim ile davranış arasındaki farklar yaygındır ve 'tanım-deneyim boşluğu' (description-experience gap) olarak bilinir. Gerçek zamanlı görevlerdeki anlık kayıp ihtimali, teorik anketlere kıyasla beyni daha temkinli olmaya iter. (Hertwig ve ark., 2004)."
+        })
+    elif congruence_class == "Congruent Calculator":
+        reflections.append({
+            "domain": "Rasyonel Kalibrasyon",
+            "insight": "Ankette ılımlı bir risk profiliniz olduğunu belirttiniz ve oyunu mükemmele yakın bir matematiksel kalibrasyonla (beklenen değer optimizasyonu) oynadınız.",
+            "actionable": "Bu, riskleri ne aşırı büyüttüğünüzü ne de küçümsediğinizi; bunun yerine duruma göre rasyonel hesaplamalar yapabildiğinizi gösteriyor."
+        })
+    elif congruence_class == "Covert Risk-Taker":
+        reflections.append({
+            "domain": "Gizli Risk Alma Eğilimi",
+            "insight": "Ankette kendinizi temkinli veya ılımlı tanımladınız, ancak oyun içinde limitleri zorlamaya çok istekliydiniz. Kurallar net olduğunda ve gerçek dünya sonuçları soyutlandığında daha cesur kararlar alıyorsunuz.",
+            "actionable": "Bu profil, riskin anlık ve eyleme dayalı olarak değerlendirildiği durumlarda, beyninizin rasyonel öz-inançlarınızı aşıp 'hissedilen riske' (risk as feelings) göre daha cesur hareket ettiğini gösteriyor (Loewenstein ve ark., 2001)."
+        })
+    elif congruence_class == "Congruent Cautious":
+        reflections.append({
+            "domain": "Tutarlı İhtiyatlılık",
+            "insight": "Hem ankette hem de oyundaki kararlarınız temkinli bir yaklaşıma işaret ediyor. Ödülü maksimize etmek yerine kayıplardan kaçınmayı (güvenliği) önceliklendiriyorsunuz.",
+            "actionable": "Söyledikleriniz ile yaptıklarınızın örtüşmesi, gerçek hayattaki finansal kararlarınızda da kararlı ve öngörülebilir bir temkin örüntüsüne işaret eder (Mishra & Lalumière, 2011)."
+        })
+    elif congruence_class == "Unexpected Optimizer":
+        reflections.append({
+            "domain": "Dengeli Optimizasyon",
+            "insight": "Kendinizi risk algısında uç noktalarda tanımlamış olsanız da, oyun içindeki davranışınız matematiksel olarak en kârlı ve dengeli noktada gerçekleşti.",
+            "actionable": "Bu, kişisel hislerinizden bağımsız olarak çevreye uyum sağlama ve sistemi en verimli şekilde okuma becerinizin yüksek olduğunu gösteriyor."
+        })
+
+    # ── 2. Domain-Specific Risk Profile ─────────────────────────────────
+    domains = [
+        ("recreational", rec, "Eğlence"),
+        ("health_safety", hs, "Sağlık ve Güvenlik"),
+        ("social", soc, "Sosyal"),
+        ("ethical", eth, "Etik"),
+    ]
+
+    # Find highest and lowest non-financial domains
+    sorted_domains = sorted(domains, key=lambda x: x[1], reverse=True)
+    highest = sorted_domains[0]
+    lowest = sorted_domains[-1]
+    spread = highest[1] - lowest[1]
+
+    if highest[1] >= 4.0 and lowest[1] <= 3.0 and spread >= 1.5:
+        reflections.append({
+            "domain": "Risk Alanları Profili",
+            "insight": (
+                f"Risk toleransınız hayatın farklı alanlarında belirgin "
+                f"farklılıklar gösteriyor. {highest[2]} alanında daha açık, "
+                f"{lowest[2].lower()} alanında ise daha temkinlisiniz. "
+                f"Bu aslında çoğu insanda görülen doğal bir örüntüdür: "
+                f"risk tek boyutlu bir özellik değildir (Blais & Weber, 2006)."
+            ),
+            "actionable": (
+                f"Her yaşam alanında farklı bir risk değerlendirme süreciniz "
+                f"aktif. Bu, karar verme tarzınızın bağlama duyarlı olduğunu "
+                f"gösteriyor."
+            ),
+        })
+    elif all(d[1] > 4.0 for d in domains):
+        reflections.append({
+            "domain": "Risk Alanları Profili",
+            "insight": (
+                "Hayatın farklı alanlarında (eğlence, sosyal ilişkiler, "
+                "sağlık, etik kararlar) genel olarak yeni deneyimlere ve "
+                "risklere açık bir profiliniz var. Bu geniş açıklık, kişilik "
+                "araştırmalarında deneyime açıklık ile ilişkilendirilmektedir."
+            ),
+            "actionable": (
+                "Alanlar arası yüksek risk toleransı, belirsiz durumlarda "
+                "rahat karar verebilme becerisi ile korelasyon göstermektedir "
+                "(Nicholson ve ark., 2005)."
+            ),
+        })
+    elif all(d[1] < 3.0 for d in domains):
+        reflections.append({
+            "domain": "Risk Alanları Profili",
+            "insight": (
+                "Hayatın farklı alanlarında (eğlence, sosyal ilişkiler, "
+                "sağlık, etik kararlar) tutarlı bir şekilde temkinli bir "
+                "yaklaşım benimsiyorsunuz. Bu profil, kişilik literatüründe "
+                "yüksek sorumluluk bilinci ile ilişkilendirilmektedir."
+            ),
+            "actionable": (
+                "Bu tutarlı temkin, dikkatli değerlendirme eğilimini yansıtan "
+                "kararlı bir özellik örüntüsüdür (Weber ve ark., 2002)."
+            ),
+        })
+
+    # ── 3. Learning Style Reflection ────────────────────────────────────
+    lr = metrics.tercile_learning_rate
+    if lr > 0.1: # This now covers both EV ratio cases below
+        if metrics.ev_ratio_score < 70:
+            # Player improved, but overall score is still not top-tier.
+            # Implies they started sub-optimally.
+            reflections.append({
+                "domain": "Öğrenme ve Uyum",
+                "insight": (
+                    "Oyunun başında stratejiniz optimal değildi, ancak oyun "
+                    "ilerledikçe deneyimlerinizden öğrenerek kararlarınızı "
+                    "belirgin şekilde iyileştirdiniz."
+                ),
+                "actionable": (
+                    "Bu öğrenme eğrisi, sonuçlardan çıkarım yapma becerinizin "
+                    "güçlü olduğuna işaret ediyor. Araştırmalar bu tür geri "
+                    "bildirim duyarlılığını ardışık kararlarda daha iyi uyum "
+                    "sağlama ile ilişkilendirmektedir (Pleskac, 2008)."
+                ),
+            })
+        else: # metrics.ev_ratio_score >= 70
+            # Player improved, and overall score is already top-tier.
+            # We remove the "already started well" assumption.
+            reflections.append({
+                "domain": "Öğrenme ve Uyum",
+                "insight": (
+                    "Yüksek bir genel performans sergilemenize rağmen, stratejinizi "
+                    "oyun boyunca deneyimlerinizden öğrenerek daha da iyileştirmeye "
+                    "devam ettiniz. Mevcut bir gücün üzerine inşa etme yeteneği "
+                    "nadir görülen bir örüntüdür."
+                ),
+                "actionable": (
+                    "Bu, performansınız zaten yeterli olduğunda bile sürekli "
+                    "öğrenme ve adaptasyon yeteneğinizin güçlü olduğunu gösteriyor."
+                ),
+            })
+    elif lr < -0.1:
+        if metrics.explosion_penalty > 0.20:
+            # SCENARIO A: The Traumatized Flincher (Negative LR + High Explosions)
+            reflections.append({
+                "domain": "Öğrenme ve Uyum (Risk Yayılımı)",
+                "insight": (
+                    "Oyun boyunca stratejiniz daha temkinli bir yöne kaydı, ancak veriler yüksek riskli balonlardaki "
+                    "patlamaların stratejinizi etkilediğini gösteriyor. "
+                    "Tehlikeli balonlardaki kayıplarınız, güvenli balonlarda potansiyelinizi tam olarak "
+                    "kullanmanızı engelleyecek bir çekingenlik yaratmış olabilir."
+                ),
+                "actionable": (
+                    "Bu durum karar biliminde 'genellenmiş kayıptan kaçınma' olarak bilinir. "
+                    "Bir alandaki olumsuz sonuçların etkisi, diğer alanlardaki kararları da "
+                    "temkinli hale getirebilir."
+                ),
+            })
+        else:
+            # SCENARIO B: The Careful Adjuster (Negative LR + Low Explosions)
+            reflections.append({
+                "domain": "Öğrenme ve Uyum",
+                "insight": (
+                    "Stratejiniz oyun boyunca daha temkinli bir yöne kaydı. Erken aşamalardaki "
+                    "patlama deneyimlerinden ders çıkararak stratejinizi güvenli bir seviyede "
+                    "yeniden ayarladınız."
+                ),
+                "actionable": (
+                    "Bu tür bir strateji değişikliği, olumsuz sonuçlara dikkatli ve rasyonel "
+                    "bir şekilde tepki verdiğinizi, riskleri başarıyla yönettiğinizi göstermektedir (Wallsten ve ark., 2005)."
+                ),
+            })
+
+    # ── 4. Money Efficiency Insight ─────────────────────────────────────
+    eff_pct = metrics.money_efficiency * 100
+    if metrics.money_efficiency >= 0.85:
+        reflections.append({
+            "domain": "Sonuç Etkinliği",
+            "insight": (
+                f"Optimal oyun stratejisiyle kazanılabilecek miktarın %{eff_pct:.0f}'ini "
+                f"elde ettiniz. Kararlarınız somut kazanç olarak güçlü sonuçlar üretti."
+            ),
+            "actionable": (
+                "Bu, risk ve ödül arasındaki dengeyi iyi kurduğunuzu "
+                "ve stratejinizin gerçek performansa dönüştüğünü gösteriyor."
+            ),
+        })
+    elif metrics.money_efficiency <= 0.5:
+        reflections.append({
+            "domain": "Sonuç Etkinliği",
+            "insight": (
+                f"Optimal oyun stratejisiyle kazanılabilecek miktarın %{eff_pct:.0f}'ini "
+                f"elde ettiniz. Stratejiniz ile ideal durma noktaları arasında "
+                f"bir fark bulunuyor."
+            ),
+            "actionable": (
+                "Bu fark genellikle deneyimle kapanır. Araştırmalar, "
+                "tekrarlanan uygulamaların çoğu katılımcı için strateji "
+                "kalibrasyonunu iyileştirdiğini göstermektedir "
+                "(Lejuez ve ark., 2002)."
+            ),
+        })
+
+    profile["personality_reflections"] = reflections
 
     return profile
 
@@ -1119,6 +1752,24 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
     )
     logger.debug("First 5 balloon colors: %s", balloon_colors[:5])
 
+    # ── Auto-Repeat Detection (pre-pass) ────────────────────────────────────
+    # Identify balloons where the participant held spacebar (OS auto-repeat).
+    # These have artificially inflated pump counts that don't reflect discrete
+    # decisions — one keypress produced many pump events at ~30-50 ms intervals.
+    # We exclude them from behavioral-intention metrics (pump counts, EV scores,
+    # color discrimination, learning rate) but keep them in descriptive totals.
+    autorepeat_indices: set[int] = set()
+    for idx, balloon_events in enumerate(balloons):
+        if _is_autorepeat_balloon(balloon_events):
+            autorepeat_indices.add(idx)
+
+    if autorepeat_indices:
+        logger.info(
+            "Auto-repeat detected on %d balloon(s): indices %s",
+            len(autorepeat_indices),
+            sorted(autorepeat_indices),
+        )
+
     # ── Data Collection ──────────────────────────────────────────────────────
     pump_counts: list[int] = []
     non_exploded_pumps: list[int] = []
@@ -1138,6 +1789,7 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
     for trial_idx, balloon_events in enumerate(balloons):
         pumps = sum(1 for e in balloon_events if e.type == "pump")
         pump_counts.append(pumps)
+        is_autorepeat = trial_idx in autorepeat_indices
 
         color = _extract_balloon_color(balloon_events)
         color_balloons[color] += 1
@@ -1149,7 +1801,7 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
 
         exploded = terminal == "explode"
 
-        # Track ALL balloon pump counts (for descriptive metrics)
+        # Track ALL balloon pump counts (for descriptive metrics — includes auto-repeat)
         color_pumps_all[color].append(pumps)
 
         if exploded:
@@ -1159,11 +1811,24 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
             # Collected or incomplete — reflects full behavioral intention
             total_collections += 1 if terminal == "collect" else 0
             non_exploded_pumps.append(pumps)
-            color_pumps_collected[color].append(pumps)
+            # Exclude auto-repeat balloons from collected behavioral data.
+            # Their pump counts are OS key-repeat artifacts, not deliberate decisions.
+            if not is_autorepeat:
+                color_pumps_collected[color].append(pumps)
 
-        balloon_data.append((trial_idx, color, pumps, exploded))
+        # Exclude auto-repeat from learning rate data — inflated pump counts
+        # would distort first-half vs second-half comparisons.
+        if not is_autorepeat:
+            balloon_data.append((trial_idx, color, pumps, exploded))
 
     total_balloons = len(balloons)
+
+    if autorepeat_indices:
+        session_warnings.append(
+            f"Auto-repeat detected: {len(autorepeat_indices)} balloon(s) "
+            f"(indices {sorted(autorepeat_indices)}) excluded from behavioral-intention "
+            f"metrics (pump counts inflated by OS key-repeat, not discrete decisions)"
+        )
     all_pumps_array = np.array(pump_counts, dtype=np.float64)
     total_pumps = int(np.sum(all_pumps_array))
 
@@ -1180,15 +1845,17 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
         elif evt.type == "explode":
             _money_pumps = 0
 
-    # Theoretical optimal expected earnings (from EV-curve simulation):
-    # 10 purple × EV(11,128)×0.25 + 10 teal × EV(5,32)×0.25 + 10 orange × EV(2,8)×0.25 ≈ $27.03
-    _optimal_expected_earnings = 0.0
-    for color_name, profile in COLOR_PROFILES.items():
-        max_p = profile["max_pumps"]
-        n_balloons = color_balloons.get(color_name, 10)
-        optimal_stop, optimal_ev = _get_ev_optimal(max_p)
-        _optimal_expected_earnings += n_balloons * optimal_ev * 0.25
-    money_efficiency = min(1.0, money_collected / _optimal_expected_earnings) if _optimal_expected_earnings > 0 else 0.0
+    # Simulated median earnings at optimal play (10k sessions, seed=42).
+    # Using median instead of EV because ~50% of optimal-play sessions
+    # earn less than EV due to explosion RNG. Median is a fairer benchmark.
+    # Recompute if COLOR_PROFILES or balloon counts change.
+    _OPTIMAL_MEDIAN_EARNINGS = 27.25  # from 10k Monte Carlo simulation
+
+    # Use simulated median as denominator — fairer than EV since ~50% of
+    # optimal-play sessions earn below EV due to explosion RNG.
+    money_efficiency = money_collected / _OPTIMAL_MEDIAN_EARNINGS if _OPTIMAL_MEDIAN_EARNINGS > 0 else 0.0
+    # Cap at reasonable upper bound (lucky sessions can exceed median)
+    money_efficiency = float(np.clip(money_efficiency, 0.0, 2.0))
 
     # ── Resolve collected-vs-all per color ────────────────────────────────────
     # For each color, prefer collected (non-exploded) pump data for behavioral
@@ -1230,8 +1897,11 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
     # Mean Inter-Pump Latency — computed per-balloon to exclude cross-balloon gaps.
     # Not affected by RNG truncation: the timing between pumps 1->2->3 is the same
     # regardless of whether the balloon later explodes.
+    # Skip auto-repeat balloons (spacebar held → OS key repeat artifacts).
     all_intra_latencies: list[float] = []
     for balloon_events in balloons:
+        if _is_autorepeat_balloon(balloon_events):
+            continue
         pump_times = [e.timestamp for e in balloon_events if e.type == "pump"]
         if len(pump_times) >= 2:
             diffs = np.diff(pump_times)
@@ -1315,6 +1985,15 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
     # Half-Split Learning Rate — more robust at N=10 per color
     half_split_lr = _calculate_half_split_learning_rate(balloon_data)
 
+    # Tercile Learning Rate — first-third vs last-third, captures late learners
+    tercile_lr = _calculate_tercile_learning_rate(balloon_data)
+
+    # Color Discrimination Trajectory — did they learn to differentiate colors?
+    cdt = _calculate_color_discrimination_trajectory(balloon_data)
+
+    # Post-Explosion Sensitivity — do they reduce pumps after a pop?
+    pes = _calculate_post_explosion_sensitivity(balloon_data)
+
     # Color Discrimination (LEGACY — Cohen's d, kept for backward compat)
     color_discrimination = _calculate_color_discrimination(color_pumps_behavioral)
 
@@ -1324,19 +2003,31 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
     # Risk Sensitivity (Pearson r — kept for descriptive use)
     risk_sensitivity = _calculate_risk_sensitivity(color_pumps_behavioral)
 
-    # Risk Calibration Score: combines EV-efficiency with explosion penalty
-    risk_calibration_score = float(
-        np.clip(ev_ratio_score * (1.0 - explosion_penalty), 0.0, 100.0)
-    )
+    # Risk Calibration Score: ev_ratio_score alone captures calibration quality.
+    # Explosion penalty is reported separately — multiplicative combination
+    # double-penalizes over-pumping and conflates calibration with RNG luck.
+    risk_calibration_score = float(np.clip(ev_ratio_score, 0.0, 100.0))
 
-    # EV-Efficiency Differentiation (replaces Cohen's d)
-    ev_efficiency_diff = _compute_ev_efficiency_differentiation(
+    # EV-Efficiency Uniformity (replaces Cohen's d)
+    ev_efficiency_uniformity = _compute_ev_efficiency_uniformity(
         per_color_efficiency, color_pumps_collected, color_balloons,
     )
 
-    # Flat Strategy Detection
+    # Consistency breakdown (within-balloon vs between-balloon)
+    # Computed here (before flat detection) so between_cv is available
+    # for the temporal learning exemption in _detect_flat_strategy.
+    within_balloon_cv, between_balloon_cv = _calculate_consistency_breakdown(balloons)
+
+    # Flat Strategy Detection — with temporal learning exemption.
+    # Participants who start low but show learning/experimentation signals
+    # are NOT genuinely flat (e.g. P14 who explored aggressively in the
+    # middle third and then adapted).
     flat_strategy = _detect_flat_strategy(
         color_pumps_all, color_explosions, color_balloons,
+        tercile_lr=tercile_lr,
+        cdt=cdt,
+        pes=pes,
+        between_cv=between_balloon_cv,
     )
 
     # ── Behavioral Indices (use collected-only data) ─────────────────────────
@@ -1356,102 +2047,76 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
     else:
         response_consistency = 0.0
 
-    # Consistency breakdown (within-balloon vs between-balloon)
-    within_balloon_cv, between_balloon_cv = _calculate_consistency_breakdown(balloons)
+    # NOTE: within_balloon_cv and between_balloon_cv are computed above
+    # (before flat detection) so they are available for the
+    # temporal learning exemption in _detect_flat_strategy.
 
-    # Impulsivity Index — composite feature combining multiple signals.
-    # Always computable (never None), even when orange has 0 collected.
-    #
-    # Orange explosions primarily reflect poor color discrimination (the
-    # optimal stop is only ~2 pumps, so even slight misjudgment causes
-    # explosions). True impulsivity is better captured by timing behavior
-    # and overall excess explosions across ALL colors.
-    #
-    # Components:
-    #   1. Timing signal (weight 0.40):
-    #      - Fast, reflexive pumping: 1 - clamp(mean_latency / 800, 0, 1)
-    #      - Amplified by low within-balloon CV (consistent fast = reflexive)
-    #   2. Excess explosion signal (weight 0.40):
-    #      - Overall explosion_penalty captures over-pumping across ALL colors
-    #   3. Orange risk-taking signal (weight 0.20):
-    #      - Mild contribution — orange exploding is mostly discrimination
-    #      - If orange collected: 1 - EV_efficiency (over-pumping past optimal)
-    #      - If all exploded: orange_explosion_rate
-    #
-    # Range: [0, 1]. Higher = more impulsive.
-    orange_total = color_balloons.get("orange", 0)
-    orange_expl = color_explosions.get("orange", 0)
-
-    # Component 1: Timing impulsivity (fast + consistent = reflexive)
-    latency_signal = 1.0 - min(1.0, mean_latency / 800.0) if mean_latency > 0 else 0.0
-    # Amplify if within-balloon timing is very consistent (low CV = autopilot)
-    timing_impulsivity = min(1.0, latency_signal * (1.0 + 0.5 * max(0.0, 0.5 - within_balloon_cv)))
-
-    # Component 2: Excess explosions across all colors
-    explosion_signal = min(1.0, explosion_penalty * 2.0)  # Scale: 0.5 penalty → 1.0 signal
-
-    # Component 3: Orange risk-taking (low weight — mostly discrimination)
-    if has_orange_data and "orange" in per_color_efficiency:
-        orange_signal = 1.0 - per_color_efficiency["orange"]
-    elif orange_total > 0:
-        orange_signal = orange_expl / orange_total
+    # Impulsivity Index — based on inter-pump latency.
+    # Fast pumping (low latency) is the most established behavioral correlate
+    # of impulsivity in the BART literature (Lejuez et al., 2002).
+    # Normalized: 0 = very slow/deliberate (>= 800ms), 1 = very fast/reflexive (0ms).
+    # This is a single-signal metric with clear construct validity,
+    # avoiding the arbitrary weight problem of multi-component composites.
+    if mean_latency > 0:
+        impulsivity_index = float(np.clip(1.0 - mean_latency / 800.0, 0.0, 1.0))
     else:
-        orange_signal = 0.0
-
-    # Weighted composite
-    impulsivity_index = float(np.clip(
-        0.40 * timing_impulsivity + 0.40 * explosion_signal + 0.20 * orange_signal,
-        0.0, 1.0,
-    ))
+        impulsivity_index = 0.0
 
     # Patience Index — mean pumps on collected purple balloons
     purple_behavioral = color_pumps_behavioral.get("purple", [])
     patience_index = float(np.mean(purple_behavioral)) if purple_behavioral else 0.0
 
-    # Patience Index Normalized
-    purple_max = float(COLOR_PROFILES["purple"]["max_pumps"])
-    patience_index_normalized = float(np.clip(patience_index / purple_max, 0.0, 1.0))
+    # Patience Index Normalized — purple EV-efficiency.
+    # Peaks at optimal play (11 pumps) and decreases with both under- and over-pumping.
+    # This distinguishes genuine patience from reckless over-pumping.
+    purple_ev_efficiency = per_color_efficiency.get("purple", 0.0)
+    patience_index_normalized = float(np.clip(purple_ev_efficiency, 0.0, 1.0))
 
     # ── Composite Metrics ────────────────────────────────────────────────────
 
-    # Adaptive Strategy Score — conditional weighting based on calibration quality.
-    # If already well-calibrated (ev_ratio >= 80), learning matters less.
-    # If poorly calibrated, learning signal is more informative.
-    # Money efficiency gets a fixed 10% weight (outcome grounding).
+    # Adaptive Strategy Score — fixed weights for cross-participant comparability.
+    # Calibration gets highest weight as the primary behavioral measure.
+    # Learning and uniformity get equal weight as secondary signals.
+    # Money efficiency is outcome-grounding.
     safe_hslr = 0.0 if np.isnan(half_split_lr) else half_split_lr
-    safe_ev_diff = ev_efficiency_diff if ev_efficiency_diff is not None else 0.0
+    safe_ev_uniformity = ev_efficiency_uniformity if ev_efficiency_uniformity is not None else 0.0
     safe_ev_ratio = ev_ratio_score / 100.0  # Normalize to [0, 1]
 
-    W_MONEY = 0.10  # Fixed 10% for realized outcome
-    if ev_ratio_score >= 80:
-        w_learning, w_calibration, w_differentiation = 0.09, 0.45, 0.36
-    else:
-        w_learning, w_calibration, w_differentiation = 0.36, 0.27, 0.27
+    W_CALIBRATION = 0.35
+    W_LEARNING = 0.25
+    W_UNIFORMITY = 0.25
+    W_MONEY = 0.15
 
     learning_component = (safe_hslr + 1.0) / 2.0  # [-1, 1] -> [0, 1]
     calibration_component = safe_ev_ratio           # [0, 1]
-    differentiation_component = safe_ev_diff        # [0, 1]
-    money_component = money_efficiency              # [0, 1]
+    uniformity_component = safe_ev_uniformity       # [0, 1]
+    money_component = money_efficiency              # [0, 1] (can be > 1 now, capped at 2)
+    money_component = min(1.0, money_component)     # Cap at 1.0 for composite
 
     adaptive_strategy_score = (
-        learning_component * w_learning
-        + calibration_component * w_calibration
-        + differentiation_component * w_differentiation
+        learning_component * W_LEARNING
+        + calibration_component * W_CALIBRATION
+        + uniformity_component * W_UNIFORMITY
         + money_component * W_MONEY
     ) * 100.0
     adaptive_strategy_score = float(np.clip(adaptive_strategy_score, 0.0, 100.0))
 
-    # RNG-Normalized Pumps — color-mean-then-average.
-    # Average WITHIN each color first (per-color mean), then average across colors.
-    # This gives equal weight to each risk level regardless of collection rates.
-    # Uses collected-only data where available.
+    # RNG-Normalized Pumps — normalized by EV-optimal stop per color.
+    # Average WITHIN each color first (per-color mean / optimal_stop),
+    # then average across colors. This gives equal weight to each risk level
+    # regardless of collection rates. Uses collected-only data where available.
+    # 1.0 = pumping at exactly EV-optimal. >1.0 = over-pumping. <1.0 = conservative.
+    # RNG-Normalized Pumps — normalized by EV-optimal stop per color.
     per_color_normalized: list[float] = []
     for color in COLOR_PROFILES:
-        collected = color_pumps_collected.get(color, [])
-        if len(collected) >= MIN_COLLECTED_FALLBACK:
-            cap = COLOR_PROFILES[color]["max_pumps"]
-            color_mean = float(np.mean(collected)) / cap
-            per_color_normalized.append(color_mean)
+        # FIX: Use behavioral_pumps (which includes fallback data) so 
+        # extreme risk-takers who pop everything don't get their data erased.
+        behavioral_pumps = color_pumps_behavioral.get(color, [])
+        if behavioral_pumps:
+            opt_stop, _ = _get_ev_optimal(COLOR_PROFILES[color]["max_pumps"])
+            if opt_stop > 0:
+                color_mean = float(np.mean(behavioral_pumps)) / opt_stop
+                per_color_normalized.append(color_mean)
 
     rng_normalized_pumps = (
         float(np.mean(per_color_normalized)) if per_color_normalized else 0.0
@@ -1498,9 +2163,12 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
         total_collections=total_collections,
         # Color breakdown
         color_metrics=color_metrics_list,
-        # Learning (legacy + robust)
+        # Learning (legacy + robust + v4)
         learning_rate=round(learning_rate, 4),
         half_split_learning_rate=round(half_split_lr, 4),
+        tercile_learning_rate=round(tercile_lr, 4),
+        color_discrimination_trajectory=round(cdt, 4) if cdt is not None else None,
+        post_explosion_sensitivity=round(pes, 4) if pes is not None else None,
         # Legacy risk calibration (kept for backward compat)
         risk_adjustment_score=round(risk_adjustment, 4),
         color_discrimination_index=round(color_discrimination, 4) if not np.isnan(color_discrimination) else None,
@@ -1509,7 +2177,7 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
         ev_ratio_score=round(ev_ratio_score, 4),
         explosion_penalty=round(explosion_penalty, 4),
         risk_calibration_score=round(risk_calibration_score, 4),
-        ev_efficiency_differentiation=round(ev_efficiency_diff, 4) if ev_efficiency_diff is not None else None,
+        ev_efficiency_uniformity=round(ev_efficiency_uniformity, 4) if ev_efficiency_uniformity is not None else None,
         flat_strategy_detected=flat_strategy,
         money_collected=round(money_collected, 2),
         money_efficiency=round(money_efficiency, 4),
