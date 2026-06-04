@@ -23,7 +23,7 @@ COLORS = {
     "Orange": {"N": 8,   "s_star": 2,  "hex": "#F97316", "balloons": 10},
 }
 REWARD_PER_PUMP = 0.25
-OUTPUT_DIR = "docs/figures"
+OUTPUT_DIR = "output/figures"
 
 
 # ── EV computation ───────────────────────────────────────────────────────

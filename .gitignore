@@ -20,6 +20,9 @@ data/participants/
 !data/synthetic/
 !data/synthetic/**
 
+# ── Script output ─────────────────────────────────────────────────────────
+output/
+
 # ── OS ────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
@@ -27,10 +30,4 @@ Thumbs.db
 # ── IDE ───────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
-
-# ── LaTeX build artifacts ─────────────────────────────────────────────────
-*.aux
-*.log
-*.out
-*.toc
-*.synctex.gz
+.claude/
