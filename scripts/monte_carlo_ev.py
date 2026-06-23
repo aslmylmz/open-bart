@@ -10,6 +10,8 @@ Usage:
     python scripts/monte_carlo_ev.py
 """
 
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -389,6 +391,7 @@ def plot_trajectories(trajectories):
 
 
 if __name__ == "__main__":
+    Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
     plot_ev_curves()
     earnings, per_colour_earnings, trajectories = run_simulation()
     plot_mc_histogram(earnings, per_colour_earnings)

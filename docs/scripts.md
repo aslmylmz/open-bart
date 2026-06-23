@@ -11,16 +11,14 @@ earnings distribution under optimal play. It simulates 100,000 sessions
 (`N_SESSIONS`, seed 42) and produces three figures.
 
 ```bash
-mkdir -p output/figures        # the script writes here but does not create it
 python scripts/monte_carlo_ev.py
 ```
 
-```{admonition} Create the output directory first
-:class: caution
+```{admonition} Output location
+:class: note
 
-The script saves to `output/figures/` and does **not** create that directory.
-Run `mkdir -p output/figures` beforehand, or the first `savefig` call will raise
-`FileNotFoundError`. (`output/` is git-ignored.)
+The script creates `output/figures/` automatically and writes its three figures
+there. (`output/` is git-ignored.)
 ```
 
 Outputs:
