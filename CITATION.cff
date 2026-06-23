@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using these metadata."
-title: "Dynamic Hazard Rate BART: A Multi-Risk Balloon Analogue Risk Task with Sequential Bernoulli Explosion Model"
+title: "Dynamic Hazard Rate BART: A Multi-Risk Balloon Analogue Risk Task"
 abstract: >-
   An open-source implementation of a modified Balloon Analogue Risk Task (BART)
   that replaces the classic uniform explosion threshold with a dynamic hazard
