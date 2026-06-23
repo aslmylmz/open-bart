@@ -14,7 +14,7 @@ calibrated risk-taking.
 ## The dynamic-hazard model
 
 This implementation replaces the single uniform draw with a sequence of
-independent Bernoulli trials whose per-pump hazard increases linearly. At pump
+independent trials whose per-pump hazard increases linearly. At pump
 attempt $k$,
 
 $$P(\text{explode at pump } k) = \frac{k}{N},$$
@@ -85,7 +85,7 @@ distance from them is penalized (EV-curve vs. linear).
 
 The analytic optima are independently confirmed by simulation in
 [`scripts/monte_carlo_ev.py`](scripts.md): for each candidate stopping
-threshold on each color, 100,000 sequential-Bernoulli sessions are simulated,
+threshold on each color, 100,000 sequential sessions are simulated,
 the realized payoffs are averaged, and the maximizing threshold is recorded. The
 simulation reproduces the integer optima 11 / 5 / 2 and confirms the $\sqrt{N}$
 approximation as an accurate description of the continuous landscape.

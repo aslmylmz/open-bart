@@ -8,8 +8,7 @@ Neither is imported by the engine; both are standalone command-line tools.
 [`scripts/monte_carlo_ev.py`](https://github.com/aslmylmz/metu-risk-persona/blob/main/scripts/monte_carlo_ev.py)
 empirically confirms the analytic EV-optimal stops and characterizes the
 earnings distribution under optimal play. It simulates 100,000 sessions
-(`N_SESSIONS`, seed 42) of sequential-Bernoulli balloons and produces three
-figures.
+(`N_SESSIONS`, seed 42) and produces three figures.
 
 ```bash
 mkdir -p output/figures        # the script writes here but does not create it

@@ -40,7 +40,7 @@ ranges; conceptual explanations live in [The scoring engine](scoring_engine.md).
   - Total earned: banked pumps × \$0.25.
 ```
 
-## Calibration (sequential-Bernoulli EV)
+## Calibration (sequential EV)
 
 ```{list-table}
 :header-rows: 1

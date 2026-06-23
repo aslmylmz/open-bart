@@ -24,7 +24,7 @@ COLOR_PROFILES = {
 MIN_COLLECTED_FALLBACK = 2
 
 
-# ── EV Computation (Sequential Bernoulli Model) ─────────────────────────────
+# ── EV Computation (Sequential Model) ───────────────────────────────────────
 
 
 def _compute_ev(s: int, max_pumps: int) -> float:
@@ -526,7 +526,7 @@ def _calculate_risk_adjustment_score(
     color_pumps: dict[str, list[int]],
 ) -> float:
     """
-    Score alignment with true sequential Bernoulli model EV-optimal points.
+    Score alignment with true sequential model EV-optimal points.
 
     Optimals: Purple=11, Teal=5, Orange=2.
     Scores scale linearly from 100 at optimal to 0 at limits (0 or max_pumps).

@@ -42,11 +42,11 @@ measure of risk-taking, but its standard parameterization places the
 expected-value (EV) optimal stopping point near half of a balloon's maximum
 capacity---so high that almost no participant reaches it, collapsing the task into
 a one-dimensional index of raw risk exposure. \emph{Dynamic Hazard Rate BART}
-replaces the classic uniform burst model with a sequence of independent Bernoulli
+replaces the classic uniform burst model with a sequence of independent
 trials whose per-pump hazard rises linearly, $P(\text{burst at pump }k)=k/N$.
 Under this model the EV-optimal stop is approximately $\sqrt{N}$, an attainable
 target, restoring the task's ability to distinguish cautious, calibrated, and
-reckless play. The software bundles a React/Next.js game client, a Python scoring
+risk-seeking play. The software bundles a React/Next.js game client, a Python scoring
 engine that derives more than thirty psychometric metrics with a built-in
 session-validation pipeline, and Monte Carlo tooling that verifies the analytic
 optima. It is released under the MIT license and archived on Zenodo.
@@ -66,7 +66,7 @@ proxy for raw risk exposure rather than \emph{calibrated} risk-taking
 
 \emph{Dynamic Hazard Rate BART} is an open-source platform that restores the
 measurement of calibration. It replaces the single uniform draw with a sequence
-of independent Bernoulli trials whose per-pump hazard increases linearly,
+of independent trials whose per-pump hazard increases linearly,
 $P(\text{burst at pump }k)=k/N$. Under this model the EV-optimal stop is
 approximately $\sqrt{N}$---an attainable value---so the task can separate
 over-conservative, optimal, and over-exposed participants. The repository contains

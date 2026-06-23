@@ -342,7 +342,7 @@ class BARTMetrics(BaseModel):
         ),
     )
 
-    # ── EV-based metrics (sequential Bernoulli model) ────────────────────────
+    # ── EV-based metrics (sequential model) ──────────────────────────────────
 
     ev_ratio_score: float = Field(
         default=0.0,
@@ -350,7 +350,7 @@ class BARTMetrics(BaseModel):
         le=100.0,
         description=(
             "EV-Ratio Risk Calibration: EV(participant) / EV(optimal) × 100 per color, "
-            "weighted average. Derived from sequential Bernoulli model. 100 = perfectly optimal."
+            "weighted average. Derived from sequential model. 100 = perfectly optimal."
         ),
     )
     explosion_penalty: float = Field(

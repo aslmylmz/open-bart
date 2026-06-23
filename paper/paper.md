@@ -31,10 +31,10 @@ risk-taking [@frey2017].
 
 **Dynamic Hazard Rate BART** is an open-source platform that restores the
 measurement of calibration. It replaces the single uniform draw with a sequence
-of independent Bernoulli trials whose per-pump hazard increases linearly,
+of independent trials whose per-pump hazard increases linearly,
 $P(\text{burst at pump } k) = k/N$. Under this model the EV-optimal stop is
 approximately $\sqrt{N}$ — an attainable target — so the task can separate
-cautious, calibrated, and reckless play. The software comprises three parts: a
+cautious, calibrated, and risk-seeking play. The software comprises three parts: a
 React/Next.js game client that administers a 30-balloon, three-hazard session and
 logs pump-level telemetry; a Python scoring engine that derives more than thirty
 psychometric metrics (EV calibration, learning and adaptation, post-explosion

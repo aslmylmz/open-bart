@@ -42,7 +42,7 @@ Two fields deliberately keep the *uncensored* view for contrast:
 `avg_pumps_all_balloons` (mean over every balloon) and `explosion_rate` (gross
 burst fraction).
 
-## Calibration metrics (the sequential-Bernoulli core)
+## Calibration metrics (the sequential EV core)
 
 ### EV ratio score
 

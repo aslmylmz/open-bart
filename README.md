@@ -51,8 +51,8 @@ This sequential model has key advantages for research:
 
 | Color  | Max Pumps (N) | Risk Tier | EV-Optimal Stop (s*) | Peak EV   | P(survive s*) |
 |--------|:-------------:|-----------|:--------------------:|:---------:|:--------------:|
-| Purple | 128           | Low       | 11                   | 6.46      | 0.623          |
-| Teal   | 32            | Medium    | 5                    | 3.04      | 0.609          |
+| Purple | 128           | Low       | 11                   | 6.46      | 0.588          |
+| Teal   | 32            | Medium    | 5                    | 3.04      | 0.608          |
 | Orange | 8             | High      | 2                    | 1.31      | 0.656          |
 
 Neutral colors are used deliberately to avoid psychological bias (e.g., red = danger).

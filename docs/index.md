@@ -1,6 +1,6 @@
 # Dynamic Hazard Rate BART
 
-**A multi-risk Balloon Analogue Risk Task with a sequential-Bernoulli explosion model.**
+**A multi-risk Balloon Analogue Risk Task.**
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20592164.svg)](https://doi.org/10.5281/zenodo.20592164)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -10,7 +10,7 @@ Dynamic Hazard Rate BART is an open-source implementation of a modified
 [Balloon Analogue Risk Task](https://doi.org/10.1037/1076-898X.8.2.75) (BART) that
 replaces the classic uniform burst threshold with a **dynamic hazard rate**: at
 each pump $k$, the balloon bursts with probability $k / N$ (a sequence of
-independent Bernoulli trials with a linearly increasing hazard). This single
+independent trials with a linearly increasing hazard). This single
 change moves the expected-value (EV) optimal stopping point from the
 unattainable $N/2$ of the standard task down to roughly $\sqrt{N}$ — a target
 that ordinary participants can actually reach. As a result the task can
@@ -94,8 +94,8 @@ If you use this implementation in your research, please cite the archived
 release (see [CITATION.cff](https://github.com/aslmylmz/metu-risk-persona/blob/main/CITATION.cff)):
 
 > Yılmaz, A. S. (2026). *Dynamic Hazard Rate BART: A Multi-Risk Balloon Analogue
-> Risk Task with Sequential Bernoulli Explosion Model* (Version 0.1.1) [Computer
-> software]. <https://doi.org/10.5281/zenodo.20592164>
+> Risk Task* (Version 0.1.2) [Computer software].
+> <https://doi.org/10.5281/zenodo.20592164>
 
 ## License
 

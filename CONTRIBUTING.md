@@ -62,7 +62,7 @@ sphinx-build -b html docs docs/_build/html
   balloons to avoid right-censoring (RNG-truncation) bias. Preserve this
   invariant when adding metrics.
 - The expected-value optima (11 / 5 / 2 pumps for purple / teal / orange) are
-  derived from the sequential-Bernoulli model in `scoring/bart.py`; if you change
+  derived from the sequential model in `scoring/bart.py`; if you change
   the color profiles, re-derive them and update both the engine and the docs.
 - Real participant data is **never** committed. Only synthetic data (under
   `data/synthetic/`) belongs in the repository.
