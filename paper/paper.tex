@@ -40,8 +40,8 @@
 \noindent The Balloon Analogue Risk Task (BART) is a widely used behavioral
 measure of risk-taking, but its standard parameterization places the
 expected-value (EV) optimal stopping point near half of a balloon's maximum
-capacity---so high that almost no participant reaches it, collapsing the task into
-a one-dimensional index of raw risk exposure. \emph{Dynamic Hazard Rate BART}
+capacity---so high that almost no participant reaches it, so the task cannot
+separate calibrated risk-taking from gross exposure. \emph{Dynamic Hazard Rate BART}
 replaces the classic uniform burst model with a sequence of independent
 trials whose per-pump hazard rises linearly, $P(\text{burst at pump }k)=k/N$.
 Under this model the EV-optimal stop is approximately $\sqrt{N}$, an attainable
@@ -57,19 +57,20 @@ optima. It is released under the MIT license and archived on Zenodo.
 The Balloon Analogue Risk Task \citep{lejuez2002} is among the most widely used
 behavioral measures of risk-taking. In its standard form, a balloon's burst point
 is drawn once from a uniform distribution over its capacity $N$ (typically
-$N=128$), which places the EV-optimal stopping point near $N/2 \approx 64$ pumps.
-That target is so high that essentially no participant reaches it; because nearly
-everyone stops well short of the optimum, the number of pumps and the money
-earned become almost collinear, and the task degrades into a one-dimensional
-proxy for raw risk exposure rather than \emph{calibrated} risk-taking
-\citep{frey2017}.
+$N=128$), which places the EV-optimal stopping point near $N/2 \approx 64$ pumps,
+while participants stop systematically earlier. That gap is not a defect; it is a
+valid index of risk aversion. The limitation that matters here is narrower:
+because the optimum is rarely approached, the number of pumps and the money
+earned are nearly collinear, so the task cannot separate calibrated risk-taking
+from gross exposure \citep{frey2017}.
 
 \emph{Dynamic Hazard Rate BART} is an open-source platform that restores the
 measurement of calibration. It replaces the single uniform draw with a sequence
 of independent trials whose per-pump hazard increases linearly,
 $P(\text{burst at pump }k)=k/N$. Under this model the EV-optimal stop is
-approximately $\sqrt{N}$---an attainable value---so the task can separate
-over-conservative, optimal, and over-exposed participants. The repository contains
+approximately $\sqrt{N}$---a reachable value---so the task can distinguish a
+calibrated strategy from indiscriminate pumping and sort participants as cautious,
+calibrated, or risk-seeking. The repository contains
 three reusable parts: (i)~a React/Next.js game client that administers a
 30-balloon, three-hazard session and logs pump-level telemetry; (ii)~a Python
 scoring engine that derives more than thirty metrics (EV calibration, learning and
@@ -85,7 +86,8 @@ attitude--behavior gap: self-reported risk preferences correlate only weakly wit
 behavioral tasks, and behavioral tasks correlate weakly with one another
 \citep{frey2017,pedroni2017}. A structural contributor to this gap is task design.
 When the EV-optimal threshold is unreachable, the BART cannot reward
-calibration---it can only index how far a participant pushed. Simulation work has
+calibration---it can only index how far a participant pushed, not how well they
+calibrated. Simulation work has
 shown that the hazard structure of a BART systematically shapes the behavioral
 profiles it can reconstruct \citep{diplinio2022}, yet most deployed
 implementations retain the classic uniform model, and reusable, openly documented
@@ -96,7 +98,7 @@ This platform addresses three needs for researchers who study risk behavior:
 \begin{enumerate}[leftmargin=1.4em]
   \item \textbf{A calibration-sensitive task.} The linear-hazard model has a
   closed-form, psychologically attainable optimum ($s^*\approx\sqrt{N}$), enabling
-  the task to distinguish over-conservative, optimal, and over-exposed
+  the task to distinguish cautious, calibrated, and risk-seeking
   participants \citep{pleskac2008,wallsten2005}.
   \item \textbf{A transparent, reusable scoring engine.} The engine computes
   EV-referenced calibration, learning, adaptation, and consistency metrics
@@ -117,8 +119,12 @@ the open Basel--Berlin Risk Study \citep{frey2017}.
 
 \section{The dynamic-hazard model}
 
-For a balloon of capacity $N$, the probability of surviving $s$ successive pumps
-is the product of the per-pump survival probabilities,
+The redesign targets the hazard structure. Rather than treating risk as a bet on
+a fixed future state, it models risk-taking as continuous adaptation to new
+information: pursuing a larger reward means pumping further, which raises the
+per-pump hazard the participant faces. For a balloon of capacity $N$, the
+probability of surviving $s$ successive pumps is the product of the per-pump
+survival probabilities,
 %
 \begin{equation}
 P(\text{survive } s) = \prod_{k=1}^{s}\left(1 - \frac{k}{N}\right),

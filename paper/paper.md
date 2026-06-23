@@ -23,18 +23,20 @@ bibliography: paper.bib
 The Balloon Analogue Risk Task (BART) is one of the most widely used behavioral
 measures of risk-taking [@lejuez2002]. In its standard form a balloon's burst
 point is drawn once from a uniform distribution over its capacity $N$, which
-places the expected-value (EV) optimal stopping point near $N/2$ — so high that
-almost no participant reaches it. Because nearly everyone stops well short of the
-optimum, pump count and earnings become collinear and the task degrades into a
-one-dimensional index of *raw* risk exposure rather than *calibrated*
-risk-taking [@frey2017].
+places the expected-value (EV) optimal stopping point near $N/2$ — roughly 64
+pumps on the highest-capacity balloon, while participants stop systematically
+earlier. That gap is not a defect; it is a valid index of risk aversion. The
+limitation that matters here is narrower: because the optimum is rarely
+approached, pump count and earnings are nearly collinear, so the task cannot
+separate calibrated risk-taking from gross exposure [@frey2017].
 
 **Dynamic Hazard Rate BART** is an open-source platform that restores the
 measurement of calibration. It replaces the single uniform draw with a sequence
 of independent trials whose per-pump hazard increases linearly,
 $P(\text{burst at pump } k) = k/N$. Under this model the EV-optimal stop is
-approximately $\sqrt{N}$ — an attainable target — so the task can separate
-cautious, calibrated, and risk-seeking play. The software comprises three parts: a
+approximately $\sqrt{N}$ — a reachable target — so the task can distinguish a
+calibrated strategy from indiscriminate pumping and sort participants as cautious,
+calibrated, or risk-seeking. The software comprises three parts: a
 React/Next.js game client that administers a 30-balloon, three-hazard session and
 logs pump-level telemetry; a Python scoring engine that derives more than thirty
 psychometric metrics (EV calibration, learning and adaptation, post-explosion
@@ -50,8 +52,9 @@ attitude–behavior gap: self-reported risk preferences correlate only weakly wi
 behavioral tasks, and behavioral tasks correlate weakly with one another
 [@frey2017; @pedroni2017]. A structural contributor to this gap is task design.
 When the EV-optimal threshold is unreachable, the BART cannot reward calibration;
-it can only index how far a participant pushed. Simulation work has shown that the
-hazard structure of a BART systematically shapes the behavioral profiles it can
+it can only index how far a participant pushed, not how well they calibrated.
+Simulation work has shown that the hazard structure of a BART systematically
+shapes the behavioral profiles it can
 reconstruct [@diplinio2022], yet most deployed implementations retain the classic
 uniform model, and reusable, openly documented scoring engines are scarce.
 
@@ -60,7 +63,7 @@ behavior:
 
 1. **A calibration-sensitive task.** The linear-hazard model has a closed-form,
    psychologically attainable optimum ($s^* \approx \sqrt{N}$), enabling the task
-   to distinguish over-conservative, optimal, and over-exposed participants
+   to distinguish cautious, calibrated, and risk-seeking participants
    [@pleskac2008; @wallsten2005].
 2. **A transparent, reusable scoring engine.** The engine computes EV-referenced
    calibration, learning, adaptation, and consistency metrics directly from raw
@@ -83,9 +86,13 @@ infrastructure.
 
 # Design and functionality
 
-**The dynamic-hazard model.** For a balloon of capacity $N$, the probability of
-surviving $s$ pumps is $\prod_{k=1}^{s}(1 - k/N)$, and the expected value of
-stopping at $s$ is $\mathrm{EV}(s) = s\prod_{k=1}^{s}(1 - k/N)$. A second-order
+**The dynamic-hazard model.** The redesign targets the hazard structure. Rather
+than treating risk as a bet on a fixed future state, it models risk-taking as
+continuous adaptation to new information: pursuing a larger reward means pumping
+further, which raises the per-pump hazard the participant faces. For a balloon of
+capacity $N$, the probability of surviving $s$ pumps is
+$\prod_{k=1}^{s}(1 - k/N)$, and the expected value of stopping at $s$ is
+$\mathrm{EV}(s) = s\prod_{k=1}^{s}(1 - k/N)$. A second-order
 expansion gives $\mathrm{EV}(s) \approx s\,e^{-s^2/2N}$, whose maximizer is
 $s^* = \sqrt{N}$. The three colors (purple $N=128$, teal $N=32$, orange $N=8$)
 have exact discrete optima of 11, 5, and 2 pumps. Each banked pump pays \$0.25, so
