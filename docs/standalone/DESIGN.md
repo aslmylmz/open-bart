@@ -86,9 +86,8 @@ metu-risk-persona/
 │   ├── bart.py                 # engine (generalized to numeric optima)
 │   ├── config/                 # NEW: TaskConfig, hazard families, safe evaluator
 │   └── schemas/
-├── games/bart/BartGame.tsx     # source for the Vite build
 ├── app/
-│   ├── src/                    # React / Vite SPA (task + Study-Setup UI)
+│   ├── src/                    # React / Vite SPA (BartGame task UI + Study-Setup)
 │   ├── src-tauri/              # Rust shell (lifecycle, files, config)
 │   └── sidecar/                # Python entrypoint wrapping `scoring` + PyInstaller spec
 ├── tests/                      # extended: numeric optima across hazard families

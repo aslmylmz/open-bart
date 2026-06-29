@@ -62,7 +62,7 @@ build clean).
 | Scoring engine | `scoring/bart.py` (~1355 lines) | EV calibration + 40+ metrics. Has `_compute_ev`, `_compute_ev_optimal`, `COLOR_PROFILES`, and `_calculate_risk_adjustment_score` (⚠ contains hardcoded optima `11/5/2`). |
 | Pydantic schemas | `scoring/schemas/__init__.py` (~481 lines) | `GameEvent`, `EventPayload`, `BARTMetrics`, session models. ⚠ still Pydantic-V1-style validators (deprecation warnings). |
 | Event validators | `scoring/schemas/game_events.py` | |
-| React game client | `games/bart/BartGame.tsx` (~1060 lines) | Next.js component; renders the 3-colour task, logs pump-level events via `performance.now()`, **POSTs a typed session payload to a scoring endpoint**. |
+| React game client | `app/src/BartGame.tsx` (~1060 lines) | React component (now a Vite SPA); renders the 3-colour task, logs pump-level events via `performance.now()`, **POSTs a typed session payload to a scoring endpoint**. |
 | MC verification | `scripts/monte_carlo_ev.py` | Simulates 100k optimal sessions; self-creates `output/figures/`. |
 | Synthetic data | `scripts/generate_synthetic.py` | |
 | Tests | `tests/test_scoring.py` (23 tests), `conftest.py` | `conftest.py` puts repo root on `sys.path` so `import scoring` works without install. |
@@ -366,9 +366,8 @@ metu-risk-persona/
 │   ├── bart.py                 # generalized to numeric optima
 │   ├── config/                 # NEW: TaskConfig + hazard families (§6, §7)
 │   └── schemas/
-├── games/bart/BartGame.tsx     # source for the Vite task UI
 ├── app/
-│   ├── src/                    # React/Vite SPA (Study Setup + Run)
+│   ├── src/                    # React/Vite SPA (BartGame task UI + Study Setup + Run)
 │   ├── src-tauri/              # Rust shell
 │   └── sidecar/                # Python FastAPI entrypoint + PyInstaller spec
 ├── .github/workflows/          # NEW: Windows build + (optional) docs/CI

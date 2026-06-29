@@ -4,7 +4,7 @@
 
 ## Context
 
-[games/bart/BartGame.tsx](../../../games/bart/BartGame.tsx) (~1060 lines) is a Next.js
+[app/src/BartGame.tsx](../../../app/src/BartGame.tsx) (~1060 lines) was a Next.js
 component that renders the 3-colour task, logs pump-level events via `performance.now()`,
 and **POSTs a typed session payload to a scoring endpoint**. The desktop app needs it as
 a standalone **React + Vite** SPA: the Tauri webview will load the Vite build, and the

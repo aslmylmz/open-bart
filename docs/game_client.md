@@ -1,14 +1,14 @@
 # Game Client
 
-[`games/bart/BartGame.tsx`](https://github.com/aslmylmz/metu-risk-persona/blob/main/games/bart/BartGame.tsx)
-is a self-contained React / Next.js client component (`"use client"`) that
+[`app/src/BartGame.tsx`](https://github.com/aslmylmz/metu-risk-persona/blob/main/app/src/BartGame.tsx)
+is a self-contained React component (bundled by Vite into a static SPA) that
 administers the dynamic-hazard BART and captures pump-level telemetry. Its UI
 strings are in Turkish, matching the reference study's cohort.
 
 ## Component contract
 
 ```tsx
-import BartGame from "@/games/bart/BartGame";
+import BartGame from "./BartGame";
 
 <BartGame
   candidateId="participant-123"

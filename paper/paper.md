@@ -99,7 +99,7 @@ have exact discrete optima of 11, 5, and 2 pumps. Each banked pump pays \$0.25, 
 overshooting is penalized endogenously through forfeited earnings rather than an
 arbitrary cap.
 
-**Game client.** A self-contained React component (`games/bart/BartGame.tsx`)
+**Game client.** A self-contained React component (`app/src/BartGame.tsx`)
 renders 30 balloons (10 per color, shuffled), implements the same $k/N$ hazard as
 the engine, records high-resolution monotonic timestamps via `performance.now()`,
 and submits a typed session payload to a scoring endpoint.

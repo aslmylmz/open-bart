@@ -78,9 +78,9 @@ metu-risk-persona/
 │   └── schemas/
 │       ├── __init__.py             Pydantic data models (GameEvent, BARTMetrics, etc.)
 │       └── game_events.py          BART event validators
-├── games/
-│   └── bart/
-│       └── BartGame.tsx            React/Next.js game client (complete UI)
+├── app/                           Standalone offline Vite SPA (desktop task)
+│   └── src/
+│       └── BartGame.tsx            React game client (complete UI)
 ├── scripts/
 │   ├── monte_carlo_ev.py           EV-curve plots + MC earnings simulation
 │   └── generate_synthetic.py       Generate synthetic participant datasets
@@ -155,7 +155,7 @@ The engine validates sessions before scoring:
 
 ## Game Client
 
-`games/bart/BartGame.tsx` is a complete React/Next.js component implementing the three-color BART with:
+`app/src/BartGame.tsx` is a complete React component (bundled by Vite) implementing the three-color BART with:
 - Animated balloon inflation with color-coded risk tiers
 - Real-time pump counter and reward display
 - Sequential explosion model (P = k/N)

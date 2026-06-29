@@ -55,9 +55,9 @@ found.
 
 ## The game client
 
-The React game client ([`games/bart/BartGame.tsx`](game_client.md)) is a
-standalone component intended to be dropped into an existing Next.js / React
-application; it is not published as an npm package. See
+The React game client ([`app/src/BartGame.tsx`](game_client.md)) is a
+standalone component bundled by Vite into a static SPA (it is not published as
+an npm package). See
 [Game client](game_client.md) for integration details, including the backend
 endpoint it expects.
 

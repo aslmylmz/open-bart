@@ -19,7 +19,7 @@ collapsing into a one-dimensional proxy for raw risk exposure.
 
 The repository bundles three things:
 
-- a complete **React / Next.js game client** ([`games/bart/BartGame.tsx`](game_client.md)),
+- a complete **React / Vite game client** ([`app/src/BartGame.tsx`](game_client.md)),
 - a **Python scoring engine** ([`scoring/bart.py`](scoring_engine.md)) that derives
   more than thirty psychometric metrics from raw event telemetry, and
 - **Monte Carlo verification tooling** ([`scripts/`](scripts.md)) that confirms the
