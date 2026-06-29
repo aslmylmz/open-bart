@@ -37,13 +37,24 @@ dependencies = [
 # scipy lives here, not in core: the engine is scipy-free so the frozen sidecar
 # (SPEC §3, §18) stays small; only scripts/monte_carlo_ev.py needs it.
 scripts = ["matplotlib>=3.8", "pandas>=2.2", "scipy>=1.12"]
-# Test/dev tooling.
-dev = ["pytest>=7"]
+# The offline FastAPI sidecar that wraps the scoring package (SPEC §9).
+sidecar = ["fastapi>=0.110", "uvicorn>=0.29"]
+# PyInstaller toolchain for freezing the sidecar into a per-OS binary (SPEC §9).
+build = ["pyinstaller>=6.6"]
+# Test/dev tooling. httpx backs FastAPI's TestClient.
+dev = ["pytest>=7", "httpx>=0.27"]
 
 [project.urls]
 Homepage = "https://bart.aselimyilmaz.com"
 Repository = "https://github.com/aslmylmz/metu-risk-persona"
 Documentation = "https://metu-risk-persona.readthedocs.io"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # Third-party: FastAPI's TestClient routes through starlette+httpx, which
+    # emits this deprecation on newer starlette. Not our code; keep output clean.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
 
 [tool.setuptools.dynamic]
 # Single source of truth: read the version from the package itself.
