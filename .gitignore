@@ -16,6 +16,11 @@ dist/
 build/
 *.manifest
 
+# ── Tauri (Rust shell build output + bundled sidecar binary) ──────────────
+app/src-tauri/target/
+app/src-tauri/gen/
+app/src-tauri/binaries/
+
 # ── Data (real participant data is NEVER committed) ───────────────────────
 data/raw/
 data/participants/

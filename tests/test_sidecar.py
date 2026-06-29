@@ -8,9 +8,11 @@ the HTTP endpoints and the frozen-entry / launcher scripts.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -61,6 +63,74 @@ def _session_payload(events: list[GameEvent], **over) -> dict:
     }
     payload.update(over)
     return payload
+
+
+def _frozen_sidecar_bin() -> Path:
+    """Locate the PyInstaller-frozen sidecar, or skip.
+
+    The frozen binary (issue 09) is a build artifact, not produced on every test
+    run. Point ``BART_SIDECAR_BIN`` at it (CI does this); otherwise we look at the
+    default ``dist/bart-sidecar`` and skip when it is absent, so ``pytest -q`` stays
+    fast and green without a multi-minute freeze.
+    """
+    env = os.environ.get("BART_SIDECAR_BIN")
+    candidate = Path(env) if env else APP_DIR.parent / "dist" / "bart-sidecar"
+    if not candidate.exists():
+        win = candidate.with_suffix(".exe")  # Windows artifact carries .exe
+        if win.exists():
+            candidate = win
+    if not candidate.exists() or not os.access(candidate, os.X_OK):
+        pytest.skip(f"frozen sidecar not built; set BART_SIDECAR_BIN (looked at {candidate})")
+    return candidate
+
+
+def _run_frozen_sidecar(binary: Path) -> tuple[subprocess.Popen, int | None]:
+    """Spawn the frozen sidecar and return (proc, announced port) once it prints PORT=."""
+    proc = subprocess.Popen(
+        [str(binary)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    port = None
+    deadline = time.time() + 60  # a frozen one-file binary unpacks before it serves
+    while time.time() < deadline:
+        line = proc.stdout.readline()
+        if not line:
+            if proc.poll() is not None:
+                break
+            continue
+        m = re.search(r"PORT=(\d+)", line)
+        if m:
+            port = int(m.group(1))
+            break
+    # Drain the rest of stdout so a full pipe buffer never blocks the sidecar
+    # (the Tauri shell drains it continuously in production, issue 11).
+    threading.Thread(
+        target=lambda: [None for _ in iter(proc.stdout.readline, "")], daemon=True
+    ).start()
+    return proc, port
+
+
+def _frozen_client(timeout: float = 30.0) -> httpx.Client:
+    """HTTP client for the frozen sidecar. ``trust_env=False`` bypasses any ambient
+    proxy — a localhost sidecar must always be reached directly."""
+    return httpx.Client(trust_env=False, timeout=timeout)
+
+
+def _wait_for_healthz(
+    client: httpx.Client, port: int, timeout: float = 30.0
+) -> httpx.Response | None:
+    """Poll /healthz on the announced port until it answers 200, or time out."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            resp = client.get(f"http://127.0.0.1:{port}/healthz", timeout=1.0)
+            if resp.status_code == 200:
+                return resp
+        except httpx.HTTPError:
+            time.sleep(0.2)
+    return None
 
 
 def test_healthz_reports_ok_and_version():
@@ -118,6 +188,48 @@ def test_launcher_binds_ephemeral_localhost_port():
             except httpx.HTTPError:
                 time.sleep(0.2)
         assert ok, "sidecar did not answer /healthz on the announced port"
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
+def test_frozen_sidecar_announces_port_and_serves_healthz():
+    """The PyInstaller-frozen `bart-sidecar` boots, announces its ephemeral port,
+    and answers /healthz — the SPEC §9/§18 freeze contract for the full sidecar."""
+    binary = _frozen_sidecar_bin()
+    proc, port = _run_frozen_sidecar(binary)
+    try:
+        assert port and port > 0, "frozen sidecar did not announce an ephemeral port"
+        with _frozen_client() as client:
+            resp = _wait_for_healthz(client, port)
+            assert resp is not None, "frozen sidecar did not answer /healthz on its port"
+            assert resp.json() == {"status": "ok", "version": scoring.__version__}
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
+def test_frozen_sidecar_score_matches_direct_scoring():
+    """POST /score on the frozen `bart-sidecar` equals score_bart() directly — the
+    frozen engine produces byte-identical metrics (issue 08 parity, now frozen)."""
+    binary = _frozen_sidecar_bin()
+    events = _collected_session()
+    proc, port = _run_frozen_sidecar(binary)
+    try:
+        assert port and port > 0, "frozen sidecar did not announce an ephemeral port"
+        with _frozen_client() as client:
+            assert _wait_for_healthz(client, port) is not None, "frozen sidecar never became ready"
+            resp = client.post(
+                f"http://127.0.0.1:{port}/score", json=_session_payload(events)
+            )
+            assert resp.status_code == 200, resp.text
+            assert resp.json()["raw_metrics"] == score_bart(events).model_dump(mode="json")
     finally:
         proc.terminate()
         try:
