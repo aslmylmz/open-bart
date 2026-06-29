@@ -18,7 +18,7 @@ describe("resolveApiUrl", () => {
 });
 
 describe("scoringEndpoint", () => {
-  it("targets the BART assessment route on the resolved base URL", () => {
-    expect(scoringEndpoint()).toBe("http://localhost:8000/assessments/bart");
+  it("targets the sidecar /score route on the resolved base URL", () => {
+    expect(scoringEndpoint()).toBe("http://localhost:8000/score");
   });
 });

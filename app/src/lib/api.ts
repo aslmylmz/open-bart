@@ -8,7 +8,7 @@ export function resolveApiUrl(): string {
 }
 
 export function scoringEndpoint(): string {
-  return `${resolveApiUrl()}/assessments/bart`;
+  return `${resolveApiUrl()}/score`;
 }
 
 /** POST a session payload to the scoring endpoint and return the parsed result. */
