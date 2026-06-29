@@ -46,3 +46,32 @@ the freeze runs on Windows (07) **before** building the real endpoints (08).
 - The full sidecar scores a sample session **identically** to calling `scoring`
   directly (`/score` == `score_bart`).
 - The Vite client posts to `/score`; `npm test`, `tsc`, and `vite build` stay green.
+
+## Phase 2 — Tauri shell
+
+The Tauri v2 desktop shell (`app/src-tauri/`) that loads the Vite SPA, manages the
+sidecar lifecycle, and enforces the strict offline posture. Sequenced
+**de-risk-first**: freeze the full sidecar (09) and scaffold the shell (10) before
+wiring the lifecycle / port-handoff / persistence (11) and the study.json + kiosk
+plumbing (12).
+
+| # | Issue | Depends on | Touches |
+|---|---|---|---|
+| [09](09-full-frozen-sidecar.md) | Full frozen sidecar (`bart-sidecar`) | Phase 1 | `app/sidecar/sidecar.spec` (new), `.gitignore` |
+| [10](10-tauri-shell-scaffold.md) | Tauri v2 shell scaffold (window + offline CSP) | Phase 0/1 (parallel to 09) | `app/src-tauri/` (new), `app/package.json`, `app/vite.config.ts` |
+| [11](11-sidecar-lifecycle-port-handoff.md) | Sidecar lifecycle + port handoff + session persistence | 10 (09 for release verify) | `app/src-tauri/src/`, `app/src/lib/api.ts`, `app/src/main.tsx`, `app/src/BartGame.tsx`, `app/sidecar/{app,models}.py`, `tests/` |
+| [12](12-studyjson-plumbing-kiosk.md) | study.json dialog/fs plumbing + kiosk/fullscreen | 10 | `app/src-tauri/` (commands + capabilities) |
+
+### Phase 2 acceptance (rolls up 09–12)
+
+- A frozen full `bart-sidecar` runs on macOS: prints `PORT=<n>`, serves `/healthz`.
+- `tauri dev` on macOS opens the SPA with a strict offline CSP (no remote origins).
+- A full session runs end-to-end and writes `*_events.jsonl`, `*_metrics.json`,
+  `*_config.json` locally; displayed metrics match `score_bart`; **zero network**.
+- The sidecar is spawned, health-checked, and killed by the shell (no orphans).
+- study.json load/save plumbing + kiosk/fullscreen exist; `npm test`, `tsc`,
+  `vite build`, and `pytest` stay green.
+
+> Out of scope for Phase 2 (later phases): the no-code Study-Setup UI + live EV
+> preview (Phase 3), the Windows CI `tauri build` + installer + signing (Phase 4),
+> and the JOSS rewrite (Phase 5).
