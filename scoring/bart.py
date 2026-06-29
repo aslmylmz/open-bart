@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 from scipy import stats
 
+from scoring.config import DEFAULT_TASK_CONFIG, BalloonCurve, TaskConfig
 from scoring.schemas.game_events import BARTMetrics, ColorMetrics, GameEvent
 
 logger = logging.getLogger(__name__)
@@ -14,11 +15,19 @@ logger = logging.getLogger(__name__)
 
 # ── Color Profile Constants ──────────────────────────────────────────────────
 
+# Risk labels are a semantic property of the study, not derivable from the cap.
+_RISK_BY_COLOR = {"purple": "low", "teal": "medium", "orange": "high"}
+
+# Derived from the default study so the 128/32/8 caps live in exactly one place
+# (scoring.config.DEFAULT_TASK_CONFIG) instead of being a second hardcoded copy.
 COLOR_PROFILES = {
-    "purple": {"risk": "low", "max_pumps": 128},
-    "teal": {"risk": "medium", "max_pumps": 32},
-    "orange": {"risk": "high", "max_pumps": 8},
+    c.name: {"risk": _RISK_BY_COLOR.get(c.name, "medium"), "max_pumps": c.max_pumps}
+    for c in DEFAULT_TASK_CONFIG.colors
 }
+
+# Per-color precomputed EV curves for the default study; used as the fallback
+# when a helper is called without an explicit config (e.g. direct unit calls).
+_DEFAULT_CURVES: dict[str, BalloonCurve] = DEFAULT_TASK_CONFIG.curves
 
 # Minimum collected (non-exploded) balloons per color before fallback
 MIN_COLLECTED_FALLBACK = 2
@@ -70,17 +79,6 @@ def _compute_survival_probability(s: int, max_pumps: int) -> float:
     for k in range(1, s + 1):
         survival *= (1.0 - k / max_pumps)
     return max(0.0, survival)
-
-
-# Cache optimal stops to avoid redundant computations
-_EV_OPTIMAL_CACHE: dict[int, tuple[int, float]] = {}
-
-
-def _get_ev_optimal(max_pumps: int) -> tuple[int, float]:
-    """Get cached EV-optimal stop for a given max_pumps."""
-    if max_pumps not in _EV_OPTIMAL_CACHE:
-        _EV_OPTIMAL_CACHE[max_pumps] = _compute_ev_optimal(max_pumps)
-    return _EV_OPTIMAL_CACHE[max_pumps]
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -426,6 +424,7 @@ def _calculate_color_discrimination_trajectory(
 
 def _calculate_post_explosion_sensitivity(
     balloon_data: list[tuple[int, str, int, bool]],
+    curves: dict[str, BalloonCurve] = _DEFAULT_CURVES,
 ) -> float | None:
     """
     Measure pump adjustment on the next same-color balloon after an explosion.
@@ -435,16 +434,14 @@ def _calculate_post_explosion_sensitivity(
     """
     sorted_data = sorted(balloon_data, key=lambda x: x[0])
     changes = []
-    
+
     for i, (trial, color, pumps, exploded) in enumerate(sorted_data):
         if not exploded or pumps == 0:
             continue
         for j in range(i + 1, len(sorted_data)):
             if sorted_data[j][1] == color:
                 next_pumps = sorted_data[j][2]
-                opt_stop, _ = _get_ev_optimal(
-                    COLOR_PROFILES.get(color, {}).get("max_pumps", 32)
-                )
+                opt_stop = curves[color].optimum if color in curves else 0
                 if opt_stop > 0:
                     change = (pumps - next_pumps) / opt_stop
                 else:
@@ -494,6 +491,7 @@ def _calculate_color_discrimination(
 
 def _calculate_risk_sensitivity(
     color_pumps: dict[str, list[int]],
+    curves: dict[str, BalloonCurve] = _DEFAULT_CURVES,
 ) -> float:
     """
     Measure alignment between risk limits and pumps using Pearson correlation.
@@ -502,9 +500,9 @@ def _calculate_risk_sensitivity(
     user_pumps = []
 
     for color, pumps in color_pumps.items():
-        if color not in COLOR_PROFILES:
+        if color not in curves:
             continue
-        capacity = COLOR_PROFILES[color]["max_pumps"]
+        capacity = len(curves[color].hazard)
         for p in pumps:
             risk_capacities.append(capacity)
             user_pumps.append(p)
@@ -524,23 +522,26 @@ def _calculate_risk_sensitivity(
 
 def _calculate_risk_adjustment_score(
     color_pumps: dict[str, list[int]],
+    curves: dict[str, BalloonCurve] = _DEFAULT_CURVES,
 ) -> float:
     """
-    Score alignment with true sequential model EV-optimal points.
+    Score alignment with the config's EV-optimal stopping points.
 
-    Optimals: Purple=11, Teal=5, Orange=2.
-    Scores scale linearly from 100 at optimal to 0 at limits (0 or max_pumps).
+    Each color's optimum and cap are read from its precomputed curve (for the
+    default study these are 11/5/2 with caps 128/32/8). Scores scale linearly
+    from 100 at the optimum to 0 at the limits (0 or max_pumps).
     """
     cp = color_pumps
-    optimal_stops = {"purple": 11.0, "teal": 5.0, "orange": 2.0}
-    max_pumps_caps = {"purple": 128, "teal": 32, "orange": 8}
     scores = []
 
     for color in ["purple", "teal", "orange"]:
+        if color not in curves:
+            continue
         if color in cp and len(cp[color]) > 0:
             mean_pumps = np.mean(cp[color])
-            opt = optimal_stops[color]
-            mx = max_pumps_caps[color]
+            curve = curves[color]
+            opt = curve.optimum
+            mx = len(curve.hazard)
 
             max_dist = max(opt, mx - opt)
             score = np.clip(1.0 - abs(mean_pumps - opt) / max_dist, 0.0, 1.0) * 100.0
@@ -558,18 +559,20 @@ def _calculate_risk_adjustment_score(
 def _compute_ev_ratio_score(
     color_pumps_collected: dict[str, list[int]],
     color_balloons: dict[str, int],
+    curves: dict[str, BalloonCurve] = _DEFAULT_CURVES,
     min_collected: int = MIN_COLLECTED_FALLBACK,
 ) -> tuple[float, dict[str, float]]:
     """
     Compute EV-Ratio Risk Calibration Score (EV-weighted).
 
     Calculates participant efficiency (EV achieved vs EV optimal) weighted
-    by the expected value of each risk level.
+    by the expected value of each risk level. Reads each color's precomputed
+    EV curve, so it is reward- and hazard-family-agnostic.
     """
     per_color_efficiency: dict[str, float] = {}
 
     for color in ["purple", "teal", "orange"]:
-        if color not in COLOR_PROFILES:
+        if color not in curves:
             continue
         total = color_balloons.get(color, 0)
         if total == 0:
@@ -580,23 +583,21 @@ def _compute_ev_ratio_score(
             per_color_efficiency[color] = 0.0
             continue
 
-        max_p = COLOR_PROFILES[color]["max_pumps"]
-        optimal_stop, optimal_ev = _get_ev_optimal(max_p)
-
+        curve = curves[color]
+        optimal_ev = curve.optimal_ev
         if optimal_ev <= 0:
             continue
 
+        cap = len(curve.hazard)
         mean_pumps = float(np.mean(pumps))
         s_low = max(0, int(np.floor(mean_pumps)))
-        s_high = min(max_p, int(np.ceil(mean_pumps)))
+        s_high = min(cap, int(np.ceil(mean_pumps)))
 
         if s_low == s_high:
-            participant_ev = _compute_ev(s_low, max_p)
+            participant_ev = curve.ev[s_low]
         else:
             frac = mean_pumps - s_low
-            ev_low = _compute_ev(s_low, max_p)
-            ev_high = _compute_ev(s_high, max_p)
-            participant_ev = ev_low + frac * (ev_high - ev_low)
+            participant_ev = curve.ev[s_low] + frac * (curve.ev[s_high] - curve.ev[s_low])
 
         efficiency = min(1.0, participant_ev / optimal_ev)
         per_color_efficiency[color] = efficiency
@@ -607,8 +608,7 @@ def _compute_ev_ratio_score(
     weighted_sum = 0.0
     weight_total = 0.0
     for color, eff in per_color_efficiency.items():
-        max_p = COLOR_PROFILES[color]["max_pumps"]
-        _, optimal_ev = _get_ev_optimal(max_p)
+        optimal_ev = curves[color].optimal_ev
         weighted_sum += eff * optimal_ev
         weight_total += optimal_ev
 
@@ -619,6 +619,7 @@ def _compute_ev_ratio_score(
 def _compute_explosion_penalty(
     color_explosions: dict[str, int],
     color_balloons: dict[str, int],
+    curves: dict[str, BalloonCurve] = _DEFAULT_CURVES,
 ) -> tuple[float, dict[str, float]]:
     """
     Compute explosion rate surplus compared to expected rates under optimal play.
@@ -626,7 +627,7 @@ def _compute_explosion_penalty(
     per_color_excess: dict[str, float] = {}
 
     for color in ["purple", "teal", "orange"]:
-        if color not in COLOR_PROFILES:
+        if color not in curves:
             continue
         total = color_balloons.get(color, 0)
         if total == 0:
@@ -635,9 +636,9 @@ def _compute_explosion_penalty(
         explosions = color_explosions.get(color, 0)
         observed_rate = explosions / total
 
-        max_p = COLOR_PROFILES[color]["max_pumps"]
-        optimal_stop, _ = _get_ev_optimal(max_p)
-        expected_rate = 1.0 - _compute_survival_probability(optimal_stop, max_p)
+        curve = curves[color]
+        optimal_stop = curve.optimum
+        expected_rate = 1.0 - curve.survival[optimal_stop]
 
         excess = max(0.0, observed_rate - expected_rate)
         per_color_excess[color] = excess
@@ -1002,15 +1003,22 @@ def _generate_behavioral_profile(
 # ── Main Scoring Function ───────────────────────────────────────────────────
 
 
-def score_bart(events: list[GameEvent]) -> BARTMetrics:
+def score_bart(
+    events: list[GameEvent],
+    config: TaskConfig = DEFAULT_TASK_CONFIG,
+) -> BARTMetrics:
     """
     Score a BART session from raw events using NumPy vectorization.
 
-    Analyzes behavioral-intention variables using collected (non-exploded) 
-    balloons to protect metrics against RNG truncation bias.
+    Analyzes behavioral-intention variables using collected (non-exploded)
+    balloons to protect metrics against RNG truncation bias. ``config`` supplies
+    the hazard model, per-color EV-optimal stops, and reward; it defaults to the
+    validated 128/32/8 linear study.
     """
     if not events:
         raise ValueError("Empty event log")
+
+    curves = config.curves
 
     validation = validate_bart_session(events)
     session_valid = validation["is_valid"]
@@ -1098,7 +1106,7 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
         if evt.type == "pump":
             _money_pumps += 1
         elif evt.type == "collect":
-            money_collected += _money_pumps * 0.25
+            money_collected += _money_pumps * config.reward_per_pump
             _money_pumps = 0
         elif evt.type == "explode":
             _money_pumps = 0
@@ -1110,7 +1118,7 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
     money_efficiency = float(np.clip(money_efficiency, 0.0, 2.0))
 
     color_pumps_behavioral: dict[str, list[int]] = {}
-    for color in COLOR_PROFILES:
+    for color in curves:
         collected = color_pumps_collected.get(color, [])
         all_data = color_pumps_all.get(color, [])
         chosen, used_fallback = _prefer_collected(collected, all_data)
@@ -1150,16 +1158,15 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
         mean_latency = 0.0
 
     ev_optimal_stops: dict[str, int] = {}
-    for color, profile in COLOR_PROFILES.items():
-        opt_stop, _ = _get_ev_optimal(profile["max_pumps"])
-        ev_optimal_stops[color] = opt_stop
+    for color, curve in curves.items():
+        ev_optimal_stops[color] = curve.optimum
 
     ev_ratio_score, per_color_efficiency = _compute_ev_ratio_score(
-        color_pumps_collected, color_balloons,
+        color_pumps_collected, color_balloons, curves=curves,
     )
 
     explosion_penalty, per_color_excess = _compute_explosion_penalty(
-        color_explosions, color_balloons,
+        color_explosions, color_balloons, curves=curves,
     )
 
     color_metrics_list: list[ColorMetrics] = []
@@ -1192,7 +1199,7 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
                 explosion_rate=round(color_exp_rate, 4),
                 total_balloons=balloons_of_color,
                 collected_count=len(collected_of_color),
-                risk_profile=COLOR_PROFILES[color]["risk"],
+                risk_profile=_RISK_BY_COLOR.get(color, "medium"),
                 used_fallback=used_fb,
                 ev_efficiency=round(color_ev_eff, 4) if color_ev_eff is not None else None,
                 ev_optimal_stop=color_ev_optimal,
@@ -1204,10 +1211,10 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
     half_split_lr = _calculate_half_split_learning_rate(balloon_data)
     tercile_lr = _calculate_tercile_learning_rate(balloon_data)
     cdt = _calculate_color_discrimination_trajectory(balloon_data)
-    pes = _calculate_post_explosion_sensitivity(balloon_data)
+    pes = _calculate_post_explosion_sensitivity(balloon_data, curves=curves)
     color_discrimination = _calculate_color_discrimination(color_pumps_behavioral)
-    risk_adjustment = _calculate_risk_adjustment_score(color_pumps_behavioral)
-    risk_sensitivity = _calculate_risk_sensitivity(color_pumps_behavioral)
+    risk_adjustment = _calculate_risk_adjustment_score(color_pumps_behavioral, curves=curves)
+    risk_sensitivity = _calculate_risk_sensitivity(color_pumps_behavioral, curves=curves)
     risk_calibration_score = float(np.clip(ev_ratio_score, 0.0, 100.0))
 
     ev_efficiency_uniformity = _compute_ev_efficiency_uniformity(
@@ -1270,10 +1277,10 @@ def score_bart(events: list[GameEvent]) -> BARTMetrics:
     adaptive_strategy_score = float(np.clip(adaptive_strategy_score, 0.0, 100.0))
 
     per_color_normalized: list[float] = []
-    for color in COLOR_PROFILES:
+    for color in curves:
         behavioral_pumps = color_pumps_behavioral.get(color, [])
         if behavioral_pumps:
-            opt_stop, _ = _get_ev_optimal(COLOR_PROFILES[color]["max_pumps"])
+            opt_stop = curves[color].optimum
             if opt_stop > 0:
                 color_mean = float(np.mean(behavioral_pumps)) / opt_stop
                 per_color_normalized.append(color_mean)

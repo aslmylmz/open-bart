@@ -17,7 +17,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 # ── Game Type Registry ───────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ class GameEvent(BaseModel):
         description="Event-specific data",
     )
 
-    @validator("timestamp")
+    @field_validator("timestamp")
     @classmethod
     def timestamp_must_be_positive(cls, v: float) -> float:
         if v < 0:
@@ -110,11 +110,11 @@ class GameSession(BaseModel):
     )
     events: list[GameEvent] = Field(
         ...,
-        min_items=1,
+        min_length=1,
         description="Chronologically ordered list of raw game events",
     )
 
-    @validator("events")
+    @field_validator("events")
     @classmethod
     def events_must_be_chronological(cls, v: list[GameEvent]) -> list[GameEvent]:
         """
