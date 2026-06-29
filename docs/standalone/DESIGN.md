@@ -8,6 +8,10 @@ orphan: true
 **Author:** Ahmet Selim Yılmaz
 **Last updated:** 2026-06-23
 
+> **See [`SPEC.md`](SPEC.md) for the authoritative implementation brief.** This
+> document is the higher-level rationale; where the two differ (notably the hazard
+> model — now a curated family library, not free-form expressions), `SPEC.md` wins.
+
 ## 1. Goal
 
 Wrap the existing BART game client and Python scoring engine into a **single,
@@ -34,13 +38,15 @@ effort and novelty.
 "Full configurability" is implemented as a **safe hazard library**, never as
 arbitrary code execution:
 
-- **Named parameterized families:** linear `k/N`, constant `p`, power `(k/N)^α`,
-  logistic, exponential, and piecewise/tabular.
-- **Optional advanced mode:** a sandboxed math-expression evaluator over the
-  variables `k` and `N` only, using a **whitelisted-AST** walker (math operators
-  and a small set of functions; no names, calls, imports, or attribute access).
+- **A curated library of ~10 parameterized families** grounded in survival
+  analysis (linear/Rayleigh, constant/Bernoulli, Weibull, exponential, Gompertz,
+  logistic, log-normal, classic-uniform, step, power) — see `SPEC.md` §7.
+- **A tabular escape hatch:** an explicit, validated per-pump hazard array — data,
+  not code.
 
-This gives arbitrary-enough hazard shapes with no injection surface.
+There is **no free-form expression or code entry**: configurability comes entirely
+from the curated families' validated parameters. This covers a wide space of hazard
+and outcome distributions without any injection surface.
 
 ## 3. Target architecture
 
