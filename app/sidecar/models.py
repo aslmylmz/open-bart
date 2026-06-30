@@ -47,10 +47,12 @@ class PreviewResponse(BaseModel):
 
 
 class WriteOutputRequest(BaseModel):
-    """A session to persist, with the study config it was run under (SPEC §13)."""
+    """A session to persist, optionally with the study config it ran under (SPEC
+    §13). When ``config`` is omitted the sidecar falls back to the default study,
+    mirroring how ``/score`` defaults (a per-study path lands with Study Setup)."""
 
     session: GameSession
-    config: TaskConfig
+    config: TaskConfig | None = None
 
 
 class WriteOutputResponse(BaseModel):

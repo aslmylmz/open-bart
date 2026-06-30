@@ -19,3 +19,5 @@ tauri = { version = "2", features = [] }
 # study.json (SPEC §10). The sidecar lifecycle (issue 11) spawns via std::process.
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+# Tiny sync HTTP client for the loopback /healthz probe (no TLS needed).
+ureq = { version = "2", default-features = false }

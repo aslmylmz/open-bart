@@ -18,7 +18,7 @@ from pydantic import ValidationError
 
 from scoring import __version__
 from scoring.bart import score_bart
-from scoring.config import TaskConfig
+from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
 from scoring.schemas import AssessmentResponse, GameSession
 from sidecar.models import (
     CurvePreview,
@@ -101,10 +101,11 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     event log (JSONL), the scored metrics (JSON), and a snapshot of the full
     ``TaskConfig`` so each dataset is self-documenting and reproducible.
     """
-    out_dir = Path(req.config.output_dir)
+    config = req.config or DEFAULT_TASK_CONFIG
+    out_dir = Path(config.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    stem = f"{_slug(req.config.title)}_{_slug(req.session.candidate_id)}_{ts}"
+    stem = f"{_slug(config.title)}_{_slug(req.session.candidate_id)}_{ts}"
 
     events_path = out_dir / f"{stem}_events.jsonl"
     metrics_path = out_dir / f"{stem}_metrics.json"
@@ -116,7 +117,7 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
 
     metrics = score_bart(req.session.events)
     metrics_path.write_text(metrics.model_dump_json(indent=2), encoding="utf-8")
-    config_path.write_text(req.config.model_dump_json(indent=2), encoding="utf-8")
+    config_path.write_text(config.model_dump_json(indent=2), encoding="utf-8")
 
     return WriteOutputResponse(
         events=str(events_path),

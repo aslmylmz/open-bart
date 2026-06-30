@@ -238,6 +238,38 @@ def test_frozen_sidecar_score_matches_direct_scoring():
             proc.kill()
 
 
+def test_sidecar_exits_when_parent_closes_stdin():
+    """With the watchdog enabled, the sidecar exits on its own when its parent (the
+    Tauri shell) dies — detected as EOF on the stdin pipe the shell holds open. This
+    is the no-orphan backstop for hard kills / dev Ctrl-C (issue 11); it stays off
+    unless BART_SIDECAR_WATCH_PARENT is set, so ordinary runs are unaffected."""
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "sidecar", "--port", "0"],
+        cwd=str(APP_DIR),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env={**os.environ, "BART_SIDECAR_WATCH_PARENT": "1"},
+    )
+    try:
+        port = None
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            if re.search(r"PORT=(\d+)", line):
+                port = True
+                break
+        assert port, "sidecar did not start"
+        proc.stdin.close()  # parent "dies" → EOF on the sidecar's stdin
+        assert proc.wait(timeout=10) is not None  # exits itself, no kill needed
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+
+
 def test_score_matches_direct_scoring():
     """POST /score returns the same metrics as calling score_bart directly
     (SPEC §17 acceptance), wrapped in an AssessmentResponse."""
@@ -268,6 +300,21 @@ def test_preview_returns_curves_matching_config():
     assert curves["purple"]["survival"] == pytest.approx(list(pc.survival))
     assert curves["purple"]["ev"] == pytest.approx(list(pc.ev))
     assert curves["purple"]["optimal_ev"] == pytest.approx(pc.optimal_ev)
+
+
+def test_write_output_defaults_to_the_study_config(tmp_path, monkeypatch):
+    """POST /write-output with no config persists using DEFAULT_TASK_CONFIG, so the
+    Run flow (issue 11) can write a session without modeling a TaskConfig in the
+    client. DEFAULT_TASK_CONFIG.output_dir == "." resolves under the spawn cwd."""
+    monkeypatch.chdir(tmp_path)
+    events = _collected_session()
+    resp = client.post("/write-output", json={"session": _session_payload(events)})
+    assert resp.status_code == 200, resp.text
+    paths = resp.json()
+    for key in ("events", "metrics", "config"):
+        assert Path(paths[key]).exists()
+    metrics = json.loads(Path(paths["metrics"]).read_text(encoding="utf-8"))
+    assert metrics == score_bart(events).model_dump(mode="json")
 
 
 def test_validate_config_accepts_default_and_rejects_bad():

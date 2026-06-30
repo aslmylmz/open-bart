@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { submitSession } from "./lib/api";
+import { persistSession, submitSession } from "./lib/api";
 import { colorNameFromHex } from "./lib/colors";
 import type { GameEvent } from "./lib/events";
 import { buildSessionPayload } from "./lib/session";
@@ -295,6 +295,12 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
             const data = await submitSession<AssessmentResult>(payload);
             setResults(data);
             setGamePhase("results");
+
+            // Persist the session locally via the sidecar (best-effort; the engine
+            // owns file writing, SPEC §13). A write failure must not block results.
+            void persistSession(payload).catch((persistErr) =>
+                console.error("Failed to persist session:", persistErr),
+            );
 
             if (onComplete) {
                 onComplete(data);

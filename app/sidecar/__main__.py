@@ -10,11 +10,31 @@ is race-free.
 from __future__ import annotations
 
 import argparse
+import os
 import socket
+import sys
+import threading
 
 import uvicorn
 
 from sidecar.app import app
+
+
+def _exit_when_parent_closes_stdin() -> None:
+    """Exit if the parent (the Tauri shell) dies. The shell holds our stdin open as a
+    liveness pipe; EOF on it means the parent is gone, so we shut down rather than
+    orphan. Enabled only via ``BART_SIDECAR_WATCH_PARENT`` so tests and direct runs
+    (which supply no liveness pipe) are unaffected. Backstop for hard kills / dev
+    Ctrl-C; the shell still kills us directly on a graceful exit.
+    """
+    stream = sys.stdin
+    if stream is None:  # nothing to watch (e.g. detached) — leave the sidecar running
+        return
+    try:
+        stream.read()  # blocks until the parent closes the pipe (EOF)
+    except Exception:
+        pass
+    os._exit(0)
 
 
 def main() -> None:
@@ -28,6 +48,9 @@ def main() -> None:
     sock.bind((args.host, args.port))
     port = sock.getsockname()[1]
     print(f"PORT={port}", flush=True)
+
+    if os.environ.get("BART_SIDECAR_WATCH_PARENT"):
+        threading.Thread(target=_exit_when_parent_closes_stdin, daemon=True).start()
 
     server = uvicorn.Server(uvicorn.Config(app, log_level="warning"))
     server.run(sockets=[sock])

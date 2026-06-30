@@ -1,9 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { resolveApiUrl, scoringEndpoint } from "./api";
+import {
+  initSidecarUrl,
+  persistSession,
+  resolveApiUrl,
+  scoringEndpoint,
+  setApiBaseUrl,
+} from "./api";
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  setApiBaseUrl(null);
+});
+
+describe("setApiBaseUrl", () => {
+  it("overrides the env and default (how the Tauri sidecar port is injected)", () => {
+    vi.stubEnv("VITE_API_URL", "http://127.0.0.1:9999");
+    setApiBaseUrl("http://127.0.0.1:5000");
+    expect(resolveApiUrl()).toBe("http://127.0.0.1:5000");
+  });
+
+  it("clearing the override restores the default", () => {
+    setApiBaseUrl("http://127.0.0.1:5000");
+    setApiBaseUrl(null);
+    expect(resolveApiUrl()).toBe("http://localhost:8000");
+  });
 });
 
 describe("resolveApiUrl", () => {
@@ -20,5 +42,34 @@ describe("resolveApiUrl", () => {
 describe("scoringEndpoint", () => {
   it("targets the sidecar /score route on the resolved base URL", () => {
     expect(scoringEndpoint()).toBe("http://localhost:8000/score");
+  });
+});
+
+describe("initSidecarUrl", () => {
+  it("is a no-op outside Tauri, leaving the resolved URL at its default", async () => {
+    await initSidecarUrl();
+    expect(resolveApiUrl()).toBe("http://localhost:8000");
+  });
+});
+
+describe("persistSession", () => {
+  it("POSTs the finished session to the sidecar /write-output", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await persistSession({
+      session_id: "s",
+      game_type: "BART_RISK",
+      candidate_id: "c",
+      events: [],
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/write-output");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({
+      session: { session_id: "s", game_type: "BART_RISK", candidate_id: "c", events: [] },
+    });
   });
 });
