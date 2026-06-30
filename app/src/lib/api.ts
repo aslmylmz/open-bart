@@ -54,6 +54,22 @@ export async function initSidecarUrl(): Promise<void> {
   setApiBaseUrl(await invoke<string>("get_sidecar_url"));
 }
 
+/** POST a JSON body to a sidecar endpoint and return the parsed response. On a
+ * non-2xx it surfaces the server's `detail`, else names the endpoint. This is the
+ * single place the client's HTTP + error policy lives. */
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error((error as { detail?: string }).detail ?? `Request to ${url} failed`);
+  }
+  return (await response.json()) as T;
+}
+
 /** Validate a candidate study against the sidecar (the validation authority).
  * `/validate-config` returns 200 with `{ ok, errors }` even for invalid configs,
  * so the form can show the messages inline. The body is the raw config object. */
@@ -73,16 +89,7 @@ export async function validateConfig(config: TaskConfig): Promise<ValidateResult
  * (SPEC §7.3). Throws if the config is invalid (the sidecar returns 422), so the
  * caller can keep the last-good preview rather than blanking the plot. */
 export async function preview(config: TaskConfig): Promise<PreviewResponse> {
-  const response = await fetch(`${resolveApiUrl()}/preview`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(config),
-  });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail ?? "Preview failed");
-  }
-  return (await response.json()) as PreviewResponse;
+  return postJson<PreviewResponse>(`${resolveApiUrl()}/preview`, config);
 }
 
 /** POST a session (with its study config) to /score and return the parsed result.
@@ -90,16 +97,7 @@ export async function preview(config: TaskConfig): Promise<PreviewResponse> {
  * to the study on the server, so the metrics reflect the config that was run. */
 export async function submitSession<T>(payload: SessionPayload, config?: TaskConfig): Promise<T> {
   const body = config ? { session: payload, config } : { session: payload };
-  const response = await fetch(scoringEndpoint(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail ?? "Scoring failed");
-  }
-  return (await response.json()) as T;
+  return postJson<T>(scoringEndpoint(), body);
 }
 
 /** Persist a finished session locally via the sidecar's /write-output (SPEC §13).
@@ -107,13 +105,5 @@ export async function submitSession<T>(payload: SessionPayload, config?: TaskCon
  * and config snapshot reflect the study that was run (omitted → default study). */
 export async function persistSession(payload: SessionPayload, config?: TaskConfig): Promise<void> {
   const body = config ? { session: payload, config } : { session: payload };
-  const response = await fetch(`${resolveApiUrl()}/write-output`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail ?? "Write-output failed");
-  }
+  await postJson<unknown>(`${resolveApiUrl()}/write-output`, body);
 }
