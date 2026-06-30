@@ -137,6 +137,20 @@ fn get_sidecar_url(state: tauri::State<'_, SidecarHandle>) -> String {
     state.base_url.clone()
 }
 
+/// Read study.json from a user-chosen path (issue 12). The native dialog supplies the
+/// path, so the user's explicit choice is the authorization — std::fs here keeps the
+/// fs-plugin capability scope (and a broad allowlist) out of it.
+#[tauri::command]
+fn read_study_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| e.to_string())
+}
+
+/// Write study.json to a user-chosen path (see `read_study_file` on authorization).
+#[tauri::command]
+fn write_study_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, content).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -147,7 +161,11 @@ pub fn run() {
             app.manage(handle);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_sidecar_url])
+        .invoke_handler(tauri::generate_handler![
+            get_sidecar_url,
+            read_study_file,
+            write_study_file
+        ])
         .build(tauri::generate_context!())
         .expect("error while building the BART desktop shell")
         .run(|app_handle, event| {
@@ -178,5 +196,16 @@ mod tests {
     #[test]
     fn base_url_targets_loopback() {
         assert_eq!(sidecar_base_url(5000), "http://127.0.0.1:5000");
+    }
+
+    #[test]
+    fn study_file_round_trips() {
+        let path = std::env::temp_dir()
+            .join(format!("bart-study-{}.json", std::process::id()))
+            .to_string_lossy()
+            .into_owned();
+        write_study_file(path.clone(), "{\"title\":\"t\"}".into()).unwrap();
+        assert_eq!(read_study_file(path.clone()).unwrap(), "{\"title\":\"t\"}");
+        let _ = std::fs::remove_file(path);
     }
 }
