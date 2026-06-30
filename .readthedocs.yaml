@@ -10,7 +10,9 @@ build:
 
 sphinx:
   configuration: docs/conf.py
-  fail_on_warning: false
+  # The docs build is warning-clean; fail the RTD build on any new warning so
+  # regressions (orphaned pages, broken cross-references) are caught in CI.
+  fail_on_warning: true
 
 python:
   install:
