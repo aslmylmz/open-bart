@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 
 import scoring
 from scoring.bart import score_bart
-from scoring.config import DEFAULT_TASK_CONFIG
+from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
 from scoring.schemas import EventPayload, GameEvent
 from sidecar.app import app
 
@@ -226,7 +226,8 @@ def test_frozen_sidecar_score_matches_direct_scoring():
         with _frozen_client() as client:
             assert _wait_for_healthz(client, port) is not None, "frozen sidecar never became ready"
             resp = client.post(
-                f"http://127.0.0.1:{port}/score", json=_session_payload(events)
+                f"http://127.0.0.1:{port}/score",
+                json={"session": _session_payload(events)},
             )
             assert resp.status_code == 200, resp.text
             assert resp.json()["raw_metrics"] == score_bart(events).model_dump(mode="json")
@@ -274,7 +275,7 @@ def test_score_matches_direct_scoring():
     """POST /score returns the same metrics as calling score_bart directly
     (SPEC §17 acceptance), wrapped in an AssessmentResponse."""
     events = _collected_session()
-    resp = client.post("/score", json=_session_payload(events))
+    resp = client.post("/score", json={"session": _session_payload(events)})
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["session_id"] == "sess-1"
@@ -282,6 +283,23 @@ def test_score_matches_direct_scoring():
     assert body["game_type"] == "BART_RISK"
     assert body["normalized_scores"] == []
     assert body["raw_metrics"] == score_bart(events).model_dump(mode="json")
+
+
+def test_score_uses_supplied_config(tmp_path):
+    """POST /score with a non-default config scores against THAT config's optima,
+    not the default study — i.e. per-study scoring is wired through to score_bart."""
+    events = _collected_session()
+    cfg_dict = DEFAULT_TASK_CONFIG.model_dump()
+    cfg_dict["colors"][0]["max_pumps"] = 64  # purple optimum shifts off the default 11
+    custom = TaskConfig.model_validate(cfg_dict)
+
+    resp = client.post(
+        "/score", json={"session": _session_payload(events), "config": cfg_dict}
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["raw_metrics"] == score_bart(events, custom).model_dump(mode="json")
+    assert body["raw_metrics"] != score_bart(events).model_dump(mode="json")
 
 
 def test_preview_returns_curves_matching_config():

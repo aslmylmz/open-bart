@@ -85,12 +85,15 @@ export async function preview(config: TaskConfig): Promise<PreviewResponse> {
   return (await response.json()) as PreviewResponse;
 }
 
-/** POST a session payload to the scoring endpoint and return the parsed result. */
-export async function submitSession<T>(payload: SessionPayload): Promise<T> {
+/** POST a session (with its study config) to /score and return the parsed result.
+ * Body is the ScoreRequest shape `{ session, config? }`; an omitted config defaults
+ * to the study on the server, so the metrics reflect the config that was run. */
+export async function submitSession<T>(payload: SessionPayload, config?: TaskConfig): Promise<T> {
+  const body = config ? { session: payload, config } : { session: payload };
   const response = await fetch(scoringEndpoint(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -100,13 +103,14 @@ export async function submitSession<T>(payload: SessionPayload): Promise<T> {
 }
 
 /** Persist a finished session locally via the sidecar's /write-output (SPEC §13).
- * The engine (not JS) owns file writing; config is omitted so the sidecar uses the
- * default study until Study Setup (Phase 3) supplies one. */
-export async function persistSession(payload: SessionPayload): Promise<void> {
+ * The engine (not JS) owns file writing; the study config is sent so the metrics
+ * and config snapshot reflect the study that was run (omitted → default study). */
+export async function persistSession(payload: SessionPayload, config?: TaskConfig): Promise<void> {
+  const body = config ? { session: payload, config } : { session: payload };
   const response = await fetch(`${resolveApiUrl()}/write-output`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session: payload }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));

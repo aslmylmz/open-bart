@@ -19,10 +19,11 @@ from pydantic import ValidationError
 from scoring import __version__
 from scoring.bart import score_bart
 from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
-from scoring.schemas import AssessmentResponse, GameSession
+from scoring.schemas import AssessmentResponse
 from sidecar.models import (
     CurvePreview,
     PreviewResponse,
+    ScoreRequest,
     ValidateConfigResponse,
     WriteOutputRequest,
     WriteOutputResponse,
@@ -73,20 +74,21 @@ def preview(config: TaskConfig) -> PreviewResponse:
 
 
 @app.post("/score", response_model=AssessmentResponse)
-def score(session: GameSession) -> AssessmentResponse:
-    """Score a session and return it in the shape the client consumes.
+def score(req: ScoreRequest) -> AssessmentResponse:
+    """Score a session against its study config and return the client's shape.
 
     ``score_bart`` returns a flat ``BARTMetrics``; the client expects an
     ``AssessmentResponse``. Offline there are no population norms, so
     ``normalized_scores`` is empty and ``profile_traits`` is left to the metrics'
-    own ``behavioral_profile``. Phase 1 scores against the default study; a
-    config-driven path lands with Study Setup.
+    own ``behavioral_profile``. ``config`` is optional → ``DEFAULT_TASK_CONFIG``,
+    so the engine's per-color optima and reward follow the study that was run.
     """
-    metrics = score_bart(session.events)
+    config = req.config or DEFAULT_TASK_CONFIG
+    metrics = score_bart(req.session.events, config)
     return AssessmentResponse(
-        session_id=session.session_id,
-        game_type=session.game_type,
-        candidate_id=session.candidate_id,
+        session_id=req.session.session_id,
+        game_type=req.session.game_type,
+        candidate_id=req.session.candidate_id,
         raw_metrics=metrics,
         normalized_scores=[],
         profile_traits={},
@@ -115,7 +117,7 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
         for event in req.session.events:
             fh.write(event.model_dump_json() + "\n")
 
-    metrics = score_bart(req.session.events)
+    metrics = score_bart(req.session.events, config)
     metrics_path.write_text(metrics.model_dump_json(indent=2), encoding="utf-8")
     config_path.write_text(config.model_dump_json(indent=2), encoding="utf-8")
 

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { persistSession, submitSession } from "./lib/api";
-import { colorNameFromHex } from "./lib/colors";
+import type { TaskConfig } from "./lib/config";
 import type { GameEvent } from "./lib/events";
+import { taskStrings } from "./lib/i18n";
 import { buildSessionPayload } from "./lib/session";
+import { type Balloon, buildSequence, mulberry32 } from "./run/sequence";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -54,55 +56,12 @@ interface AssessmentResult {
 }
 
 // ── Config ──────────────────────────────────────────────────────────────────
+// The balloon sequence is built from the study TaskConfig at startGame (see
+// run/sequence.ts): `trials` balloons per color, seeded-shuffled, each carrying
+// its precomputed hazard vector. Reward, colors, caps, and language all come from
+// the config — nothing about the task is hardcoded here anymore.
 
-const TOTAL_BALLOONS = 30;
-
-interface RiskProfile {
-    color: string;
-    maxPumps: number;
-    riskLevel: "Low" | "Medium" | "High";
-}
-
-const RISK_PROFILES: Record<string, RiskProfile> = {
-    ORANGE: { color: "#F97316", maxPumps: 8, riskLevel: "High" },
-    TEAL: { color: "#14B8A6", maxPumps: 32, riskLevel: "Medium" },
-    PURPLE: { color: "#A855F7", maxPumps: 128, riskLevel: "Low" },
-};
-
-interface BalloonConfig {
-    id: number;
-    color: string;
-    maxPumps: number;
-}
-
-/**
- * Generates a randomized list of 30 balloons (10 per risk level).
- * P(explode at pump k) = k / maxPumps.
- */
-function generateSessionConfig(): BalloonConfig[] {
-    const configs: BalloonConfig[] = [];
-
-    (["ORANGE", "TEAL", "PURPLE"] as const).forEach((type) => {
-        const profile = RISK_PROFILES[type];
-        for (let i = 0; i < 10; i++) {
-            configs.push({
-                id: 0,
-                color: profile.color,
-                maxPumps: profile.maxPumps,
-            });
-        }
-    });
-
-    // Fisher-Yates Shuffle
-    for (let i = configs.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [configs[i], configs[j]] = [configs[j], configs[i]];
-    }
-
-    return configs.map((c, idx) => ({ ...c, id: idx + 1 }));
-}
-
-// ── Turkish Label Maps ───────────────────────────────────────────────────────
+// ── Turkish Label Maps (results-modal metric labels; full i18n is a follow-up) ──
 
 const COLOR_TR: Record<string, string> = {
     purple: "Mor",
@@ -119,15 +78,21 @@ const RISK_TR: Record<string, string> = {
 // ── Component ───────────────────────────────────────────────────────────────
 
 interface BartGameProps {
+    config: TaskConfig;
+    hazards: Record<string, number[]>;
     candidateId: string;
     onComplete?: (data: AssessmentResult) => void;
 }
 
-export default function BartGame({ candidateId, onComplete }: BartGameProps) {
+export default function BartGame({ config, hazards, candidateId, onComplete }: BartGameProps) {
     const eventLogRef = useRef<GameEvent[]>([]);
     const sessionIdRef = useRef(crypto.randomUUID());
-    const sessionConfigRef = useRef<BalloonConfig[]>([]);
+    const sessionConfigRef = useRef<Balloon[]>([]);
+    const rngRef = useRef<() => number>(() => Math.random());
     const containerRef = useRef<HTMLDivElement>(null);
+
+    const t = taskStrings(config.language);
+    const totalBalloons = config.colors.reduce((n, c) => n + c.trials, 0);
 
     const [currentBalloon, setCurrentBalloon] = useState<BalloonState>({
         id: 1,
@@ -150,16 +115,8 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
     // Record high-resolution monotonic timestamps
     const recordEvent = useCallback(
         (type: GameEvent["type"], extra: Record<string, unknown> = {}) => {
-            const config = sessionConfigRef.current[currentBalloon.id - 1];
-
-            if (!config) {
-                console.error(`No config found for balloon ${currentBalloon.id}`, {
-                    configLength: sessionConfigRef.current.length,
-                    balloonId: currentBalloon.id
-                });
-            }
-
-            const colorName = colorNameFromHex(config?.color ?? "");
+            const balloon = sessionConfigRef.current[currentBalloon.id - 1];
+            const colorName = balloon?.colorName ?? "";
 
             eventLogRef.current.push({
                 timestamp: performance.now(),
@@ -177,31 +134,39 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
     const startGame = useCallback(() => {
         eventLogRef.current = [];
         sessionIdRef.current = crypto.randomUUID();
-        sessionConfigRef.current = generateSessionConfig();
+        // One seeded rng drives both the shuffle and the per-pump burst draws, so a
+        // fixed seed reproduces the whole run (SPEC §7.2); null seed → fresh run.
+        const seed = config.seed ?? ((Math.random() * 2 ** 32) >>> 0);
+        const rng = mulberry32(seed);
+        rngRef.current = rng;
+        sessionConfigRef.current = buildSequence(config, hazards, rng);
 
         setCurrentBalloon({ id: 1, pumps: 0, status: "active" });
         setCompletedBalloons([]);
         setTotalScore(0);
         setResults(null);
         setGamePhase("playing");
-    }, []);
+    }, [config, hazards]);
 
     const handlePump = useCallback(() => {
         if (gamePhase !== "playing" || currentBalloon.status !== "active") return;
 
+        const balloon = sessionConfigRef.current[currentBalloon.id - 1];
+        const maxPumps = balloon ? balloon.maxPumps : 0;
+        if (currentBalloon.pumps >= maxPumps) return; // at the cap — cannot pump further
+
         const newPumps = currentBalloon.pumps + 1;
         recordEvent("pump");
 
-        const config = sessionConfigRef.current[currentBalloon.id - 1];
-        const maxPumps = config ? config.maxPumps : 32;
-
-        const explosionProbability = newPumps / maxPumps;
-        const explode = newPumps >= maxPumps || Math.random() < explosionProbability;
+        // Burst from the config's precomputed hazard vector: P(burst at pump k) =
+        // hazard[k-1], drawn from the seeded rng so the run is reproducible.
+        const h = balloon?.hazard[newPumps - 1] ?? 1;
+        const explode = rngRef.current() < h;
 
         if (explode) {
             recordEvent("explode", { pump_count: newPumps });
             setCurrentBalloon((b) => ({ ...b, pumps: newPumps, status: "exploded" }));
-            setFeedbackMessage("PATLADI! Bu balon için $0,00.");
+            setFeedbackMessage(t.exploded);
             setGamePhase("feedback");
 
             setTimeout(() => {
@@ -212,7 +177,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
                 };
                 setCompletedBalloons((prev) => {
                     const updated = [...prev, exploded];
-                    if (updated.length >= TOTAL_BALLOONS) {
+                    if (updated.length >= totalBalloons) {
                         setGamePhase("finished");
                     } else {
                         setCurrentBalloon({
@@ -229,7 +194,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
         } else {
             setCurrentBalloon((b) => ({ ...b, pumps: newPumps }));
         }
-    }, [gamePhase, currentBalloon, recordEvent]);
+    }, [gamePhase, currentBalloon, recordEvent, t, totalBalloons]);
 
     const handleCollect = useCallback(() => {
         if (
@@ -241,10 +206,10 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
 
         recordEvent("collect");
 
-        const money = currentBalloon.pumps * 0.25;
+        const money = currentBalloon.pumps * config.reward_per_pump;
         setTotalScore((s) => s + money);
         setCurrentBalloon((b) => ({ ...b, status: "collected" }));
-        setFeedbackMessage(`Toplandı! $${money.toFixed(2)}`);
+        setFeedbackMessage(`${t.collected} $${money.toFixed(2)}`);
         setGamePhase("feedback");
 
         setTimeout(() => {
@@ -255,7 +220,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
             };
             setCompletedBalloons((prev) => {
                 const updated = [...prev, collected];
-                if (updated.length >= TOTAL_BALLOONS) {
+                if (updated.length >= totalBalloons) {
                     setGamePhase("finished");
                 } else {
                     setCurrentBalloon({
@@ -269,7 +234,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
             });
             setFeedbackMessage("");
         }, 1000);
-    }, [gamePhase, currentBalloon, recordEvent]);
+    }, [gamePhase, currentBalloon, recordEvent, config.reward_per_pump, t, totalBalloons]);
 
     const handleSubmit = useCallback(async () => {
         setIsSubmitting(true);
@@ -292,13 +257,13 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
         });
 
         try {
-            const data = await submitSession<AssessmentResult>(payload);
+            const data = await submitSession<AssessmentResult>(payload, config);
             setResults(data);
             setGamePhase("results");
 
             // Persist the session locally via the sidecar (best-effort; the engine
             // owns file writing, SPEC §13). A write failure must not block results.
-            void persistSession(payload).catch((persistErr) =>
+            void persistSession(payload, config).catch((persistErr) =>
                 console.error("Failed to persist session:", persistErr),
             );
 
@@ -313,7 +278,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
         } finally {
             setIsSubmitting(false);
         }
-    }, [candidateId, onComplete]);
+    }, [candidateId, onComplete, config]);
 
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent) => {
@@ -334,18 +299,8 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
         }
     }, [gamePhase]);
 
-    useEffect(() => {
-        if (gamePhase === "playing" && sessionConfigRef.current.length > 0) {
-            console.log("Generated balloon sequence:", sessionConfigRef.current.map((c) => ({
-                id: c.id,
-                colorName: c.color === "#F97316" ? "ORANGE" : c.color === "#14B8A6" ? "TEAL" : c.color === "#A855F7" ? "PURPLE" : "UNKNOWN",
-                maxPumps: c.maxPumps
-            })));
-        }
-    }, [gamePhase]);
-
     const currentConfig = sessionConfigRef.current[currentBalloon.id - 1];
-    const balloonColor = currentConfig ? currentConfig.color : "#9CA3AF";
+    const balloonColor = currentConfig ? currentConfig.displayHex : "#9CA3AF";
     const balloonScale = 1 + currentBalloon.pumps * 0.08;
     const balloonSize = 100 * balloonScale;
 
@@ -368,7 +323,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
                             color: "#fff",
                         }}
                     >
-                        Balon Analog Risk Görevi
+                        {t.taskTitle}
                     </h2>
                     <p
                         style={{
@@ -378,13 +333,12 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
                             lineHeight: 1.6,
                         }}
                     >
-                        Balonu şişirerek para kazanın ($0,25/şişirme). Her şişirme patlama riskini
-                        artırır. Patlamadan önce paranızı toplayın!
+                        {t.instructions}
                     </p>
                     <p
                         style={{ color: "#6B7280", fontSize: "0.85rem" }}
                     >
-                        {TOTAL_BALLOONS} balon · Boşluk: şişir · Enter: topla
+                        {totalBalloons} {t.balloonsWord} · {t.controlsHint}
                     </p>
                     <button
                         onClick={startGame}
@@ -412,7 +366,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
                                 "0 4px 15px rgba(99,102,241,0.4)";
                         }}
                     >
-                        Göreve Başla
+                        {t.startButton}
                     </button>
                 </div>
             )}
@@ -430,14 +384,14 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
                         }}
                     >
                         <span style={{ color: "#9CA3AF", fontSize: "0.9rem" }}>
-                            Balon{" "}
+                            {t.balloonLabel}{" "}
                             <span style={{ color: "#fff", fontWeight: 700 }}>
-                                {Math.min(balloonCount, TOTAL_BALLOONS)}
+                                {Math.min(balloonCount, totalBalloons)}
                             </span>
-                            /{TOTAL_BALLOONS}
+                            /{totalBalloons}
                         </span>
                         <span style={{ color: "#9CA3AF", fontSize: "0.9rem" }}>
-                            Toplam{" "}
+                            {t.totalLabel}{" "}
                             <span style={{ color: "#22C55E", fontWeight: 700 }}>
                                 ${totalScore.toFixed(2)}
                             </span>
@@ -497,7 +451,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
                                         textShadow: "0 2px 4px rgba(0,0,0,0.3)",
                                     }}
                                 >
-                                    ${(currentBalloon.pumps * 0.25).toFixed(2)}
+                                    ${(currentBalloon.pumps * config.reward_per_pump).toFixed(2)}
                                 </span>
                             </div>
                         )}
@@ -554,7 +508,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
                                 boxShadow: "0 3px 10px rgba(249,115,22,0.3)",
                             }}
                         >
-                            🎈 Şişir (Boşluk)
+                            {t.pumpButton}
                         </button>
                         <button
                             onClick={handleCollect}
@@ -586,7 +540,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
                                 boxShadow: "0 3px 10px rgba(34,197,94,0.3)",
                             }}
                         >
-                            💰 Topla (Enter)
+                            {t.collectButton}
                         </button>
                     </div>
 
@@ -635,14 +589,14 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
                     <h2
                         style={{ fontSize: "1.5rem", fontWeight: 700, color: "#fff" }}
                     >
-                        Değerlendirme Tamamlandı
+                        {t.finishedTitle}
                     </h2>
                     <p style={{ color: "#9CA3AF" }}>
-                        Toplam Kazanç:{" "}
+                        {t.totalEarnings}:{" "}
                         <span style={{ color: "#22C55E", fontWeight: 700 }}>
                             ${totalScore.toFixed(2)}
                         </span>{" "}
-                        / {TOTAL_BALLOONS} balon
+                        / {totalBalloons} {t.balloonsWord}
                     </p>
 
                     <div
@@ -693,7 +647,7 @@ export default function BartGame({ candidateId, onComplete }: BartGameProps) {
                             boxShadow: "0 4px 15px rgba(99,102,241,0.4)",
                         }}
                     >
-                        {isSubmitting ? "Analiz ediliyor..." : onComplete ? "Sonraki" : "Sonuçlarımı Gör"}
+                        {isSubmitting ? t.analyzing : t.seeResults}
                     </button>
 
                     {feedbackMessage && (

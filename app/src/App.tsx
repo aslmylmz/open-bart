@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
-import BartGame from "./BartGame";
 import { DEFAULT_STUDY, type TaskConfig } from "./lib/config";
 import { toggleFullscreen } from "./lib/desktop";
+import { RunFlow } from "./run/RunFlow";
 import { EvPreview } from "./setup/EvPreview";
 import { StudySetup } from "./setup/StudySetup";
 
@@ -32,14 +32,7 @@ export function App() {
   }, []);
 
   if (mode === "run") {
-    return (
-      <div>
-        <button type="button" onClick={() => setMode("setup")}>
-          ← Back to setup
-        </button>
-        <BartGame candidateId="anonymous" />
-      </div>
-    );
+    return <RunFlow config={config} onExit={() => setMode("setup")} />;
   }
 
   // Study Setup (issue 14). Issue 15 adds the live EV preview alongside the form;

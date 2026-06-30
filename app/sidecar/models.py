@@ -46,6 +46,15 @@ class PreviewResponse(BaseModel):
     curves: dict[str, CurvePreview]
 
 
+class ScoreRequest(BaseModel):
+    """A session to score, optionally with the study config it ran under. When
+    ``config`` is omitted the sidecar scores against the default study, mirroring
+    ``WriteOutputRequest`` and the original bare-session contract."""
+
+    session: GameSession
+    config: TaskConfig | None = None
+
+
 class WriteOutputRequest(BaseModel):
     """A session to persist, optionally with the study config it ran under (SPEC
     §13). When ``config`` is omitted the sidecar falls back to the default study,
