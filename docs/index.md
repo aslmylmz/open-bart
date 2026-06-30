@@ -66,6 +66,7 @@ quickstart
 :caption: Standalone desktop app
 
 standalone/quickstart
+SmartScreen & antivirus <standalone/SMARTSCREEN>
 ```
 
 ```{toctree}

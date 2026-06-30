@@ -57,7 +57,20 @@ source_suffix = {
     ".rst": "restructuredtext",
 }
 
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    # Untracked, developer-only notes that are not part of the published site
+    # (and do not exist at all on Read the Docs, where these patterns are no-ops).
+    "adr/**",
+    "agents/**",
+    "client-brief.md",
+    # Internal issue-tracker entries ("tracking notes, not GitHub issues"): not
+    # researcher-facing, and they use filesystem-path links that are not valid
+    # cross-references once rendered.
+    "standalone/issues/**",
+]
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

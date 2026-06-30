@@ -1,3 +1,7 @@
+---
+orphan: true
+---
+
 # Windows pre-release verification
 
 **Phase 4 · issue 19 · SPEC §12, §15**
