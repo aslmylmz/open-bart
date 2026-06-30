@@ -1,4 +1,26 @@
+import type { TaskConfig } from "./config";
 import type { SessionPayload } from "./session";
+
+/** The sidecar's /validate-config verdict (mirrors ValidateConfigResponse). */
+export interface ValidateResult {
+  ok: boolean;
+  errors: string[];
+}
+
+/** One color's precomputed curve from /preview (mirrors the sidecar's CurvePreview).
+ * `survival`/`ev` are indexed by stop s = 0..N; `hazard` by pump k = 1..N. */
+export interface CurvePreview {
+  hazard: number[];
+  survival: number[];
+  ev: number[];
+  optimum: number;
+  optimal_ev: number;
+}
+
+/** Per-color curves for a whole study (mirrors PreviewResponse). */
+export interface PreviewResponse {
+  curves: Record<string, CurvePreview>;
+}
 
 /** Default scoring endpoint: the local Python sidecar (overridable via VITE_API_URL). */
 const DEFAULT_API_URL = "http://localhost:8000";
@@ -30,6 +52,37 @@ export async function initSidecarUrl(): Promise<void> {
   if (!runningInTauri()) return;
   const { invoke } = await import("@tauri-apps/api/core");
   setApiBaseUrl(await invoke<string>("get_sidecar_url"));
+}
+
+/** Validate a candidate study against the sidecar (the validation authority).
+ * `/validate-config` returns 200 with `{ ok, errors }` even for invalid configs,
+ * so the form can show the messages inline. The body is the raw config object. */
+export async function validateConfig(config: TaskConfig): Promise<ValidateResult> {
+  const response = await fetch(`${resolveApiUrl()}/validate-config`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    return { ok: false, errors: [`Validation request failed (${response.status})`] };
+  }
+  return (await response.json()) as ValidateResult;
+}
+
+/** Fetch each color's hazard/survival/EV curves + numeric optimum for a config
+ * (SPEC §7.3). Throws if the config is invalid (the sidecar returns 422), so the
+ * caller can keep the last-good preview rather than blanking the plot. */
+export async function preview(config: TaskConfig): Promise<PreviewResponse> {
+  const response = await fetch(`${resolveApiUrl()}/preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail ?? "Preview failed");
+  }
+  return (await response.json()) as PreviewResponse;
 }
 
 /** POST a session payload to the scoring endpoint and return the parsed result. */

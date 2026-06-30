@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import BartGame from "./BartGame";
 import { DEFAULT_STUDY, type TaskConfig } from "./lib/config";
 import { toggleFullscreen } from "./lib/desktop";
+import { EvPreview } from "./setup/EvPreview";
+import { StudySetup } from "./setup/StudySetup";
 
 type Mode = "setup" | "run";
 
@@ -14,7 +16,7 @@ type Mode = "setup" | "run";
 // kiosk/fullscreen (SPEC §10); outside Tauri it is a harmless no-op.
 export function App() {
   const [mode, setMode] = useState<Mode>("setup");
-  const [config] = useState<TaskConfig>(DEFAULT_STUDY);
+  const [config, setConfig] = useState<TaskConfig>(DEFAULT_STUDY);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -40,15 +42,17 @@ export function App() {
     );
   }
 
-  // Study Setup placeholder — issue 14 replaces this with the real form + issue 15's
-  // live EV preview. The active study defaults to the validated 128/32/8 linear config.
+  // Study Setup (issue 14). Issue 15 adds the live EV preview alongside the form;
+  // the active study defaults to the validated 128/32/8 linear config.
   return (
     <div>
-      <h1>Study Setup</h1>
-      <p>Active study: {config.title}</p>
-      <button type="button" onClick={() => setMode("run")}>
-        Start run →
-      </button>
+      <StudySetup config={config} onChange={setConfig} />
+      <EvPreview config={config} />
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: 16 }}>
+        <button type="button" onClick={() => setMode("run")}>
+          Start run →
+        </button>
+      </div>
     </div>
   );
 }

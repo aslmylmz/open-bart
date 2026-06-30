@@ -40,12 +40,17 @@ rules. Ships the validated default study from issue 13's `DEFAULT_STUDY`.
   `loadStudy()` → parse → run through `validateConfig` → set the active config; a
   load (or edit) that fails validation shows the errors instead of replacing the
   active config.
-- [ ] Tests: `app/src/setup/familyParams.test.ts` — each family yields a valid
-  default param object and switching family produces the right param shape; a
-  `StudySetup` interaction test (vitest + jsdom) — editing a param updates the
-  candidate config, and an out-of-range value surfaces the sidecar errors (mock
-  `validateConfig`). Save/load round-trip is build + smoke verified via the existing
-  `desktop.ts` mocks.
+- [ ] Tests (pure, node — the project has no jsdom/testing-library, so the form
+  logic is extracted into pure modules and the React component is a thin
+  build/smoke-verified shell, consistent with issues 11–13):
+  `familyParams.test.ts` — each family's `defaultHazard` is well-formed (correct
+  discriminator, scalar params defaulted, step/tabular arrays sized to `max_pumps`);
+  `studyForm.test.ts` — switching family reseeds defaults (immutably), `setHazardParam`
+  edits a scalar, `removeColor` keeps ≥1 color, `addColor`/`parseStudy`/`parseNumberList`;
+  `api.test.ts` — `validateConfig` POSTs the config and returns the sidecar verdict
+  (fetch-mocked). A cross-check validates all 11 family defaults against the real
+  pydantic schema. `StudySetup.tsx` (save/load/validate wiring) is build + smoke
+  verified via `tsc` + `vite build`.
 
 ## Acceptance
 
