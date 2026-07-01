@@ -58,6 +58,45 @@ _Avoid_: "successful trial", "cashed-in balloon"
 A balloon color's full configuration: display name, hex color, max pumps (N), trial count, and hazard family with parameters. The three default profiles are purple (N=128, low risk), teal (N=32, medium risk), and orange (N=8, high risk).
 _Avoid_: "risk tier" (acceptable as informal shorthand but not a defined model concept)
 
+### UI/UX
+
+**Researcher View:**
+The Study Setup + EV Preview screens where researchers design experiments. Follows Apple Human Interface Guidelines–inspired design: information-dense but clean, with precise typography, generous whitespace, subtle depth cues, and polished controls. Prioritizes user adoption — a non-technical researcher should feel the tool is professional and trustworthy at first glance. Layout: single scrollable card with clear section dividers — "Study Info" at top, then "Color Profiles" as stacked sub-cards (each with a colored left-border accent matching the balloon's display_hex), then "Save/Load" at bottom. EV Preview curves sit directly below the color profiles. No tabs, no sidebar — everything visible at once so researchers can compare color profiles side by side.
+_Avoid_: "admin panel", "dashboard"
+
+**Participant View:**
+The Consent → ID → Gameplay → Debrief screens a participant sees during a session. Follows BART research instrument conventions: minimal, high-contrast, distraction-free. Academic legibility is the top priority — large readable text, a centered balloon, clearly labeled action buttons, and no extraneous UI chrome. The participant should never see researcher controls or feel like they are using a developer tool.
+_Avoid_: "player view", "game screen"
+
+**Mode Switch:**
+The visual transition when the researcher clicks "Start run →" and hands the machine to a participant. The screen should change dramatically enough to signal "this is the participant's view now" — different visual density, different atmosphere, kiosk-like focus. The dark→light theme change is the primary perceptual cue (see ADR 0003).
+_Avoid_: "page navigation" (it is a role transition, not just a route change)
+
+**Dark Posture (Researcher):**
+The `#0f0f23` deep navy/charcoal background used for the Researcher View. Makes SVG curves and validation errors highly readable; communicates a premium analytical-tool feel following Apple HIG conventions.
+
+**Light Posture (Participant):**
+The `#f8f9fa` sterile off-white background with dark text used for the Participant View. Matches BART research instrument conventions: maximal legibility under variable lab lighting, avoids the gaming-prime arousal confound that a dark UI introduces to risk-taking data.
+
+**Familiarity on the Outside, Revolution on the Inside:**
+Core design rule for the Participant View. The interaction surface — balloon visual, input mapping, feedback nomenclature, trial sequence — must be instantly recognizable to any cognitive or behavioral researcher who has run a BART before. The methodological innovation (dynamic hazard, configurable families, per-color EV optimization) lives underneath, invisible to the participant. This eliminates learning curves and maximizes comparability with existing BART literature.
+
+Three sub-conventions enforce this:
+
+1. **Standardized Input Mapping.** Space → Pump, Enter → Collect. These are the canonical BART key bindings. They also minimize physical motor-movement artifacts in fMRI/EEG scanner environments (only right-thumb and right-index-finger responses needed).
+
+2. **Canonical Nomenclature.** All participant-facing labels and scored CSV column names use standard BART terminology: "Balloon", "Pump", "Collect", "Pop", "Total Earnings". This ensures output files are instantly recognizable in SPSS, R, or Excel without a codebook.
+
+3. **Default Paradigm Sequence.** The out-of-the-box study loads the validated 3-color randomized block sequence (Purple N=128, Teal N=32, Orange N=8, 10 trials each) representing distinct low/medium/high-hazard risk environments. A researcher can run a valid study without changing any settings.
+
+**Gameplay Layout:**
+The canonical screen arrangement during active gameplay, following jsPsych/PEBL BART conventions. Vertically stacked, horizontally centered:
+1. **Top bar** — understated gray; trial counter left (`Balloon s/N`), cumulative earnings right (`Total $X`).
+2. **Balloon** — centered colored shape that grows with each pump; the largest visual element; no text inside.
+3. **Current earnings** — large bold counter below the balloon, outside the stimulus (`Current: $X`). Displayed separately for legibility at all balloon sizes.
+4. **Action buttons** — centered, standard-sized, neutral styling with keyboard hints on the labels: `Pump (Space)` / `Collect (Enter)`.
+5. **Progress dots** — horizontal timeline at the bottom; green = collected, red = exploded, hollow = upcoming. Gives the participant a sense of session progress without being distracting.
+
 ### Persistence
 
 **Session Files:**

@@ -148,6 +148,31 @@ SmartScreen docs, embedded WebView2 offline bootstrapper, tag-triggered
 > enhancement), macOS distribution/notarization, auto-update, and the JOSS rewrite
 > (Phase 5).
 
+## Phase 5 — UI Polish
+
+The visual overhaul: create a global dark-theme stylesheet (the app currently has **no
+CSS file**), then restyle every screen for a professional, modern look. Sequenced
+foundation-first: the global stylesheet (24) provides the base; the three screen-level
+issues (25–27) depend on it and can be worked in parallel.
+
+| # | Issue | Depends on | Touches |
+|---|---|---|---|
+| [24](24-dark-theme-global-css.md) | Global CSS stylesheet + dark theme foundation | — | `app/src/index.css` (new), `app/src/main.tsx`, `app/index.html` |
+| [25](25-study-setup-styling.md) | StudySetup + EvPreview styling | 24 | `app/src/setup/StudySetup.tsx`, `app/src/setup/EvPreview.tsx`, `app/src/App.tsx` |
+| [26](26-runflow-screen-styling.md) | RunFlow consent / ID / loading / error screen styling | 24 | `app/src/run/RunFlow.tsx` |
+| [27](27-bartgame-layout-fixes.md) | BartGame gameplay + finished screen layout fixes | 24 | `app/src/BartGame.tsx` |
+| [28](28-debrief-screen-ux.md) | Debrief screen UX: participant vs researcher modes | 24 | `app/src/run/Debrief.tsx` |
+
+### Phase 5 acceptance (rolls up 24–28)
+
+- The application uses the system sans-serif font stack.
+- The Researcher View (Study Setup, EV Preview) renders on a dark background.
+- The Participant View (Consent, ID, Gameplay, Debrief) renders on a sterile light background.
+- All form controls, buttons, inputs, and fieldsets are styled and readable.
+- Every screen looks polished and professional.
+- Layout is centered and responsive at the Tauri default window size (1280×800).
+- `npm test`, `tsc --noEmit`, `vite build`, and `pytest` stay green.
+
 ## Bugfixes
 
 Cross-cutting fixes discovered during end-to-end testing.
