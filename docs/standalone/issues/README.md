@@ -173,6 +173,36 @@ issues (25–27) depend on it and can be worked in parallel.
 - Layout is centered and responsive at the Tauri default window size (1280×800).
 - `npm test`, `tsc --noEmit`, `vite build`, and `pytest` stay green.
 
+## Phase 6 — JOSS (SPEC §17 "Phase 5")
+
+The JOSS submission rewrite: reposition the paper, README, and docs around the
+configurable offline instrument, back the paper's verification claims with
+tooling, and cut an archived release. Sequenced **claims-first**: harden the
+engine (29) and generalize the Monte Carlo verification (30) so the reviewer-
+facing prose (31–33) describes software that holds up, then archive (34).
+29–31 have no blockers and can be worked in parallel.
+
+| # | Issue | Depends on | Touches |
+|---|---|---|---|
+| [29](29-engine-degenerate-session-crash.md) | Engine hardening: degenerate-session scoring crash | — | `scoring/bart.py`, `tests/` |
+| [30](30-monte-carlo-all-families.md) | Monte Carlo verification across the hazard-family library | — | `scripts/monte_carlo_ev.py`, `tests/` |
+| [31](31-readme-instrument-rewrite.md) | README rewrite around the standalone instrument | — | `README.md` |
+| [32](32-sphinx-docs-instrument-first.md) | Sphinx docs restructure: instrument-first | 30 | `docs/` (toctree + new pages) |
+| [33](33-joss-paper-rewrite.md) | JOSS paper rewrite + paper-build CI | 30, 31, 32 | `paper/`, `.github/workflows/` |
+| [34](34-release-zenodo-joss-checklist.md) | Release, Zenodo archive, JOSS pre-submission checklist | 29–33 | version manifests, `CITATION.cff` |
+
+### Phase 6 acceptance (rolls up 29–34)
+
+- `score_bart` never raises on a validator-accepted session; per-family sweep green.
+- Numeric optima are simulation-verified for **every** curated hazard family,
+  guarded by a seeded CI test.
+- README, docs (0 Sphinx warnings), and `paper.md` all describe the standalone
+  configurable instrument with no stale claims (Next.js, engine scipy, fixed task).
+- CI compiles the paper to a PDF artifact.
+- A tagged release passes the Windows manual verification and is archived on
+  Zenodo; the version DOI is cited consistently. Submission itself stays manual.
+- `pytest`, `npm test`, `tsc --noEmit`, and `vite build` stay green throughout.
+
 ## Bugfixes
 
 Cross-cutting fixes discovered during end-to-end testing.
