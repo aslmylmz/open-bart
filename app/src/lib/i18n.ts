@@ -26,6 +26,8 @@ export interface TaskStrings {
   // Gameplay
   balloonLabel: string;
   totalLabel: string;
+  currentLabel: string;
+  progressLabel: string;
   pumpButton: string;
   collectButton: string;
   exploded: string;
@@ -37,6 +39,7 @@ export interface TaskStrings {
   seeResults: string;
   // Debrief
   debriefTitle: string;
+  playAgain: string;
   // Error recovery
   retry: string;
 }
@@ -58,6 +61,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
     balloonsWord: "balloons",
     balloonLabel: "Balloon",
     totalLabel: "Total",
+    currentLabel: "Current",
+    progressLabel: "Completed balloons",
     pumpButton: "🎈 Pump (Space)",
     collectButton: "💰 Collect (Enter)",
     exploded: "Pop! Nothing for this balloon.",
@@ -67,6 +72,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     analyzing: "Analyzing…",
     seeResults: "See my results",
     debriefTitle: "Your results",
+    playAgain: "Play again",
     retry: "Retry",
   },
   tr: {
@@ -85,6 +91,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
     balloonsWord: "balon",
     balloonLabel: "Balon",
     totalLabel: "Toplam",
+    currentLabel: "Şu an",
+    progressLabel: "Tamamlanan balonlar",
     pumpButton: "🎈 Şişir (Boşluk)",
     collectButton: "💰 Topla (Enter)",
     exploded: "PATLADI! Bu balon için para yok.",
@@ -94,6 +102,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     analyzing: "Analiz ediliyor…",
     seeResults: "Sonuçlarımı Gör",
     debriefTitle: "Sonuçlarınız",
+    playAgain: "Tekrar Oyna",
     retry: "Tekrar Dene",
   },
 };

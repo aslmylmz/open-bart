@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { persistSession, submitSession } from "./lib/api";
 import type { TaskConfig } from "./lib/config";
@@ -23,6 +23,14 @@ interface BalloonState {
     status: "active" | "collected" | "exploded";
 }
 
+// Vertically-centered full-height screen (idle / finished), Light Posture (ADR 0003).
+// Pairs with the "flex flex-col items-center gap-6" utility classes.
+const centeredScreenStyle: CSSProperties = {
+    flex: 1,
+    justifyContent: "center",
+    padding: "48px 24px",
+};
+
 // ── Component ───────────────────────────────────────────────────────────────
 //
 // A thin rendering shell over the pure task engine (lib/taskEngine.ts). The engine
@@ -36,9 +44,12 @@ interface BartGameProps {
     hazards: Record<string, number[]>;
     candidateId: string;
     onComplete?: (data: AssessmentResult) => void;
+    /** Escape hatch back to the researcher view. Only offered while no balloon is
+     * live (idle / finished / results) so a participant can't exit mid-trial. */
+    onExit?: () => void;
 }
 
-export default function BartGame({ config, hazards, candidateId, onComplete }: BartGameProps) {
+export default function BartGame({ config, hazards, candidateId, onComplete, onExit }: BartGameProps) {
     const eventLogRef = useRef<GameEvent[]>([]);
     const sessionIdRef = useRef(crypto.randomUUID());
     const sequenceRef = useRef<Balloon[]>([]);
@@ -177,30 +188,35 @@ export default function BartGame({ config, hazards, candidateId, onComplete }: B
     const balloonScale = 1 + currentBalloon.pumps * 0.08;
     const balloonSize = 100 * balloonScale;
 
+    const showExit =
+        onExit && (gamePhase === "idle" || gamePhase === "finished" || gamePhase === "results");
+
     return (
         <div
             ref={containerRef}
             className="w-full"
             onKeyDown={handleKeyDown}
             tabIndex={0}
-            style={{ outline: "none" }}
+            style={{ outline: "none", display: "flex", flexDirection: "column", flex: 1 }}
         >
+            {showExit && (
+                <div style={{ padding: 16, alignSelf: "flex-start" }}>
+                    <button type="button" className="btn-ghost-participant" onClick={onExit}>
+                        ← Back to setup
+                    </button>
+                </div>
+            )}
+
             {/* ── Idle Screen ──────────────────────────────────────────────────── */}
             {gamePhase === "idle" && (
-                <div className="flex flex-col items-center py-16 gap-6">
+                <div className="flex flex-col items-center gap-6" style={centeredScreenStyle}>
                     <div className="text-6xl">🎈</div>
-                    <h2
-                        style={{
-                            fontSize: "1.5rem",
-                            fontWeight: 700,
-                            color: "#fff",
-                        }}
-                    >
+                    <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>
                         {t.taskTitle}
                     </h2>
                     <p
                         style={{
-                            color: "#9CA3AF",
+                            color: "#4b5563",
                             textAlign: "center",
                             maxWidth: "400px",
                             lineHeight: 1.6,
@@ -208,35 +224,18 @@ export default function BartGame({ config, hazards, candidateId, onComplete }: B
                     >
                         {t.instructions}
                     </p>
-                    <p
-                        style={{ color: "#6B7280", fontSize: "0.85rem" }}
-                    >
+                    <p style={{ color: "#6b7280", fontSize: "0.85rem" }}>
                         {totalBalloons} {t.balloonsWord} · {t.controlsHint}
                     </p>
                     <button
+                        className="btn-primary-participant"
                         onClick={startGame}
                         style={{
                             marginTop: "0.5rem",
                             padding: "12px 40px",
                             fontSize: "1rem",
                             fontWeight: 600,
-                            color: "#fff",
-                            background: "linear-gradient(135deg, #6366F1, #8B5CF6)",
-                            border: "none",
-                            borderRadius: "12px",
-                            cursor: "pointer",
-                            transition: "transform 0.15s, box-shadow 0.15s",
-                            boxShadow: "0 4px 15px rgba(99,102,241,0.4)",
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = "translateY(-2px)";
-                            e.currentTarget.style.boxShadow =
-                                "0 6px 20px rgba(99,102,241,0.6)";
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = "translateY(0)";
-                            e.currentTarget.style.boxShadow =
-                                "0 4px 15px rgba(99,102,241,0.4)";
+                            borderRadius: 10,
                         }}
                     >
                         {t.startButton}
@@ -246,227 +245,185 @@ export default function BartGame({ config, hazards, candidateId, onComplete }: B
 
             {/* ── Playing / Feedback ───────────────────────────────────────────── */}
             {(gamePhase === "playing" || gamePhase === "feedback") && (
-                <div className="flex flex-col items-center py-8 gap-6">
+                <div
+                    className="flex flex-col items-center"
+                    style={{ flex: 1, width: "100%", padding: "24px 0" }}
+                >
+                    {/* Understated top bar: balloon progress left, running total right. */}
                     <div
                         style={{
                             display: "flex",
                             justifyContent: "space-between",
                             width: "100%",
-                            maxWidth: 400,
+                            maxWidth: 560,
                             padding: "0 1rem",
                         }}
                     >
-                        <span style={{ color: "#9CA3AF", fontSize: "0.9rem" }}>
-                            {t.balloonLabel}{" "}
-                            <span style={{ color: "#fff", fontWeight: 700 }}>
-                                {Math.min(balloonCount, totalBalloons)}
-                            </span>
-                            /{totalBalloons}
+                        <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>
+                            {t.balloonLabel} {Math.min(balloonCount, totalBalloons)}/{totalBalloons}
                         </span>
-                        <span style={{ color: "#9CA3AF", fontSize: "0.9rem" }}>
-                            {t.totalLabel}{" "}
-                            <span style={{ color: "#22C55E", fontWeight: 700 }}>
-                                ${totalScore.toFixed(2)}
-                            </span>
+                        <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>
+                            {t.totalLabel} ${totalScore.toFixed(2)}
                         </span>
                     </div>
 
+                    {/* Centered play area: balloon → earnings → feedback → controls. */}
                     <div
                         style={{
-                            position: "relative",
+                            flex: 1,
                             display: "flex",
+                            flexDirection: "column",
                             alignItems: "center",
                             justifyContent: "center",
-                            height: "280px",
+                            gap: 24,
                         }}
                     >
-                        {currentBalloon.status === "exploded" ? (
-                            <div
-                                style={{
-                                    fontSize: "5rem",
-                                    animation: "fadeIn 0.2s ease-out",
-                                }}
-                            >
-                                💥
-                            </div>
-                        ) : (
-                            <div
-                                style={{
-                                    width: `${balloonSize}px`,
-                                    height: `${balloonSize * 1.2}px`,
-                                    borderRadius: "50% 50% 50% 50% / 40% 40% 60% 60%",
-                                    background: `radial-gradient(circle at 35% 35%, ${balloonColor}CC, ${balloonColor})`,
-                                    boxShadow: `0 8px 30px ${balloonColor}40, inset 0 -8px 20px rgba(0,0,0,0.2)`,
-                                    transition: "width 0.15s ease, height 0.15s ease",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    position: "relative",
-                                }}
-                            >
+                        <div
+                            style={{
+                                position: "relative",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                height: "280px",
+                            }}
+                        >
+                            {currentBalloon.status === "exploded" ? (
+                                <div
+                                    style={{
+                                        fontSize: "5rem",
+                                        animation: "fadeIn 0.2s ease-out",
+                                    }}
+                                >
+                                    💥
+                                </div>
+                            ) : (
+                                <div
+                                    style={{
+                                        width: `${balloonSize}px`,
+                                        height: `${balloonSize * 1.2}px`,
+                                        borderRadius: "50% 50% 50% 50% / 40% 40% 60% 60%",
+                                        background: `radial-gradient(circle at 35% 35%, ${balloonColor}CC, ${balloonColor})`,
+                                        boxShadow: `0 8px 30px ${balloonColor}40, inset 0 -8px 20px rgba(0,0,0,0.2)`,
+                                        transition: "width 0.15s ease, height 0.15s ease",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        position: "relative",
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            position: "absolute",
+                                            top: "20%",
+                                            left: "30%",
+                                            width: "25%",
+                                            height: "20%",
+                                            borderRadius: "50%",
+                                            background:
+                                                "radial-gradient(ellipse, rgba(255,255,255,0.4), transparent)",
+                                        }}
+                                    />
+                                </div>
+                            )}
+
+                            {currentBalloon.status === "active" && (
                                 <div
                                     style={{
                                         position: "absolute",
-                                        top: "20%",
-                                        left: "30%",
-                                        width: "25%",
-                                        height: "20%",
-                                        borderRadius: "50%",
-                                        background:
-                                            "radial-gradient(ellipse, rgba(255,255,255,0.4), transparent)",
+                                        bottom: `${-20 + (280 - balloonSize * 1.2) / 2}px`,
+                                        width: "2px",
+                                        height: "30px",
+                                        background: "#6B7280",
                                     }}
                                 />
-                                <span
-                                    style={{
-                                        fontSize: `${Math.max(1.2, 1.8 * balloonScale * 0.4)}rem`,
-                                        fontWeight: 800,
-                                        color: "rgba(255,255,255,0.9)",
-                                        textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-                                    }}
-                                >
-                                    ${(currentBalloon.pumps * config.reward_per_pump).toFixed(2)}
-                                </span>
-                            </div>
-                        )}
+                            )}
+                        </div>
 
-                        {currentBalloon.status === "active" && (
-                            <div
-                                style={{
-                                    position: "absolute",
-                                    bottom: `${-20 + (280 - balloonSize * 1.2) / 2}px`,
-                                    width: "2px",
-                                    height: "30px",
-                                    background: "#6B7280",
-                                }}
-                            />
-                        )}
-                    </div>
+                        {/* Static earnings counter — outside the balloon (Issue 27). */}
+                        <div style={{ fontSize: "2rem", fontWeight: 700, color: "#111827" }}>
+                            {t.currentLabel}: ${(currentBalloon.pumps * config.reward_per_pump).toFixed(2)}
+                        </div>
 
-                    {feedbackMessage && (
                         <div
                             style={{
                                 fontSize: "1.1rem",
                                 fontWeight: 600,
-                                color:
-                                    currentBalloon.status === "exploded" ? "#EF4444" : "#22C55E",
-                                minHeight: "2rem",
+                                color: currentBalloon.status === "exploded" ? "#dc2626" : "#16a34a",
+                                minHeight: "1.6rem",
                             }}
                         >
                             {feedbackMessage}
                         </div>
-                    )}
 
-                    <div style={{ display: "flex", gap: "1rem" }}>
-                        <button
-                            onClick={handlePump}
-                            disabled={
-                                gamePhase !== "playing" || currentBalloon.status !== "active"
-                            }
-                            style={{
-                                padding: "12px 32px",
-                                fontSize: "1rem",
-                                fontWeight: 600,
-                                color: "#fff",
-                                background:
+                        {/* Both controls deliberately identical and neutral: the UI must
+                          * not visually prime pumping over collecting (or vice versa). */}
+                        <div style={{ display: "flex", gap: "1rem" }}>
+                            <button
+                                className="btn-secondary-participant"
+                                onClick={handlePump}
+                                disabled={
                                     gamePhase !== "playing" || currentBalloon.status !== "active"
-                                        ? "#374151"
-                                        : "linear-gradient(135deg, #F97316, #EF4444)",
-                                border: "none",
-                                borderRadius: "10px",
-                                cursor:
-                                    gamePhase !== "playing" || currentBalloon.status !== "active"
-                                        ? "not-allowed"
-                                        : "pointer",
-                                transition: "transform 0.1s",
-                                boxShadow: "0 3px 10px rgba(249,115,22,0.3)",
-                            }}
-                        >
-                            {t.pumpButton}
-                        </button>
-                        <button
-                            onClick={handleCollect}
-                            disabled={
-                                gamePhase !== "playing" ||
-                                currentBalloon.status !== "active" ||
-                                currentBalloon.pumps === 0
-                            }
-                            style={{
-                                padding: "12px 32px",
-                                fontSize: "1rem",
-                                fontWeight: 600,
-                                color: "#fff",
-                                background:
+                                }
+                                style={{ padding: "12px 32px", fontSize: "1rem", fontWeight: 600 }}
+                            >
+                                {t.pumpButton}
+                            </button>
+                            <button
+                                className="btn-secondary-participant"
+                                onClick={handleCollect}
+                                disabled={
                                     gamePhase !== "playing" ||
-                                        currentBalloon.status !== "active" ||
-                                        currentBalloon.pumps === 0
-                                        ? "#374151"
-                                        : "linear-gradient(135deg, #22C55E, #14B8A6)",
-                                border: "none",
-                                borderRadius: "10px",
-                                cursor:
-                                    gamePhase !== "playing" ||
-                                        currentBalloon.status !== "active" ||
-                                        currentBalloon.pumps === 0
-                                        ? "not-allowed"
-                                        : "pointer",
-                                transition: "transform 0.1s",
-                                boxShadow: "0 3px 10px rgba(34,197,94,0.3)",
-                            }}
-                        >
-                            {t.collectButton}
-                        </button>
+                                    currentBalloon.status !== "active" ||
+                                    currentBalloon.pumps === 0
+                                }
+                                style={{ padding: "12px 32px", fontSize: "1rem", fontWeight: 600 }}
+                            >
+                                {t.collectButton}
+                            </button>
+                        </div>
                     </div>
 
-                    <div
+                    {/* Completed-balloons timeline along the bottom (Issue 27). */}
+                    <ol
+                        role="list"
+                        aria-label={t.progressLabel}
                         style={{
+                            listStyle: "none",
                             display: "flex",
                             flexWrap: "wrap",
-                            gap: "6px",
-                            marginTop: "0.5rem",
-                            maxWidth: "400px",
                             justifyContent: "center",
+                            gap: 8,
+                            margin: 0,
+                            padding: "12px 1rem 0",
+                            maxWidth: 720,
+                            minHeight: 24,
                         }}
                     >
                         {completedBalloons.map((b) => (
-                            <div
+                            <li
                                 key={b.id}
-                                title={`Balon ${b.id}: ${b.pumps} pompa — ${b.status === "collected" ? "toplandı" : "patladı"}`}
                                 style={{
-                                    width: 24,
-                                    height: 24,
+                                    width: 12,
+                                    height: 12,
                                     borderRadius: "50%",
-                                    background:
-                                        b.status === "collected"
-                                            ? "#22C55E"
-                                            : "#EF4444",
-                                    opacity: 0.7,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: "0.6rem",
-                                    color: "#fff",
-                                    fontWeight: 700,
+                                    background: b.status === "collected" ? "#16a34a" : "#dc2626",
                                 }}
-                            >
-                                {b.pumps}
-                            </div>
+                            />
                         ))}
-                    </div>
+                    </ol>
                 </div>
             )}
 
             {/* ── Game Over → Submit ────────────────────────────────────────────── */}
             {gamePhase === "finished" && (
-                <div className="flex flex-col items-center py-16 gap-6">
+                <div className="flex flex-col items-center gap-6" style={centeredScreenStyle}>
                     <div className="text-5xl">🏁</div>
-                    <h2
-                        style={{ fontSize: "1.5rem", fontWeight: 700, color: "#fff" }}
-                    >
+                    <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>
                         {t.finishedTitle}
                     </h2>
-                    <p style={{ color: "#9CA3AF" }}>
+                    <p style={{ color: "#4b5563" }}>
                         {t.totalEarnings}:{" "}
-                        <span style={{ color: "#22C55E", fontWeight: 700 }}>
+                        <span style={{ color: "#16a34a", fontWeight: 700 }}>
                             ${totalScore.toFixed(2)}
                         </span>{" "}
                         / {totalBalloons} {t.balloonsWord}
@@ -475,9 +432,10 @@ export default function BartGame({ config, hazards, candidateId, onComplete }: B
                     <div
                         style={{
                             display: "flex",
-                            gap: "6px",
+                            gap: "8px",
                             flexWrap: "wrap",
                             justifyContent: "center",
+                            maxWidth: 560,
                         }}
                     >
                         {completedBalloons.map((b) => (
@@ -488,7 +446,7 @@ export default function BartGame({ config, hazards, candidateId, onComplete }: B
                                     height: 32,
                                     borderRadius: "50%",
                                     background:
-                                        b.status === "collected" ? "#22C55E" : "#EF4444",
+                                        b.status === "collected" ? "#16a34a" : "#dc2626",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
@@ -503,6 +461,7 @@ export default function BartGame({ config, hazards, candidateId, onComplete }: B
                     </div>
 
                     <button
+                        className="btn-primary-participant"
                         onClick={handleSubmit}
                         disabled={isSubmitting}
                         style={{
@@ -510,21 +469,15 @@ export default function BartGame({ config, hazards, candidateId, onComplete }: B
                             padding: "14px 48px",
                             fontSize: "1.05rem",
                             fontWeight: 600,
-                            color: "#fff",
-                            background: isSubmitting
-                                ? "#374151"
-                                : "linear-gradient(135deg, #6366F1, #8B5CF6)",
-                            border: "none",
-                            borderRadius: "12px",
+                            borderRadius: 10,
                             cursor: isSubmitting ? "wait" : "pointer",
-                            boxShadow: "0 4px 15px rgba(99,102,241,0.4)",
                         }}
                     >
                         {isSubmitting ? t.analyzing : t.seeResults}
                     </button>
 
                     {feedbackMessage && (
-                        <p style={{ color: "#EF4444", fontSize: "0.9rem" }}>
+                        <p style={{ color: "#dc2626", fontSize: "0.9rem" }}>
                             {feedbackMessage}
                         </p>
                     )}
@@ -533,7 +486,16 @@ export default function BartGame({ config, hazards, candidateId, onComplete }: B
 
             {/* ── Debrief (results screen) ─────────────────────────────────────── */}
             {gamePhase === "results" && results && (
-                <div className="flex flex-col items-center gap-6">
+                // Interim dark surface: the Debrief is still styled for the dark
+                // posture; Issue 28 migrates it to the light Participant View.
+                <div
+                    className="flex flex-col items-center gap-6"
+                    style={{
+                        flex: 1,
+                        width: "100%",
+                        background: "linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%)",
+                    }}
+                >
                     <Debrief results={results} language={config.language} />
                     <button
                         onClick={startGame}
@@ -549,7 +511,7 @@ export default function BartGame({ config, hazards, candidateId, onComplete }: B
                             cursor: "pointer",
                         }}
                     >
-                        Tekrar Oyna
+                        {t.playAgain}
                     </button>
                 </div>
             )}

@@ -165,6 +165,19 @@ legend {
   border-color: #3730a3;
 }
 
+/* Neutral task controls: Pump and Collect must look identical so the UI does
+   not prime one action over the other (methodological requirement, Issue 27). */
+.btn-secondary-participant {
+  background: #fff;
+  color: #111827;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+}
+.btn-secondary-participant:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 .input-participant {
   background: #fff;
   color: #111827;

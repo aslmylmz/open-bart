@@ -95,10 +95,16 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
   );
 
   if (phase === "task" && hazards) {
+    // BartGame owns the back button here: it only offers the exit while no
+    // balloon is live, so a participant can't leave mid-trial (Issue 27).
     return (
-      <div>
-        {backBar}
-        <BartGame config={config} hazards={hazards} candidateId={participantId || "anonymous"} />
+      <div style={pageStyle}>
+        <BartGame
+          config={config}
+          hazards={hazards}
+          candidateId={participantId || "anonymous"}
+          onExit={onExit}
+        />
       </div>
     );
   }
