@@ -383,7 +383,8 @@ export default function BartGame({ config, hazards, candidateId, onComplete, onE
                         </div>
                     </div>
 
-                    {/* Completed-balloons timeline along the bottom (Issue 27). */}
+                    {/* Session-progress timeline along the bottom: one dot per balloon,
+                        green = collected, red = popped, hollow = upcoming (CONTEXT.md). */}
                     <ol
                         role="list"
                         aria-label={t.progressLabel}
@@ -396,20 +397,33 @@ export default function BartGame({ config, hazards, candidateId, onComplete, onE
                             margin: 0,
                             padding: "12px 1rem 0",
                             maxWidth: 720,
-                            minHeight: 24,
                         }}
                     >
-                        {completedBalloons.map((b) => (
-                            <li
-                                key={b.id}
-                                style={{
-                                    width: 12,
-                                    height: 12,
-                                    borderRadius: "50%",
-                                    background: b.status === "collected" ? "#16a34a" : "#dc2626",
-                                }}
-                            />
-                        ))}
+                        {Array.from({ length: totalBalloons }, (_, i) => {
+                            const done = engine.completed[i];
+                            const status = !done
+                                ? t.statusUpcoming
+                                : done.status === "collected"
+                                    ? t.statusCollected
+                                    : t.statusExploded;
+                            return (
+                                <li
+                                    key={i}
+                                    aria-label={`${t.balloonLabel} ${i + 1}: ${status}`}
+                                    style={{
+                                        width: 12,
+                                        height: 12,
+                                        borderRadius: "50%",
+                                        background: !done
+                                            ? "transparent"
+                                            : done.status === "collected"
+                                                ? "#16a34a"
+                                                : "#dc2626",
+                                        border: done ? "none" : "2px solid #d1d5db",
+                                    }}
+                                />
+                            );
+                        })}
                     </ol>
                 </div>
             )}
@@ -484,33 +498,15 @@ export default function BartGame({ config, hazards, candidateId, onComplete, onE
                 </div>
             )}
 
-            {/* ── Debrief (results screen) ─────────────────────────────────────── */}
+            {/* ── Debrief (participant thank-you) ──────────────────────────────── */}
             {gamePhase === "results" && results && (
-                // Interim dark surface: the Debrief is still styled for the dark
-                // posture; Issue 28 migrates it to the light Participant View.
-                <div
-                    className="flex flex-col items-center gap-6"
-                    style={{
-                        flex: 1,
-                        width: "100%",
-                        background: "linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%)",
-                    }}
-                >
-                    <Debrief results={results} language={config.language} />
-                    <button
-                        onClick={startGame}
-                        style={{
-                            marginBottom: "2rem",
-                            padding: "12px 36px",
-                            fontSize: "1rem",
-                            fontWeight: 600,
-                            color: "#fff",
-                            background: "rgba(255,255,255,0.08)",
-                            border: "1px solid rgba(255,255,255,0.15)",
-                            borderRadius: "10px",
-                            cursor: "pointer",
-                        }}
-                    >
+                <div className="flex flex-col items-center gap-6" style={centeredScreenStyle}>
+                    <Debrief
+                        language={config.language}
+                        earnings={totalScore}
+                        balloonsCompleted={completedBalloons.length}
+                    />
+                    <button type="button" className="btn-ghost-participant" onClick={startGame}>
                         {t.playAgain}
                     </button>
                 </div>

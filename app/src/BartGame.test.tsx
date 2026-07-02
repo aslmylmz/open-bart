@@ -8,9 +8,11 @@ import { taskStrings } from "./lib/i18n";
 
 // The task only talks to the sidecar on submit; stub the api module so component
 // tests never touch the network (same convention as RunFlow.test.tsx).
+const submitSession = vi.fn();
+const persistSession = vi.fn();
 vi.mock("./lib/api", () => ({
-  submitSession: vi.fn(),
-  persistSession: vi.fn(),
+  submitSession: (...args: unknown[]) => submitSession(...args),
+  persistSession: (...args: unknown[]) => persistSession(...args),
 }));
 
 const t = taskStrings("en");
@@ -46,7 +48,11 @@ async function startTask() {
   await userEvent.click(screen.getByRole("button", { name: t.startButton }));
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  submitSession.mockReset();
+  persistSession.mockReset();
+});
 
 describe("BartGame gameplay screen", () => {
   it("shows the current earnings once, below the balloon, updating per pump", async () => {
@@ -80,21 +86,29 @@ describe("BartGame gameplay screen", () => {
     expect(screen.getByText(`${t.totalLabel} $0.25`)).toBeTruthy();
   });
 
-  it("tracks completed balloons in an accessible timeline", async () => {
+  it("shows the whole session on the progress timeline, filling dots as balloons resolve", async () => {
     renderGame();
     await startTask();
 
-    // The track is present (and empty) from the first balloon on.
+    // One dot per balloon in the session (CONTEXT.md Gameplay Layout: hollow =
+    // upcoming), so the participant sees full session progress from the start.
     const track = screen.getByRole("list", { name: t.progressLabel });
-    expect(within(track).queryAllByRole("listitem")).toHaveLength(0);
+    expect(within(track).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(track).getAllByLabelText(new RegExp(t.statusUpcoming))).toHaveLength(2);
 
     await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
     await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
 
-    // One dot appears once the collect feedback resolves into the next balloon.
-    await waitFor(() => expect(within(track).getAllByRole("listitem")).toHaveLength(1), {
-      timeout: 3000,
-    });
+    // Dot 1 fills as collected once the feedback resolves; the track keeps one
+    // dot per balloon.
+    await waitFor(
+      () =>
+        expect(
+          within(track).getByLabelText(`${t.balloonLabel} 1: ${t.statusCollected}`),
+        ).toBeTruthy(),
+      { timeout: 3000 },
+    );
+    expect(within(track).getAllByRole("listitem")).toHaveLength(2);
   });
 
   it("offers Back to setup on the instructions screen but hides it mid-trial", async () => {
@@ -114,5 +128,28 @@ describe("BartGame gameplay screen", () => {
     // Once a balloon is live there is no exit — prevents accidental mid-trial exits.
     await startTask();
     expect(screen.queryByRole("button", { name: /back to setup/i })).toBeNull();
+  });
+
+  it("lands on the participant thank-you screen after submitting a finished session", async () => {
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({});
+    renderGame();
+    await startTask();
+
+    // Resolve both balloons with one pump + collect each (hazard 0 — never pops),
+    // waiting out the ~1s feedback between them.
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(`${t.balloonLabel} 2/2`, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    // The debrief shows the session's own earnings and balloon count.
+    expect(await screen.findByText(t.thankYouTitle)).toBeTruthy();
+    expect(screen.getByText("$0.50")).toBeTruthy();
+    expect(screen.getByText(`2 ${t.balloonsWord}`)).toBeTruthy();
   });
 });

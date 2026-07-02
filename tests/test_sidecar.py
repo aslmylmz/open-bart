@@ -7,6 +7,7 @@ the HTTP endpoints and the frozen-entry / launcher scripts.
 
 from __future__ import annotations
 
+import csv
 import json
 import os
 import re
@@ -380,6 +381,49 @@ def test_write_output_persists_session_files(tmp_path):
     # Config snapshot is the self-documenting study record.
     snapshot = json.loads(Path(paths["config"]).read_text(encoding="utf-8"))
     assert snapshot["title"] == DEFAULT_TASK_CONFIG.title
+
+
+def test_write_output_appends_master_csv(tmp_path):
+    """Every /write-output appends one row per session to the study's master CSV
+    (``[StudyTitle]_results.csv``, CONTEXT.md), creating it with a header on first
+    write — researchers get an SPSS/R-ready sheet with no manual merging (issue 28)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    for candidate in ("cand-1", "cand-2"):
+        resp = client.post(
+            "/write-output",
+            json={
+                "session": _session_payload(events, candidate_id=candidate),
+                "config": cfg,
+            },
+        )
+        assert resp.status_code == 200, resp.text
+
+    csv_path = Path(resp.json()["master_csv"])
+    assert csv_path.parent == tmp_path
+    assert csv_path.name.endswith("_results.csv")
+
+    with csv_path.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+
+    # One row per completed session, identified by candidate + session.
+    assert [r["candidate_id"] for r in rows] == ["cand-1", "cand-2"]
+    assert rows[0]["session_id"] == "sess-1"
+    assert rows[0]["timestamp_utc"]
+
+    # Scalar metrics match the engine's scoring of the same session.
+    metrics = score_bart(events, DEFAULT_TASK_CONFIG)
+    assert float(rows[0]["average_pumps_adjusted"]) == pytest.approx(
+        metrics.average_pumps_adjusted
+    )
+    assert int(rows[0]["total_balloons"]) == metrics.total_balloons
+
+    # Per-color metrics are flattened into scalar columns (SPSS/R-friendly).
+    purple = next(cm for cm in metrics.color_metrics if cm.color == "purple")
+    assert float(rows[0]["purple_average_pumps"]) == pytest.approx(purple.average_pumps)
+    assert rows[0]["purple_risk_profile"] == purple.risk_profile
 
 
 def test_cors_preflight_returns_allow_origin():

@@ -4,6 +4,7 @@ import BartGame from "../BartGame";
 import { preview } from "../lib/api";
 import type { TaskConfig } from "../lib/config";
 import { taskStrings } from "../lib/i18n";
+import { cardStyle, centerStyle, headingStyle, pageStyle } from "./participantStyles";
 
 interface RunFlowProps {
   config: TaskConfig;
@@ -11,41 +12,6 @@ interface RunFlowProps {
 }
 
 type Phase = "consent" | "id" | "loading" | "task" | "error";
-
-// Light Posture (Participant View, ADR 0003): sterile off-white, dark text,
-// content centred in a single card. Kept distinct from the dark Researcher View.
-const pageStyle: CSSProperties = {
-  minHeight: "100vh",
-  background: "#f8f9fa",
-  color: "#111827",
-  display: "flex",
-  flexDirection: "column",
-};
-
-const centerStyle: CSSProperties = {
-  flex: 1,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 24,
-};
-
-const cardStyle: CSSProperties = {
-  width: "100%",
-  maxWidth: 480,
-  background: "#fff",
-  borderRadius: 16,
-  padding: "36px 40px",
-  border: "1px solid #e5e7eb",
-  boxShadow: "0 4px 24px rgba(0, 0, 0, 0.06)",
-  textAlign: "center",
-};
-
-const headingStyle: CSSProperties = {
-  fontSize: "1.6rem",
-  fontWeight: 700,
-  margin: "0 0 16px",
-};
 
 const primaryBtnStyle: CSSProperties = {
   width: "100%",

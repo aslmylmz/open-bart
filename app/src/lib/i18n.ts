@@ -28,6 +28,9 @@ export interface TaskStrings {
   totalLabel: string;
   currentLabel: string;
   progressLabel: string;
+  statusCollected: string;
+  statusExploded: string;
+  statusUpcoming: string;
   pumpButton: string;
   collectButton: string;
   exploded: string;
@@ -38,7 +41,8 @@ export interface TaskStrings {
   analyzing: string;
   seeResults: string;
   // Debrief
-  debriefTitle: string;
+  thankYouTitle: string;
+  thankYouBody: string;
   playAgain: string;
   // Error recovery
   retry: string;
@@ -62,7 +66,10 @@ export const STRINGS: Record<Language, TaskStrings> = {
     balloonLabel: "Balloon",
     totalLabel: "Total",
     currentLabel: "Current",
-    progressLabel: "Completed balloons",
+    progressLabel: "Session progress",
+    statusCollected: "Collected",
+    statusExploded: "Popped",
+    statusUpcoming: "Upcoming",
     pumpButton: "🎈 Pump (Space)",
     collectButton: "💰 Collect (Enter)",
     exploded: "Pop! Nothing for this balloon.",
@@ -71,7 +78,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
     totalEarnings: "Total earnings",
     analyzing: "Analyzing…",
     seeResults: "See my results",
-    debriefTitle: "Your results",
+    thankYouTitle: "Thank you for participating!",
+    thankYouBody: "Your session has been recorded. Please let the researcher know you are finished.",
     playAgain: "Play again",
     retry: "Retry",
   },
@@ -92,7 +100,10 @@ export const STRINGS: Record<Language, TaskStrings> = {
     balloonLabel: "Balon",
     totalLabel: "Toplam",
     currentLabel: "Şu an",
-    progressLabel: "Tamamlanan balonlar",
+    progressLabel: "Oturum ilerlemesi",
+    statusCollected: "Toplandı",
+    statusExploded: "Patladı",
+    statusUpcoming: "Sırada",
     pumpButton: "🎈 Şişir (Boşluk)",
     collectButton: "💰 Topla (Enter)",
     exploded: "PATLADI! Bu balon için para yok.",
@@ -101,7 +112,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
     totalEarnings: "Toplam Kazanç",
     analyzing: "Analiz ediliyor…",
     seeResults: "Sonuçlarımı Gör",
-    debriefTitle: "Sonuçlarınız",
+    thankYouTitle: "Katılımınız için teşekkürler!",
+    thankYouBody: "Oturumunuz kaydedildi. Lütfen bittiğinizi araştırmacıya haber verin.",
     playAgain: "Tekrar Oyna",
     retry: "Tekrar Dene",
   },

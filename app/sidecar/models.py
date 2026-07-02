@@ -65,8 +65,10 @@ class WriteOutputRequest(BaseModel):
 
 
 class WriteOutputResponse(BaseModel):
-    """Absolute paths of the files written for one session."""
+    """Absolute paths of the files written for one session, plus the study's
+    master CSV the session was appended to."""
 
     events: str
     metrics: str
     config: str
+    master_csv: str

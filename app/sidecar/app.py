@@ -8,6 +8,7 @@ probe; the scoring/preview/output endpoints land in issue 08.
 
 from __future__ import annotations
 
+import csv
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,7 +21,7 @@ from pydantic import ValidationError
 from scoring import __version__
 from scoring.bart import score_bart
 from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
-from scoring.schemas import AssessmentResponse
+from scoring.schemas import AssessmentResponse, BARTMetrics
 from sidecar.models import (
     CurvePreview,
     PreviewResponse,
@@ -34,6 +35,40 @@ from sidecar.models import (
 def _slug(text: str) -> str:
     """Filesystem-safe namespace fragment for output filenames (SPEC §13)."""
     return re.sub(r"[^A-Za-z0-9._-]+", "-", text).strip("-") or "study"
+
+
+def _flatten_metrics(metrics: BARTMetrics) -> dict[str, Any]:
+    """One flat, scalar-only mapping of a session's metrics for the master CSV.
+
+    Per-color metrics become ``{color}_{field}`` columns so they load as plain
+    variables in SPSS/R; the nested narrative ``behavioral_profile`` stays
+    JSON-only (not meaningful as spreadsheet cells).
+    """
+    row = metrics.model_dump(mode="json")
+    row.pop("behavioral_profile", None)
+    for color in row.pop("color_metrics", []):
+        name = color.pop("color")
+        for field, value in color.items():
+            row[f"{name}_{field}"] = value
+    return row
+
+
+def _append_master_csv(out_dir: Path, config: TaskConfig, row: dict[str, Any]) -> Path:
+    """Append one session row to the study's master CSV (CONTEXT.md), creating
+    the file with a header row when absent. Appends follow the existing header,
+    so the sheet stays rectangular even if columns evolve across versions."""
+    path = out_dir / f"{_slug(config.title)}_results.csv"
+    if path.exists():
+        with path.open("r", newline="", encoding="utf-8") as fh:
+            fieldnames = next(csv.reader(fh), None) or list(row)
+    else:
+        fieldnames = list(row)
+    with path.open("a", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames, restval="", extrasaction="ignore")
+        if fh.tell() == 0:
+            writer.writeheader()
+        writer.writerow(row)
+    return path
 
 app = FastAPI(title="BART scoring sidecar", version=__version__)
 
@@ -114,7 +149,8 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
 
     Writes three files namespaced by study title + candidate + timestamp: the raw
     event log (JSONL), the scored metrics (JSON), and a snapshot of the full
-    ``TaskConfig`` so each dataset is self-documenting and reproducible.
+    ``TaskConfig`` so each dataset is self-documenting and reproducible. Also
+    appends one flat row to the study's master CSV (issue 28).
     """
     config = req.config or DEFAULT_TASK_CONFIG
     out_dir = Path(config.output_dir)
@@ -134,8 +170,20 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     metrics_path.write_text(metrics.model_dump_json(indent=2), encoding="utf-8")
     config_path.write_text(config.model_dump_json(indent=2), encoding="utf-8")
 
+    master_csv = _append_master_csv(
+        out_dir,
+        config,
+        {
+            "timestamp_utc": ts,
+            "session_id": req.session.session_id,
+            "candidate_id": req.session.candidate_id,
+            **_flatten_metrics(metrics),
+        },
+    )
+
     return WriteOutputResponse(
         events=str(events_path),
         metrics=str(metrics_path),
         config=str(config_path),
+        master_csv=str(master_csv),
     )
