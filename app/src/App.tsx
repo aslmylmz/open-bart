@@ -5,6 +5,7 @@ import { toggleFullscreen } from "./lib/desktop";
 import { RunFlow } from "./run/RunFlow";
 import { EvPreview } from "./setup/EvPreview";
 import { StudySetup } from "./setup/StudySetup";
+import { VersionGuard } from "./VersionGuard";
 
 type Mode = "setup" | "run";
 
@@ -31,25 +32,28 @@ export function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  if (mode === "run") {
-    return <RunFlow config={config} onExit={() => setMode("setup")} />;
-  }
-
-  // Study Setup (issue 14). Issue 15 adds the live EV preview alongside the form;
-  // the active study defaults to the validated 128/32/8 linear config.
-  return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingBottom: "64px" }}>
-      <StudySetup config={config} onChange={setConfig} />
-      <EvPreview config={config} />
-      <div style={{ maxWidth: 720, width: "100%", margin: "0 auto", padding: "0 16px", marginTop: "32px", display: "flex", justifyContent: "flex-end" }}>
-        <button 
-          type="button" 
-          onClick={() => setMode("run")}
-          style={{ background: "#10b981", borderColor: "#059669", color: "#fff", fontSize: "1.125rem", padding: "12px 32px", borderRadius: "8px", fontWeight: 600 }}
-        >
-          Start run →
-        </button>
+  // The guard wraps both modes: a version-mismatched sidecar must block before
+  // any study is configured or run against it.
+  const content =
+    mode === "run" ? (
+      <RunFlow config={config} onExit={() => setMode("setup")} />
+    ) : (
+      // Study Setup (issue 14). Issue 15 adds the live EV preview alongside the form;
+      // the active study defaults to the validated 128/32/8 linear config.
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingBottom: "64px" }}>
+        <StudySetup config={config} onChange={setConfig} />
+        <EvPreview config={config} />
+        <div style={{ maxWidth: 720, width: "100%", margin: "0 auto", padding: "0 16px", marginTop: "32px", display: "flex", justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            onClick={() => setMode("run")}
+            style={{ background: "#10b981", borderColor: "#059669", color: "#fff", fontSize: "1.125rem", padding: "12px 32px", borderRadius: "8px", fontWeight: 600 }}
+          >
+            Start run →
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+
+  return <VersionGuard appVersion={__APP_VERSION__}>{content}</VersionGuard>;
 }

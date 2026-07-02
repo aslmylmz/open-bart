@@ -8,3 +8,7 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** The app's own version, injected at build time from package.json (vite `define`).
+ * Compared against the sidecar's /healthz version by the boot-time VersionGuard. */
+declare const __APP_VERSION__: string;

@@ -54,6 +54,37 @@ export async function initSidecarUrl(): Promise<void> {
   setApiBaseUrl(await invoke<string>("get_sidecar_url"));
 }
 
+export interface SidecarHealth {
+  status: string;
+  version: string;
+}
+
+/** GET the sidecar's liveness + version (the boot-time handshake input). */
+export async function fetchHealth(): Promise<SidecarHealth> {
+  const response = await fetch(`${resolveApiUrl()}/healthz`);
+  if (!response.ok) throw new Error(`healthz returned ${response.status}`);
+  return (await response.json()) as SidecarHealth;
+}
+
+/** FastAPI's 422 `detail` is a list of `{loc, msg}` objects; render each as
+ * `path.to.field: message` (dropping the "body" prefix) so validation failures
+ * read like the field they point at instead of "[object Object]". */
+function formatDetail(detail: unknown, url: string): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((entry: { loc?: unknown[]; msg?: string }) => {
+        const loc = Array.isArray(entry?.loc)
+          ? entry.loc.filter((part) => part !== "body").join(".")
+          : "";
+        const msg = entry?.msg ?? JSON.stringify(entry);
+        return loc ? `${loc}: ${msg}` : String(msg);
+      })
+      .join("; ");
+  }
+  return `Request to ${url} failed`;
+}
+
 /** POST a JSON body to a sidecar endpoint and return the parsed response. On a
  * non-2xx it surfaces the server's `detail`, else names the endpoint. This is the
  * single place the client's HTTP + error policy lives. */
@@ -65,7 +96,8 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error((error as { detail?: string }).detail ?? `Request to ${url} failed`);
+    const detail = (error as { detail?: unknown }).detail;
+    throw new Error(detail == null ? `Request to ${url} failed` : formatDetail(detail, url));
   }
   return (await response.json()) as T;
 }

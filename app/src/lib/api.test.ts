@@ -115,6 +115,46 @@ describe("preview", () => {
   });
 });
 
+describe("preview validation errors", () => {
+  it("surfaces a 422 detail array as readable per-field messages, never [object Object]", async () => {
+    // Verbatim shape of FastAPI's 422 response (captured from the stale-sidecar repro).
+    const detail = [
+      {
+        type: "union_tag_invalid",
+        loc: ["body", "colors", 0, "hazard"],
+        msg: "Input tag 'dynamic' found using 'family' does not match any of the expected tags: 'linear', 'constant', 'uniform'",
+      },
+      {
+        type: "union_tag_invalid",
+        loc: ["body", "colors", 1, "hazard"],
+        msg: "Input tag 'dynamic' found using 'family' does not match any of the expected tags: 'linear', 'constant', 'uniform'",
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, json: async () => ({ detail }) }),
+    );
+
+    const error = await preview(DEFAULT_STUDY).catch((e: Error) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain("colors.0.hazard");
+    expect((error as Error).message).toContain("Input tag 'dynamic'");
+    expect((error as Error).message).not.toContain("object Object");
+  });
+
+  it("keeps plain-string details as-is", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, json: async () => ({ detail: "Empty event log" }) }),
+    );
+
+    const error = await preview(DEFAULT_STUDY).catch((e: Error) => e);
+
+    expect((error as Error).message).toBe("Empty event log");
+  });
+});
+
 describe("submitSession", () => {
   const payload: SessionPayload = {
     session_id: "s",

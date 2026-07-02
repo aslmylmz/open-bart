@@ -211,3 +211,4 @@ Cross-cutting fixes discovered during end-to-end testing.
 |---|---|---|---|
 | [22](22-sidecar-cors-localhost-fix.md) | Sidecar CORS middleware + `localhost` → `127.0.0.1` fix | 08, 15, 16 | `app/sidecar/app.py`, `app/src/lib/api.ts`, `tests/` |
 | [23](23-runflow-error-retry.md) | RunFlow error recovery: retry instead of re-enter ID | 16, 22 | `app/src/run/RunFlow.tsx`, `app/src/lib/i18n.ts` |
+| [35](35-stale-sidecar-bundle-guard.md) | Stale-bundle guard: version handshake + readable 422s | — | `app/src/VersionGuard.tsx`, `app/src/lib/api.ts`, `app/src/App.tsx`, `app/vite.config.ts` |
