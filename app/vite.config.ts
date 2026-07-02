@@ -15,7 +15,10 @@ export default defineConfig({
   // Expose TAURI_* alongside VITE_* to the client without leaking other env.
   envPrefix: ["VITE_", "TAURI_"],
   test: {
+    // Logic tests (*.test.ts) stay in the fast node env; component tests
+    // (*.test.tsx) need a DOM, so they opt into jsdom via the glob below.
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    environmentMatchGlobs: [["**/*.test.tsx", "jsdom"]],
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

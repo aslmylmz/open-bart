@@ -2,3 +2,8 @@ node_modules/
 dist/
 .vite/
 *.local
+
+# Session Files — per-participant task output (real data is NEVER committed)
+*_events.jsonl
+*_metrics.json
+*_config.json

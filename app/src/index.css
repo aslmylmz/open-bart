@@ -133,3 +133,44 @@ legend {
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 7. Light Posture (Participant View) controls.
+   The defaults above are Dark Posture (Researcher View); participant-facing
+   surfaces opt into these so hover/focus states read correctly on #f8f9fa. */
+.btn-ghost-participant {
+  background: transparent;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.btn-ghost-participant:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: #9ca3af;
+}
+
+.btn-primary-participant {
+  background: #4f46e5;
+  color: #fff;
+  border: 1px solid #4338ca;
+}
+.btn-primary-participant:hover {
+  background: #4338ca;
+  border-color: #3730a3;
+}
+
+.input-participant {
+  background: #fff;
+  color: #111827;
+  border: 1px solid #d1d5db;
+}
+.input-participant:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
