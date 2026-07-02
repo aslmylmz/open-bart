@@ -1,5 +1,15 @@
 # Task Design
 
+```{admonition} The default among eleven
+:class: note
+
+This page derives the **dynamic-hazard model** — the instrument's flagship
+paradigm and its default study configuration ($11/5/2$ optima, $\sqrt{N}$
+approximation). The instrument can equally run the classic uniform model and
+nine other hazard structures; see the
+[hazard-family reference](hazard_families.md).
+```
+
 ## The problem with the standard BART
 
 In the classic BART, a balloon's burst point is drawn once from a uniform

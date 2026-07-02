@@ -1,9 +1,38 @@
-# Scripts
+# Scripts & Verification Tooling
 
-Two helper scripts live in [`scripts/`](https://github.com/aslmylmz/metu-risk-persona/tree/main/scripts).
-Neither is imported by the engine; both are standalone command-line tools.
+Standalone command-line tools: the optima-verification module inside the
+package, and the helper scripts in
+[`scripts/`](https://github.com/aslmylmz/metu-risk-persona/tree/main/scripts)
+(which need the extras: `pip install -e ".[scripts]"`).
 
-## Monte Carlo EV verification
+## Optima verification (all hazard families)
+
+The numeric EV optima of every curated hazard family are confirmed by
+independent, seeded Monte Carlo simulation — see the
+[hazard-family reference](hazard_families.md) for the method:
+
+```bash
+python -m scoring.verification
+```
+
+prints a per-family PASS table (numeric vs empirical optimum, maximum
+survival-curve error). This module is numpy-only and needs no extras.
+
+## Hazard-family EV figure
+
+[`scripts/plot_hazard_families.py`](https://github.com/aslmylmz/metu-risk-persona/blob/main/scripts/plot_hazard_families.py)
+renders the eleven-panel EV-curve figure embedded in the
+[hazard-family reference](hazard_families.md) — analytic curves with numeric
+optima marked and Monte Carlo estimates overlaid:
+
+```bash
+python scripts/plot_hazard_families.py
+```
+
+Writes `output/figures/07_hazard_families_ev.png` (`output/` is git-ignored;
+the committed copy lives at `docs/_static/hazard_families_ev.png`).
+
+## Default-study EV figures
 
 [`scripts/monte_carlo_ev.py`](https://github.com/aslmylmz/metu-risk-persona/blob/main/scripts/monte_carlo_ev.py)
 empirically confirms the analytic EV-optimal stops and characterizes the

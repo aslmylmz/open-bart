@@ -2,28 +2,31 @@
 
 ## Requirements
 
-The scoring engine targets **Python 3.9+** and depends on a small scientific
-stack:
+```{admonition} Running studies? You don't need Python.
+:class: tip
 
-| Package    | Minimum version | Used for                                   |
-|------------|-----------------|--------------------------------------------|
-| `numpy`    | 1.26            | vectorized metric computation              |
-| `scipy`    | 1.12            | linear regression and correlation (`scipy.stats`) |
-| `pydantic` | 2.6             | event and metric schema validation         |
+This page is for using the **scoring engine as a Python library**. To run
+studies with the desktop instrument, download the installer instead — see the
+[researcher quickstart](standalone/quickstart.md).
+```
 
-Two scripts pull in optional extras:
+The scoring engine targets **Python 3.9+** with a deliberately small core
+(the engine is scipy-free so the frozen desktop sidecar stays lean):
 
-| Package      | Minimum version | Used by                          |
-|--------------|-----------------|----------------------------------|
-| `matplotlib` | 3.8             | `scripts/monte_carlo_ev.py`      |
-| `pandas`     | 2.2             | `scripts/generate_synthetic.py`  |
+| Package    | Minimum version | Used for                           |
+|------------|-----------------|------------------------------------|
+| `numpy`    | 1.26            | vectorized metric computation      |
+| `pydantic` | 2.6             | event and metric schema validation |
+
+Optional extras (`pip install -e ".[scripts]"`) pull in `matplotlib`,
+`pandas`, and `scipy` for the figure/data [scripts](scripts.md).
 
 ## From source
 
 ```bash
 git clone https://github.com/aslmylmz/metu-risk-persona.git
 cd metu-risk-persona
-pip install -r requirements.txt
+pip install -e .
 ```
 
 We recommend a virtual environment:
@@ -31,7 +34,7 @@ We recommend a virtual environment:
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ## Verifying the install
@@ -47,10 +50,8 @@ If that prints `ok`, you are ready to [score a session](quickstart.md).
 ```{admonition} Importing the package
 :class: note
 
-`scoring` is imported as a package relative to the repository root (for example
-`from scoring.bart import score_bart`). Run your code from the repository root,
-or add the repository root to `PYTHONPATH`, so that the `scoring` package can be
-found.
+The editable install (`pip install -e .`) registers the `scoring` package, so
+`from scoring.bart import score_bart` works from anywhere in the environment.
 ```
 
 ## The game client

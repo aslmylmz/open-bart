@@ -1,47 +1,61 @@
 # Dynamic Hazard Rate BART
 
-**A multi-risk Balloon Analogue Risk Task.**
+**A configurable, offline desktop instrument for the Balloon Analogue Risk Task.**
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20592164.svg)](https://doi.org/10.5281/zenodo.20592164)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation Status](https://readthedocs.org/projects/metu-risk-persona/badge/?version=latest)](https://metu-risk-persona.readthedocs.io/en/latest/?badge=latest)
 
-Dynamic Hazard Rate BART is an open-source implementation of a modified
-[Balloon Analogue Risk Task](https://doi.org/10.1037/1076-898X.8.2.75) (BART) that
-replaces the classic uniform burst threshold with a **dynamic hazard rate**: at
-each pump $k$, the balloon bursts with probability $k / N$ (a sequence of
-independent trials with a linearly increasing hazard). This single
-change moves the expected-value (EV) optimal stopping point from the
-unattainable $N/2$ of the standard task down to roughly $\sqrt{N}$ — a target
-that ordinary participants can actually reach. As a result the task can
-distinguish **cautious**, **calibrated**, and **reckless** play rather than
-collapsing into a one-dimensional proxy for raw risk exposure.
+Dynamic Hazard Rate BART lets a research lab administer, score, and export
+[Balloon Analogue Risk Task](https://doi.org/10.1037/1076-898X.8.2.75) (BART)
+sessions **without writing code and without a network connection**. A
+researcher designs a study in a point-and-click Study Setup screen — choosing
+from a curated library of [eleven hazard families](hazard_families.md) with a
+live expected-value preview — and runs participants through a conventional
+BART flow. Sessions are scored locally by the bundled Python engine and
+written to [per-session files plus a shared Master CSV](data_outputs.md)
+ready for SPSS or R.
 
-The repository bundles three things:
+The flagship paradigm is the **dynamic hazard rate**: at each pump $k$ the
+balloon bursts with probability $k / N$ (a sequence of independent trials
+with a linearly increasing hazard). This moves the expected-value (EV)
+optimal stopping point from the unattainable $N/2$ of the classic task down
+to roughly $\sqrt{N}$ — a target participants can actually reach — so the
+task distinguishes **cautious**, **calibrated**, and **reckless** play
+rather than collapsing into a one-dimensional proxy for raw risk exposure.
+The classic uniform (Lejuez) model and nine other hazard families are
+available as configuration choices for baselines and replications.
 
-- a complete **React / Vite game client** ([`app/src/BartGame.tsx`](game_client.md)),
-- a **Python scoring engine** ([`scoring/bart.py`](scoring_engine.md)) that derives
-  more than thirty psychometric metrics from raw event telemetry, and
-- **Monte Carlo verification tooling** ([`scripts/`](scripts.md)) that confirms the
-  analytically derived EV-optimal stops.
+The project comprises:
 
-It was developed as the measurement instrument for a research study at the
-Middle East Technical University (METU). The live platform is hosted at
-[bart.aselimyilmaz.com](https://bart.aselimyilmaz.com).
+- the **standalone desktop instrument** (Tauri shell + React/Vite UI + a
+  loopback-only Python scoring sidecar; see the
+  [researcher quickstart](standalone/quickstart.md)),
+- a reusable **Python scoring engine** ([`scoring/`](scoring_engine.md)) that
+  derives 40+ psychometric metrics from raw event telemetry, and
+- **Monte Carlo verification tooling** that confirms every configuration's
+  numerically computed EV optima ([hazard-family reference](hazard_families.md)).
+
+It was developed as the measurement instrument for a research program at the
+Middle East Technical University (METU).
 
 ```{admonition} Where to start
 :class: tip
 
-New here? Read [Task Design](task_design.md) for the model and its mathematics,
-then [Quick Start](quickstart.md) to score your first session. Looking for a
-specific number? Jump to the [Metrics Reference](metrics_reference.md).
+Running a study? Follow the [researcher quickstart](standalone/quickstart.md),
+then see [Data Outputs](data_outputs.md) for what lands in your output
+directory. Using the engine as a library? Read [Task Design](task_design.md)
+for the model, then [Quick Start](quickstart.md) to score your first session.
+Looking for a specific number? Jump to the
+[Metrics Reference](metrics_reference.md).
 ```
 
-## Three-color risk profiles
+## The default study
 
-A session is 30 balloons — 10 of each color — presented in a shuffled order.
-The colors are deliberately neutral (no red/green) to avoid danger/safety
-framing.
+Out of the box the instrument loads the validated three-color linear-hazard
+design — 30 balloons (10 per color) in shuffled order, deliberately neutral
+colors (no red/green danger framing), $0.25 per banked pump. Every element
+below is configurable in Study Setup.
 
 | Color  | Max pumps ($N$) | Risk tier | EV-optimal stop ($s^*$) | Peak EV  | $P(\text{survive } s^*)$ |
 |--------|:---------------:|-----------|:-----------------------:|:--------:|:------------------------:|
@@ -49,24 +63,24 @@ framing.
 | Teal   | 32              | Medium    | 5                       | 3.04     | 0.61                     |
 | Orange | 8               | High      | 2                       | 1.31     | 0.66                     |
 
-Each collected pump is worth **\$0.25**; a burst forfeits the whole balloon.
-
 ## Contents
 
 ```{toctree}
 :maxdepth: 2
-:caption: Getting started
+:caption: For researchers
 
-installation
-quickstart
+Researcher quickstart <standalone/quickstart>
+SmartScreen & antivirus <standalone/SMARTSCREEN>
+hazard_families
+data_outputs
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: Standalone desktop app
+:caption: The engine as a library
 
-standalone/quickstart
-SmartScreen & antivirus <standalone/SMARTSCREEN>
+installation
+quickstart
 ```
 
 ```{toctree}
@@ -98,7 +112,7 @@ references
 
 ## Citing this software
 
-If you use this implementation in your research, please cite the archived
+If you use this instrument in your research, please cite the archived
 release (see [CITATION.cff](https://github.com/aslmylmz/metu-risk-persona/blob/main/CITATION.cff)):
 
 > Yılmaz, A. S. (2026). *Dynamic Hazard Rate BART: A Multi-Risk Balloon Analogue
