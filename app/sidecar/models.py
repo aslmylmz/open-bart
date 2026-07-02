@@ -66,9 +66,11 @@ class WriteOutputRequest(BaseModel):
 
 class WriteOutputResponse(BaseModel):
     """Absolute paths of the files written for one session, plus the study's
-    master CSV the session was appended to."""
+    master CSV the session row landed in — a timestamped sibling file when the
+    main file was locked or unmergeable (issue 36), explained in ``warnings``."""
 
     events: str
     metrics: str
     config: str
     master_csv: str
+    warnings: list[str] = Field(default_factory=list)

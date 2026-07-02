@@ -8,7 +8,6 @@ probe; the scoring/preview/output endpoints land in issue 08.
 
 from __future__ import annotations
 
-import csv
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +29,7 @@ from sidecar.models import (
     WriteOutputRequest,
     WriteOutputResponse,
 )
+from sidecar.versioned_csv import append_row
 
 
 def _slug(text: str) -> str:
@@ -52,23 +52,6 @@ def _flatten_metrics(metrics: BARTMetrics) -> dict[str, Any]:
             row[f"{name}_{field}"] = value
     return row
 
-
-def _append_master_csv(out_dir: Path, config: TaskConfig, row: dict[str, Any]) -> Path:
-    """Append one session row to the study's master CSV (CONTEXT.md), creating
-    the file with a header row when absent. Appends follow the existing header,
-    so the sheet stays rectangular even if columns evolve across versions."""
-    path = out_dir / f"{_slug(config.title)}_results.csv"
-    if path.exists():
-        with path.open("r", newline="", encoding="utf-8") as fh:
-            fieldnames = next(csv.reader(fh), None) or list(row)
-    else:
-        fieldnames = list(row)
-    with path.open("a", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=fieldnames, restval="", extrasaction="ignore")
-        if fh.tell() == 0:
-            writer.writeheader()
-        writer.writerow(row)
-    return path
 
 app = FastAPI(title="BART scoring sidecar", version=__version__)
 
@@ -150,7 +133,9 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     Writes three files namespaced by study title + candidate + timestamp: the raw
     event log (JSONL), the scored metrics (JSON), and a snapshot of the full
     ``TaskConfig`` so each dataset is self-documenting and reproducible. Also
-    appends one flat row to the study's master CSV (issue 28).
+    appends one flat row to the study's master CSV (issue 28) through the
+    header-versioned writer (issue 36), which migrates or falls back to a
+    sibling file — surfaced in ``warnings`` — rather than misalign columns.
     """
     config = req.config or DEFAULT_TASK_CONFIG
     out_dir = Path(config.output_dir)
@@ -170,9 +155,8 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     metrics_path.write_text(metrics.model_dump_json(indent=2), encoding="utf-8")
     config_path.write_text(config.model_dump_json(indent=2), encoding="utf-8")
 
-    master_csv = _append_master_csv(
-        out_dir,
-        config,
+    master_csv = append_row(
+        out_dir / f"{_slug(config.title)}_results.csv",
         {
             "timestamp_utc": ts,
             "session_id": req.session.session_id,
@@ -185,5 +169,6 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
         events=str(events_path),
         metrics=str(metrics_path),
         config=str(config_path),
-        master_csv=str(master_csv),
+        master_csv=str(master_csv.path),
+        warnings=[master_csv.warning] if master_csv.warning else [],
     )

@@ -426,6 +426,91 @@ def test_write_output_appends_master_csv(tmp_path):
     assert rows[0]["purple_risk_profile"] == purple.risk_profile
 
 
+def test_write_output_migrates_master_csv_with_older_header(tmp_path):
+    """A lab upgrades the app mid-study: the master CSV on disk has last
+    version's (narrower) header. /write-output backs the file up, migrates it
+    to the current header — pre-upgrade rows keep their values with blanks in
+    new columns — appends the session, and surfaces a warning (issue 36)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    first = client.post(
+        "/write-output", json={"session": _session_payload(events), "config": cfg}
+    )
+    assert first.status_code == 200, first.text
+    csv_path = Path(first.json()["master_csv"])
+
+    # Rewrite the file as an older app version would have left it: same rows,
+    # one column short of the current schema.
+    with csv_path.open(newline="", encoding="utf-8") as fh:
+        old_rows = list(csv.DictReader(fh))
+    dropped = list(old_rows[0])[-1]
+    kept = [c for c in old_rows[0] if c != dropped]
+    with csv_path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=kept, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(old_rows)
+
+    second = client.post(
+        "/write-output",
+        json={"session": _session_payload(events, candidate_id="cand-2"), "config": cfg},
+    )
+    assert second.status_code == 200, second.text
+    body = second.json()
+    assert Path(body["master_csv"]) == csv_path
+    assert body["warnings"], "the migration should be surfaced to the researcher"
+
+    with csv_path.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    assert [r["candidate_id"] for r in rows] == ["cand-1", "cand-2"]
+    assert rows[0][dropped] == ""  # honest blank in the pre-upgrade row
+    assert rows[1][dropped] != ""
+
+    backups = list(tmp_path.glob("*_backup_*.csv"))
+    assert len(backups) == 1
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="chmod does not make a file unwritable on Windows"
+)
+def test_write_output_locked_master_csv_never_loses_the_session(tmp_path):
+    """The master CSV is locked (e.g. open in Excel): the session row lands in
+    a timestamped sibling file, the response's master_csv points at it, and a
+    readable warning explains what happened — no exception (issue 36)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    first = client.post(
+        "/write-output", json={"session": _session_payload(events), "config": cfg}
+    )
+    assert first.status_code == 200, first.text
+    csv_path = Path(first.json()["master_csv"])
+
+    csv_path.chmod(0o444)
+    try:
+        second = client.post(
+            "/write-output",
+            json={
+                "session": _session_payload(events, candidate_id="cand-2"),
+                "config": cfg,
+            },
+        )
+    finally:
+        csv_path.chmod(0o644)
+
+    assert second.status_code == 200, second.text
+    body = second.json()
+    sibling = Path(body["master_csv"])
+    assert sibling != csv_path
+    assert body["warnings"] and sibling.name in body["warnings"][0]
+
+    with sibling.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    assert [r["candidate_id"] for r in rows] == ["cand-2"]
+
+
 def test_cors_preflight_returns_allow_origin():
     """An OPTIONS preflight to any endpoint returns Access-Control-Allow-Origin,
     so cross-origin fetches from the webview / dev browser succeed (issue 22)."""

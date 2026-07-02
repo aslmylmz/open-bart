@@ -50,13 +50,32 @@ session** to a single shared spreadsheet in the output directory:
 ```
 
 - The file is created **with a header row** on the first write.
-- Later appends **follow the existing header**, so the sheet stays
-  rectangular even if columns evolve across software versions (new columns
-  are ignored, missing ones are left empty).
 - Per-color metrics are flattened to `{color}_{field}` columns so they load
   as plain variables in SPSS or R.
 - The nested `behavioral_profile` narrative is **deliberately excluded** —
   it is not meaningful as spreadsheet cells; read it from `*_metrics.json`.
+
+### Upgrading mid-study: migration and backups
+
+Software updates can add columns to the Master CSV. The writer compares the
+file's header to the current column schema on every append, so one file per
+study stays the rule even across app versions — columns are never silently
+misaligned:
+
+- **Header matches** — the row is appended, exactly as before.
+- **Older header** (the file predates newly added columns) — the file is
+  first copied to a timestamped backup
+  (`[StudyTitle]_results_backup_[Timestamp].csv`), then rewritten under the
+  current header: pre-upgrade rows keep their values by column *name* and get
+  **honest blanks** in the new columns. The new session row is appended and
+  the migration is reported in the write response's `warnings`.
+- **Unknown columns** (the file was written by a *newer* app version) — the
+  file is left untouched; the session row is written to a timestamped sibling
+  file (`[StudyTitle]_results_unmerged_[Timestamp].csv`) with a warning, for
+  you to merge by hand.
+- **Locked, unwritable, or damaged file** (e.g. open in Excel, or re-saved
+  in a non-UTF-8 encoding) — same sibling-file fallback: the session is
+  never lost and never aborts the run.
 
 ### Identity columns
 
