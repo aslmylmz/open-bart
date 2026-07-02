@@ -543,7 +543,7 @@ def _calculate_risk_adjustment_score(
     cp = color_pumps
     scores = []
 
-    for color in ["purple", "teal", "orange"]:
+    for color in sorted(cp):
         if color not in curves:
             continue
         if color in cp and len(cp[color]) > 0:
@@ -580,7 +580,7 @@ def _compute_ev_ratio_score(
     """
     per_color_efficiency: dict[str, float] = {}
 
-    for color in ["purple", "teal", "orange"]:
+    for color in sorted(color_balloons):
         if color not in curves:
             continue
         total = color_balloons.get(color, 0)
@@ -635,7 +635,7 @@ def _compute_explosion_penalty(
     """
     per_color_excess: dict[str, float] = {}
 
-    for color in ["purple", "teal", "orange"]:
+    for color in sorted(color_balloons):
         if color not in curves:
             continue
         total = color_balloons.get(color, 0)
@@ -669,7 +669,7 @@ def _compute_ev_efficiency_uniformity(
     """
     effective_efficiency: dict[str, float] = {}
 
-    for color in ["purple", "teal", "orange"]:
+    for color in sorted(color_balloons):
         total = color_balloons.get(color, 0)
         if total == 0:
             continue
@@ -721,7 +721,7 @@ def _detect_flat_strategy(
     )
 
     raw_means: dict[str, float] = {}
-    for color in ["purple", "teal", "orange"]:
+    for color in sorted(color_pumps_all):
         pumps = color_pumps_all.get(color, [])
         if pumps:
             raw_means[color] = float(np.mean(pumps))
@@ -757,7 +757,7 @@ def _detect_flat_strategy(
 
     if cv < 0.25:
         explosion_rates: dict[str, float] = {}
-        for color in ["purple", "teal", "orange"]:
+        for color in sorted(color_balloons):
             total = color_balloons.get(color, 0)
             if total > 0:
                 explosion_rates[color] = color_explosions.get(color, 0) / total
@@ -871,9 +871,11 @@ def _generate_behavioral_profile(
         )
 
     # ── 2. Calibrated Risk Optimizer ─────────────────────────────────────
+    # _unif is None when the session lacks enough risk contexts to compare;
+    # the cross-context styles (2, 3, 5) are then unreachable by design.
     elif (metrics.risk_calibration_score >= 80
           and metrics.explosion_penalty < 0.25
-          and _unif > 0.60):
+          and _unif is not None and _unif > 0.60):
         risk_style = "Calibrated Risk Optimizer"
         risk_desc = (
             "You calibrated your risk-taking precisely to match actual danger levels. "
@@ -883,7 +885,7 @@ def _generate_behavioral_profile(
 
     # ── 3. Selective Over-Optimizer ──────────────────────────────────────
     elif (has_selective_strength
-          and _unif < 0.40
+          and _unif is not None and _unif < 0.40
           and metrics.explosion_penalty > 0.25):
         risk_style = "Selective Over-Optimizer"
         risk_desc = (
@@ -904,7 +906,7 @@ def _generate_behavioral_profile(
         )
 
     # ── 5. Context-Insensitive Risk Taker ────────────────────────────────
-    elif (_unif < 0.35
+    elif (_unif is not None and _unif < 0.35
           and not has_selective_strength
           and metrics.explosion_penalty > 0.15):
         risk_style = "Context-Insensitive Risk Taker"
@@ -1180,10 +1182,12 @@ def score_bart(
 
     color_metrics_list: list[ColorMetrics] = []
 
-    for color in ["purple", "teal", "orange"]:
-        if color not in color_balloons:
-            continue
+    # Config order is canonical (the Master CSV derives column order from it);
+    # colors played but absent from the config trail alphabetically.
+    session_colors = [c for c in curves if c in color_balloons]
+    session_colors += sorted(set(color_balloons) - set(curves))
 
+    for color in session_colors:
         balloons_of_color = color_balloons[color]
         pumps_of_color = color_pumps_all.get(color, [])
         collected_of_color = color_pumps_collected.get(color, [])
