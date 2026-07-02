@@ -1,16 +1,13 @@
-# Core dependencies for the BART scoring engine
-# Install with: pip install -r requirements.txt
+# Core dependencies for the BART scoring engine.
+# pyproject.toml is the authority — prefer:  pip install -e .
+# This file mirrors the core dependencies for quick environment setup.
 
-# Scientific computing
+# Scientific computing (the engine is scipy-free)
 numpy>=1.26
-scipy>=1.12
 
 # Schema validation
 pydantic>=2.6
 
 # ── Optional: for scripts/ ──────────────────────────────────────────────
-# Monte Carlo simulation (scripts/monte_carlo_ev.py)
-matplotlib>=3.8
-
-# Synthetic data generation (scripts/generate_synthetic.py)
-pandas>=2.2
+# Figures, synthetic datasets, and distribution utilities are extras:
+#   pip install -e ".[scripts]"        (matplotlib, pandas, scipy)
