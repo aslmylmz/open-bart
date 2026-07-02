@@ -1,23 +1,29 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using these metadata."
-title: "Dynamic Hazard Rate BART: A Multi-Risk Balloon Analogue Risk Task"
+title: "Dynamic Hazard Rate BART: A Configurable Offline Desktop Instrument for the Balloon Analogue Risk Task"
 abstract: >-
-  An open-source implementation of a modified Balloon Analogue Risk Task (BART)
-  that replaces the classic uniform explosion threshold with a dynamic hazard
-  rate (P(explode at pump k) = k / N). The repository includes a React game
-  client, a Python scoring engine with more than thirty psychometric metrics,
-  and Monte Carlo tooling for verifying the theoretical expected-value optima.
+  An open-source desktop instrument for administering, scoring, and exporting
+  Balloon Analogue Risk Task (BART) sessions without code and without a
+  network connection. Researchers design studies in a point-and-click
+  interface, choosing per balloon color from a curated library of eleven
+  parameterized hazard families — the flagship dynamic hazard rate
+  (P(burst at pump k) = k / N, optimum near sqrt(N)) alongside the classic
+  uniform model and nine others — with a live expected-value preview. Each
+  configuration's EV-optimal stop is computed numerically and verified by
+  seeded Monte Carlo simulation. Sessions are scored locally by a Python
+  engine (40+ psychometric metrics) into per-session telemetry files and a
+  study-wide master CSV ready for SPSS or R.
 type: software
 authors:
   - given-names: "Ahmet Selim"
     family-names: "Yılmaz"
     orcid: "https://orcid.org/0009-0000-2866-5774"
     affiliation: "Middle East Technical University"
-version: "0.2.0"
-date-released: "2026-07-01"
+version: "1.0.0"
+date-released: "2026-07-02"
 license: MIT
 repository-code: "https://github.com/aslmylmz/metu-risk-persona"
-url: "https://bart.aselimyilmaz.com"
+url: "https://metu-risk-persona.readthedocs.io"
 doi: "10.5281/zenodo.20592164"
 keywords:
   - BART
@@ -25,4 +31,5 @@ keywords:
   - risk-taking
   - psychometrics
   - behavioral economics
+  - hazard function
   - DOSPERT

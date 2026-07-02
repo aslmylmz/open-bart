@@ -263,9 +263,11 @@ If you use this instrument in your research, please cite (see
 ```bibtex
 @software{yilmaz2026bart,
   author    = {Y{\i}lmaz, Ahmet Selim},
-  title     = {Dynamic Hazard Rate BART: A Multi-Risk Balloon Analogue Risk Task},
+  title     = {Dynamic Hazard Rate BART: A Configurable Offline Desktop
+               Instrument for the Balloon Analogue Risk Task},
   year      = {2026},
-  url       = {https://github.com/aslmylmz/metu-risk-persona},
-  note      = {Open-source software, MIT License}
+  version   = {1.0.0},
+  doi       = {10.5281/zenodo.20592164},
+  url       = {https://github.com/aslmylmz/metu-risk-persona}
 }
 ```

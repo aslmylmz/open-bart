@@ -17,7 +17,7 @@ author = "Ahmet Selim Yılmaz"
 copyright = "2026, Ahmet Selim Yılmaz"  # noqa: A001
 
 # The full version, including alpha/beta/rc tags.
-release = "0.2.0"
+release = "1.0.0"
 version = "0.2"
 
 # ── General configuration ────────────────────────────────────────────────────
