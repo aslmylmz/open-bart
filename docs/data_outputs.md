@@ -150,6 +150,24 @@ misaligned:
 | `money_collected` | Session earnings in the study's currency |
 | `money_efficiency` | Earnings relative to simulated optimal play |
 
+### Payout columns
+
+For studies whose preset declares a `payout` block (issue 41) — a conversion
+rate and a freeform currency label ("₺", "$", "credits") — the amount
+actually owed is recorded next to the task-internal earnings. Like
+`condition`, these columns are **present only for studies that configure a
+payout**; other studies' column sets are unchanged.
+
+The rounding rule, applied once in the scoring engine (so the debrief screen
+and the CSV can never disagree): `payout_amount = money_collected ×
+payout.rate`, rounded **half-up** to 2 decimals (0.725 → 0.73 — not banker's
+rounding).
+
+| Column | Meaning |
+|--------|---------|
+| `payout_amount` | The converted amount owed to the participant |
+| `payout_currency` | The preset's freeform currency label, verbatim |
+
 ### Data-quality (QC) columns
 
 Automatic data-quality flags (also in `*_metrics.json`). **Flags annotate,

@@ -33,6 +33,10 @@ export interface AssessmentResult {
     patience_index: number;
     response_consistency: number;
     adaptive_strategy_score: number;
+    /** Real-world payout conversion (issue 41); null for studies without a
+     * payout block. Computed once by the engine — never re-derived here. */
+    payout_amount?: number | null;
+    payout_currency?: string | null;
   };
   normalized_scores: Array<{
     metric_name: string;
@@ -48,13 +52,16 @@ interface DebriefProps {
   /** The session's cumulative collected amount (the task engine's running score). */
   earnings: number;
   balloonsCompleted: number;
+  /** The converted amount actually owed, computed once by the engine (issue 41).
+   * Omitted for studies without a payout block — no payout line renders. */
+  payout?: { amount: number; currency: string } | null;
 }
 
 /** The participant debrief — a clean thank-you screen with only the high-level
  * summary, in the Light Posture (ADR 0003). The clinical metrics never render
  * here (participant UX convention, Issue 28): researchers read them from the
  * per-session metrics JSON and the master CSV in the output directory. */
-export function Debrief({ language, earnings, balloonsCompleted }: DebriefProps) {
+export function Debrief({ language, earnings, balloonsCompleted, payout }: DebriefProps) {
   const t = taskStrings(language);
   return (
     <div style={cardStyle}>
@@ -79,6 +86,14 @@ export function Debrief({ language, earnings, balloonsCompleted }: DebriefProps)
         <div style={{ color: "#6b7280" }}>
           {balloonsCompleted} {t.balloonsWord}
         </div>
+        {payout && (
+          <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 16, paddingTop: 16 }}>
+            <div style={{ color: "#6b7280", fontSize: "0.85rem" }}>{t.payoutLabel}</div>
+            <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#111827" }}>
+              {payout.amount.toFixed(2)} {payout.currency}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

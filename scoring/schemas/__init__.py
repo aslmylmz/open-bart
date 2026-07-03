@@ -529,6 +529,21 @@ class BARTMetrics(BaseModel):
         ),
     )
 
+    # Real-world payout conversion (issue 41): computed once, here in the
+    # engine, so the debrief and the CSV can never disagree. None when the
+    # study declares no payout block.
+    payout_amount: Optional[float] = Field(
+        default=None,
+        description=(
+            "Amount actually owed: money_collected × payout.rate, rounded "
+            "half-up to 2 decimals. None when the study has no payout block."
+        ),
+    )
+    payout_currency: Optional[str] = Field(
+        default=None,
+        description="The payout block's freeform currency label ('₺', '$', 'credits').",
+    )
+
 
 # ── Normalization (optional) ─────────────────────────────────────────────────
 

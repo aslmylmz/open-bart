@@ -376,6 +376,30 @@ def test_validate_config_rejects_bad_conditions(conditions):
     assert any("conditions" in e for e in body["errors"])
 
 
+@pytest.mark.parametrize(
+    "payout",
+    [
+        {"rate": 0, "currency": "$"},  # rate must be positive
+        {"rate": -1.5, "currency": "$"},
+        {"rate": 0.1, "currency": ""},  # label must not be blank
+        {"rate": 0.1},  # label is required when the block exists
+    ],
+)
+def test_validate_config_rejects_bad_payout_blocks(payout):
+    """A malformed payout block comes back as readable structured errors naming
+    the field (issue 41); a v1.0.0 preset without the block stays valid."""
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["payout"] = payout
+    resp = client.post("/validate-config", json=cfg)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ok"] is False
+    assert any("payout" in e for e in body["errors"])
+
+    cfg.pop("payout")
+    assert client.post("/validate-config", json=cfg).json()["ok"] is True
+
+
 def test_check_id_fresh_id_has_no_sessions(tmp_path):
     """POST /check-id with an ID the study has never seen reports zero existing
     sessions — the ID screen can start the run with no friction (issue 38)."""
@@ -773,6 +797,39 @@ def test_flagged_session_lands_in_master_csv_with_qc_columns(tmp_path):
 
     metrics = json.loads(Path(paths["metrics"]).read_text(encoding="utf-8"))
     assert metrics["qc_flagged"] is True
+
+
+def test_payout_lands_in_master_csv_and_metrics_only_when_configured(tmp_path):
+    """A payout study writes the owed amount + currency to the metrics JSON and
+    as Master CSV columns; a study without a payout block keeps its column set
+    unchanged — the same present-only-when-configured rule as `condition`
+    (issues 37/41). Task-internal earnings columns are untouched either way."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    plain = client.post(
+        "/write-output", json={"session": _session_payload(events), "config": cfg}
+    )
+    assert plain.status_code == 200, plain.text
+    with Path(plain.json()["master_csv"]).open(newline="", encoding="utf-8") as fh:
+        row = next(csv.DictReader(fh))
+    assert "payout_amount" not in row and "payout_currency" not in row
+    assert row["money_collected"]  # task-internal earnings unchanged
+
+    paid_cfg = {**cfg, "title": "Paid study", "payout": {"rate": 0.1, "currency": "₺"}}
+    paid = client.post(
+        "/write-output", json={"session": _session_payload(events), "config": paid_cfg}
+    )
+    assert paid.status_code == 200, paid.text
+    metrics = json.loads(Path(paid.json()["metrics"]).read_text(encoding="utf-8"))
+    with Path(paid.json()["master_csv"]).open(newline="", encoding="utf-8") as fh:
+        paid_row = next(csv.DictReader(fh))
+    assert float(paid_row["payout_amount"]) == metrics["payout_amount"]
+    assert paid_row["payout_currency"] == "₺"
+    assert metrics["payout_amount"] == pytest.approx(
+        round(float(paid_row["money_collected"]) * 0.1, 2)
+    )
 
 
 def test_write_output_migrates_master_csv_with_older_header(tmp_path):

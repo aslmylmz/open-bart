@@ -511,6 +511,15 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
                         language={config.language}
                         earnings={totalScore}
                         balloonsCompleted={completedBalloons.length}
+                        payout={
+                            results.raw_metrics?.payout_amount != null &&
+                            results.raw_metrics?.payout_currency
+                                ? {
+                                      amount: results.raw_metrics.payout_amount,
+                                      currency: results.raw_metrics.payout_currency,
+                                  }
+                                : null
+                        }
                     />
                     <button type="button" className="btn-ghost-participant" onClick={startGame}>
                         {t.playAgain}

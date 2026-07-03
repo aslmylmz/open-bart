@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 from collections import defaultdict
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 import numpy as np
@@ -1399,6 +1400,17 @@ def score_bart(
         zero_pump_streak=config.qc.zero_pump_streak,
     )
 
+    # Payout conversion (issue 41): the one place the rounding rule lives.
+    # Computed from the reported (2-dp) earnings via Decimal so "half-up"
+    # means exactly that — float artifacts and banker's rounding never leak
+    # into what a participant is owed.
+    payout_amount = None
+    if config.payout is not None:
+        payout_amount = float(
+            (Decimal(str(round(money_collected, 2))) * Decimal(str(config.payout.rate)))
+            .quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        )
+
     metrics_obj = BARTMetrics(
         average_pumps_adjusted=round(average_pumps_adjusted, 4),
         explosion_rate=round(explosion_rate, 4),
@@ -1441,6 +1453,8 @@ def score_bart(
         qc_flagged=qc_flagged,
         qc_fast_response_ms=config.qc.fast_response_ms,
         qc_zero_pump_streak_threshold=config.qc.zero_pump_streak,
+        payout_amount=payout_amount,
+        payout_currency=config.payout.currency if config.payout else None,
         behavioral_profile={},
     )
 

@@ -16,6 +16,21 @@ from scoring.config.curve import BalloonCurve, balloon_curve
 from scoring.config.hazards import HazardSpec, DynamicHazard
 
 
+class PayoutConversion(BaseModel):
+    """Optional conversion from task earnings to the amount actually owed
+    (issue 41) — a display/payout layer, not a scoring change. The label is
+    freeform ("₺", "$", "credits"); no locale machinery."""
+
+    rate: float = Field(
+        gt=0, description="payout currency units per task earnings unit"
+    )
+    currency: str = Field(
+        min_length=1,
+        max_length=16,
+        description='freeform currency label or symbol shown with the amount',
+    )
+
+
 class QCThresholds(BaseModel):
     """Data-quality flag thresholds (issue 40), carried in the Study Preset so
     labs can align flags with their preregistration. Flags annotate — nothing
@@ -74,6 +89,13 @@ class TaskConfig(BaseModel):
         description=(
             "data-quality flag thresholds (issue 40); absent means the "
             "literature-informed defaults"
+        ),
+    )
+    payout: Optional[PayoutConversion] = Field(
+        default=None,
+        description=(
+            "real-world payout conversion (issue 41); absent means no payout "
+            "anywhere — the v1.0.0 behavior"
         ),
     )
 

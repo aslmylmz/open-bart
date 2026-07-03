@@ -26,6 +26,7 @@ from scoring.config.hazards import (
 from scoring.config.task_config import (
     DEFAULT_TASK_CONFIG,
     ColorProfile,
+    PayoutConversion,
     QCThresholds,
     TaskConfig,
 )
@@ -34,6 +35,7 @@ __all__ = [
     # Main domain entities
     "TaskConfig",
     "ColorProfile",
+    "PayoutConversion",
     "QCThresholds",
     "DEFAULT_TASK_CONFIG",
     # Specific hazard families

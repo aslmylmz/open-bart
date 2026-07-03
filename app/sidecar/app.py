@@ -48,6 +48,11 @@ def _flatten_metrics(metrics: BARTMetrics) -> dict[str, Any]:
     """
     row = metrics.model_dump(mode="json")
     row.pop("behavioral_profile", None)
+    # Payout columns exist only for studies that declare a payout block —
+    # the same present-only-when-configured rule as `condition` (issues 37/41).
+    if row.get("payout_amount") is None:
+        row.pop("payout_amount", None)
+        row.pop("payout_currency", None)
     for color in row.pop("color_metrics", []):
         name = color.pop("color")
         for field, value in color.items():

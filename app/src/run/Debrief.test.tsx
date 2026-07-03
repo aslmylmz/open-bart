@@ -34,4 +34,39 @@ describe("Debrief (participant thank-you screen)", () => {
       expect(screen.queryByText(leaked)).toBeNull();
     }
   });
+
+  it("shows the payout owed when the study converts earnings (issue 41)", () => {
+    render(
+      <Debrief
+        language="en"
+        earnings={12.5}
+        balloonsCompleted={30}
+        payout={{ amount: 1.25, currency: "₺" }}
+      />,
+    );
+
+    expect(screen.getByText(t.payoutLabel)).toBeTruthy();
+    expect(screen.getByText("1.25 ₺")).toBeTruthy();
+  });
+
+  it("localizes the payout label for Turkish studies", () => {
+    const tr = taskStrings("tr");
+    render(
+      <Debrief
+        language="tr"
+        earnings={12.5}
+        balloonsCompleted={30}
+        payout={{ amount: 45.5, currency: "₺" }}
+      />,
+    );
+
+    expect(screen.getByText(tr.payoutLabel)).toBeTruthy();
+    expect(screen.getByText("45.50 ₺")).toBeTruthy();
+  });
+
+  it("shows no payout line for studies without a payout block", () => {
+    render(<Debrief language="en" earnings={12.5} balloonsCompleted={30} />);
+
+    expect(screen.queryByText(t.payoutLabel)).toBeNull();
+  });
 });

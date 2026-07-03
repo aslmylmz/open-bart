@@ -53,6 +53,8 @@ export interface TaskStrings {
   // Debrief
   thankYouTitle: string;
   thankYouBody: string;
+  /** Label over the converted amount owed (issue 41; only for payout studies). */
+  payoutLabel: string;
   playAgain: string;
   // Error recovery
   retry: string;
@@ -98,6 +100,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     seeResults: "See my results",
     thankYouTitle: "Thank you for participating!",
     thankYouBody: "Your session has been recorded. Please let the researcher know you are finished.",
+    payoutLabel: "Your payout",
     playAgain: "Play again",
     retry: "Retry",
   },
@@ -140,6 +143,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     seeResults: "Sonuçlarımı Gör",
     thankYouTitle: "Katılımınız için teşekkürler!",
     thankYouBody: "Oturumunuz kaydedildi. Lütfen bittiğinizi araştırmacıya haber verin.",
+    payoutLabel: "Ödemeniz",
     playAgain: "Tekrar Oyna",
     retry: "Tekrar Dene",
   },

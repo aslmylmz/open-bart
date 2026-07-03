@@ -153,6 +153,29 @@ describe("BartGame gameplay screen", () => {
     expect(screen.getByText(`2 ${t.balloonsWord}`)).toBeTruthy();
   });
 
+  it("shows the engine-computed payout on the debrief (issue 41)", async () => {
+    submitSession.mockResolvedValue({
+      session_id: "s-1",
+      raw_metrics: { payout_amount: 0.73, payout_currency: "₺" },
+    });
+    persistSession.mockResolvedValue({});
+    renderGame();
+    await startTask();
+
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(`${t.balloonLabel} 2/2`, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    // The debrief shows the amount owed exactly as the engine computed it —
+    // the client never re-derives or re-rounds.
+    expect(await screen.findByText(t.payoutLabel)).toBeTruthy();
+    expect(screen.getByText("0.73 ₺")).toBeTruthy();
+  });
+
   it("submits the assigned condition with the session (issue 37)", async () => {
     submitSession.mockResolvedValue({ session_id: "s-1" });
     persistSession.mockResolvedValue({});

@@ -314,3 +314,33 @@ def test_preset_qc_thresholds_change_outcomes_and_are_recorded():
     assert flagged.qc_fast_response_trials == 2
     assert flagged.qc_flagged is True
     assert flagged.qc_fast_response_ms == 400.0
+
+
+# ── Payout conversion (issue 41) ─────────────────────────────────────────────
+
+
+def test_payout_block_converts_earnings_half_up():
+    """A study with a payout block converts session earnings to the amount owed
+    (earnings × rate) rounded HALF-UP to 2 decimals — one rule, applied once in
+    the engine, so the debrief and the CSV can never disagree (issue 41).
+    29 collected pumps × $0.25 = 7.25 earnings; × 0.1 = 0.725 → 0.73 (a case
+    banker's rounding would turn into 0.72)."""
+    from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
+
+    events = build_events([("teal", 29, True)])
+    paid = TaskConfig.model_validate(
+        {**DEFAULT_TASK_CONFIG.model_dump(), "payout": {"rate": 0.1, "currency": "₺"}}
+    )
+
+    metrics = score_bart(events, paid)
+    assert metrics.money_collected == pytest.approx(7.25)
+    assert metrics.payout_amount == 0.73
+    assert metrics.payout_currency == "₺"
+
+
+def test_no_payout_block_means_no_payout_anywhere():
+    """Without a payout block (every v1.0.0 preset) the payout fields stay
+    empty — today's behavior, unchanged."""
+    metrics = score_bart(build_events([("teal", 4, True)]))
+    assert metrics.payout_amount is None
+    assert metrics.payout_currency is None
