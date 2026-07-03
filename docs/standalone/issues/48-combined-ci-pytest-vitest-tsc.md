@@ -62,3 +62,17 @@ vitest runtime guard is the other side of the two-sided contract, catching a
 pydantic-side change.) The `gh` CLI was unavailable in the authoring
 environment, so the remote run itself is confirmed on the Actions tab rather than
 watched from the shell.
+
+**2026-07-04 — first CI run was red; fixed.** Run #1 (`2517471`) failed at the
+`pytest` step: `test_paper.py::test_paper_build_workflow_compiles_the_manuscript`
+does `import yaml` to parse `paper.yml`, but **PyYAML was undeclared** — present
+in local/dev environments by luck (conda base), absent from the clean
+`.[sidecar,dev]` install CI does. This was a latent bug the first clean-room run
+surfaced (the test fails in any fresh env, not just CI). Fixed at the source:
+added `pyyaml>=6` to the `dev` extra so the suite declares what it needs.
+Reproduced both states in a throwaway py3.12 venv installing exactly
+`.[sidecar,dev]`: before → `1 failed, 158 passed, 2 skipped`; after → `159
+passed, 2 skipped`. The 2 skips are by design (scipy `importorskip` in
+test_config; one platform-guarded test) — the engine is scipy-free, so scipy is
+not a CI dep. Re-verified the run via the public REST API (the on-PATH `gh` is a
+miniforge "browser opener", not the GitHub CLI; the real CLI is not installed).

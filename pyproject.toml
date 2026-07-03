@@ -41,8 +41,9 @@ scripts = ["matplotlib>=3.8", "pandas>=2.2", "scipy>=1.12"]
 sidecar = ["fastapi>=0.110", "uvicorn>=0.29"]
 # PyInstaller toolchain for freezing the sidecar into a per-OS binary (SPEC §9).
 build = ["pyinstaller>=6.6"]
-# Test/dev tooling. httpx backs FastAPI's TestClient.
-dev = ["pytest>=7", "httpx>=0.27"]
+# Test/dev tooling. httpx backs FastAPI's TestClient; pyyaml backs the
+# docs-as-contract test that parses the GitHub workflow YAML (test_paper.py).
+dev = ["pytest>=7", "httpx>=0.27", "pyyaml>=6"]
 
 [project.urls]
 Homepage = "https://github.com/aslmylmz/metu-risk-persona"
