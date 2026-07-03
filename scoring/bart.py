@@ -13,6 +13,10 @@ from scoring.schemas.game_events import BARTMetrics, ColorMetrics, GameEvent, Tr
 
 logger = logging.getLogger(__name__)
 
+# The engine's public interface: everything else in this module is an
+# implementation detail (private helpers, module-level fallbacks/constants).
+__all__ = ["score_bart", "trial_table", "validate_bart_session"]
+
 
 # ── Color Profile Constants ──────────────────────────────────────────────────
 
@@ -32,54 +36,6 @@ _DEFAULT_CURVES: dict[str, BalloonCurve] = DEFAULT_TASK_CONFIG.curves
 
 # Minimum collected (non-exploded) balloons per color before fallback
 MIN_COLLECTED_FALLBACK = 2
-
-
-# ── EV Computation (Sequential Model) ───────────────────────────────────────
-
-
-def _compute_ev(s: int, max_pumps: int) -> float:
-    """
-    Compute expected value of stopping after s pumps.
-    
-    Explosion model: P(explode at pump k) = k / maxPumps.
-    EV(s) = s * Product_{k=1..s} (1 - k/N)
-    """
-    if s <= 0 or s > max_pumps:
-        return 0.0
-    survival = 1.0
-    for k in range(1, s + 1):
-        survival *= (1.0 - k / max_pumps)
-        if survival <= 0:
-            return 0.0
-    return s * survival
-
-
-def _compute_ev_optimal(max_pumps: int) -> tuple[int, float]:
-    """
-    Find the pump count that maximizes expected value.
-    """
-    best_s = 0
-    best_ev = 0.0
-    for s in range(1, max_pumps + 1):
-        ev = _compute_ev(s, max_pumps)
-        if ev > best_ev:
-            best_ev = ev
-            best_s = s
-        elif ev < best_ev * 0.5:
-            break
-    return best_s, best_ev
-
-
-def _compute_survival_probability(s: int, max_pumps: int) -> float:
-    """
-    Compute cumulative survival probability after s pumps.
-    """
-    if s <= 0:
-        return 1.0
-    survival = 1.0
-    for k in range(1, s + 1):
-        survival *= (1.0 - k / max_pumps)
-    return max(0.0, survival)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

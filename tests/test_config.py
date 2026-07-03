@@ -10,7 +10,6 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from scoring.bart import _compute_ev_optimal
 from scoring.config import (
     DEFAULT_TASK_CONFIG,
     ColorProfile,
@@ -75,15 +74,6 @@ def test_study_preset_declares_optional_conditions():
 
     conditioned = TaskConfig.model_validate({**v1, "conditions": ["control", "experimental"]})
     assert conditioned.conditions == ["control", "experimental"]
-
-
-@pytest.mark.parametrize("n", [128, 32, 8, 16, 50, 100])
-def test_linear_curve_agrees_with_existing_engine(n):
-    """The config's linear curve matches scoring.bart for both s* and peak EV."""
-    s_engine, ev_engine = _compute_ev_optimal(n)
-    curve = balloon_curve(DynamicHazard().hazard_vector(n), reward_per_pump=1.0)
-    assert curve.optimum == s_engine
-    assert curve.optimal_ev == pytest.approx(ev_engine)
 
 
 def test_optimum_is_invariant_to_reward():

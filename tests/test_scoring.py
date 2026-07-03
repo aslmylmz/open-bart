@@ -11,12 +11,10 @@ import pytest
 
 from scoring.bart import (
     COLOR_PROFILES,
-    _compute_ev,
-    _compute_ev_optimal,
-    _compute_survival_probability,
     score_bart,
     validate_bart_session,
 )
+from scoring.config import DynamicHazard, balloon_curve
 from scoring.schemas import EventPayload, GameEvent, GameSession
 from scoring.schemas.game_events import validate_bart_events
 
@@ -54,23 +52,19 @@ def optimal_session():
 
 @pytest.mark.parametrize("n, expected_s", [(128, 11), (32, 5), (8, 2)])
 def test_discrete_optima(n, expected_s):
-    s_star, _ev = _compute_ev_optimal(n)
-    assert s_star == expected_s
+    curve = balloon_curve(DynamicHazard().hazard_vector(n), reward_per_pump=1.0)
+    assert curve.optimum == expected_s
 
 
 @pytest.mark.parametrize("n, expected_ev", [(128, 6.46), (32, 3.04), (8, 1.31)])
 def test_peak_ev_values(n, expected_ev):
-    _s, ev = _compute_ev_optimal(n)
-    assert ev == pytest.approx(expected_ev, abs=0.01)
-
-
-def test_ev_zero_outside_domain():
-    assert _compute_ev(0, 128) == 0.0
-    assert _compute_ev(129, 128) == 0.0
+    curve = balloon_curve(DynamicHazard().hazard_vector(n), reward_per_pump=1.0)
+    assert curve.optimal_ev == pytest.approx(expected_ev, abs=0.01)
 
 
 def test_survival_is_monotonically_decreasing():
-    probs = [_compute_survival_probability(s, 32) for s in range(0, 10)]
+    curve = balloon_curve(DynamicHazard().hazard_vector(32), reward_per_pump=1.0)
+    probs = curve.survival[0:10]
     assert probs[0] == 1.0
     assert all(later <= earlier for earlier, later in zip(probs, probs[1:]))
 
@@ -78,8 +72,8 @@ def test_survival_is_monotonically_decreasing():
 def test_sqrt_n_approximation():
     # The discrete optimum should sit at floor(sqrt(N)) for these capacities.
     for n in (128, 32, 8):
-        s_star, _ = _compute_ev_optimal(n)
-        assert s_star == math.floor(math.sqrt(n))
+        curve = balloon_curve(DynamicHazard().hazard_vector(n), reward_per_pump=1.0)
+        assert curve.optimum == math.floor(math.sqrt(n))
 
 
 def test_color_profiles_constant():
