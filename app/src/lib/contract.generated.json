@@ -1,0 +1,89 @@
+{
+  "ColorProfile": [
+    "display_hex",
+    "hazard",
+    "label",
+    "max_pumps",
+    "name",
+    "trials"
+  ],
+  "GameSession": [
+    "candidate_id",
+    "condition",
+    "duplicate_acknowledged",
+    "events",
+    "game_type",
+    "practice",
+    "session_id"
+  ],
+  "HazardSpec": {
+    "constant": [
+      "family",
+      "p"
+    ],
+    "dynamic": [
+      "family"
+    ],
+    "exponential": [
+      "family",
+      "rate"
+    ],
+    "gompertz": [
+      "a",
+      "b",
+      "family"
+    ],
+    "lejuez": [
+      "family"
+    ],
+    "logistic": [
+      "family",
+      "h_max",
+      "midpoint",
+      "steepness"
+    ],
+    "lognormal": [
+      "family",
+      "mu",
+      "sigma"
+    ],
+    "rayleigh": [
+      "family",
+      "sigma"
+    ],
+    "step": [
+      "breakpoints",
+      "family",
+      "levels"
+    ],
+    "tabular": [
+      "family",
+      "values"
+    ],
+    "weibull": [
+      "family",
+      "shape"
+    ]
+  },
+  "PayoutConversion": [
+    "currency",
+    "rate"
+  ],
+  "QCThresholds": [
+    "fast_response_ms",
+    "zero_pump_streak"
+  ],
+  "TaskConfig": [
+    "colors",
+    "conditions",
+    "exit_passcode",
+    "language",
+    "output_dir",
+    "payout",
+    "qc",
+    "reward_per_pump",
+    "schema_version",
+    "seed",
+    "title"
+  ]
+}

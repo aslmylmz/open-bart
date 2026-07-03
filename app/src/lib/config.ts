@@ -116,6 +116,20 @@ export interface ColorProfile {
   hazard: HazardSpec;
 }
 
+/** Data-quality flag thresholds (issue 40; mirrors `QCThresholds`). Optional in a
+ * `study.json`: absent means the engine's literature-informed defaults. */
+export interface QCThresholds {
+  fast_response_ms: number;
+  zero_pump_streak: number;
+}
+
+/** Real-world payout conversion (issue 41; mirrors `PayoutConversion`). Optional:
+ * absent/null means no payout anywhere — the v1.0.0 behavior. */
+export interface PayoutConversion {
+  rate: number;
+  currency: string;
+}
+
 export interface TaskConfig {
   schema_version: string;
   title: string;
@@ -132,6 +146,12 @@ export interface TaskConfig {
    * curious participant, not an attacker with the preset file. Absent or
    * null means exits are ungated (v1.0.0 behavior). */
   exit_passcode?: string | null;
+  /** Data-quality flag thresholds (issue 40). Optional: absent means the
+   * engine's literature-informed defaults. */
+  qc?: QCThresholds;
+  /** Real-world payout conversion (issue 41). Optional/null: absent means no
+   * payout anywhere — the v1.0.0 behavior. */
+  payout?: PayoutConversion | null;
 }
 
 /** The validated default study: the original 128/32/8 dynamic hazard, $0.25/pump.
