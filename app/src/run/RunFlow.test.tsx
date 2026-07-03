@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -6,23 +6,32 @@ import { DEFAULT_STUDY } from "../lib/config";
 import { taskStrings } from "../lib/i18n";
 import { RunFlow } from "./RunFlow";
 
-// The run flow talks to the sidecar at two points: /preview before the task and
-// /score + /write-output on submit (via BartGame). Stub the whole api module so
-// tests never touch the network; individual tests override values as needed.
+// The run flow talks to the sidecar at three points: /check-id when the ID is
+// submitted, /preview before the task, and /score + /write-output on submit
+// (via BartGame). Stub the whole api module so tests never touch the network;
+// individual tests override values as needed.
 const preview = vi.fn();
+const checkId = vi.fn();
 const submitSession = vi.fn();
 const persistSession = vi.fn();
 vi.mock("../lib/api", () => ({
   preview: (...args: unknown[]) => preview(...args),
+  checkId: (...args: unknown[]) => checkId(...args),
   submitSession: (...args: unknown[]) => submitSession(...args),
   persistSession: (...args: unknown[]) => persistSession(...args),
 }));
 
 const t = taskStrings("en");
 
+beforeEach(() => {
+  // Default: a fresh, valid ID — tests for duplicates/invalid IDs override.
+  checkId.mockResolvedValue({ ok: true, sessions: 0, error: null });
+});
+
 afterEach(() => {
   cleanup();
   preview.mockReset();
+  checkId.mockReset();
   submitSession.mockReset();
   persistSession.mockReset();
 });
@@ -166,5 +175,94 @@ describe("condition assignment on the ID screen (issue 37)", () => {
     const [payload] = submitSession.mock.calls[0] as [{ condition: string | null; candidate_id: string }];
     expect(payload.condition).toBe("control");
     expect(payload.candidate_id).toBe("P001");
+  });
+});
+
+describe("mandatory ID + duplicate warn-confirm (issue 38)", () => {
+  async function submitId(id = "P001") {
+    await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
+    await userEvent.type(screen.getByPlaceholderText(t.idPlaceholder), id);
+    await userEvent.click(screen.getByRole("button", { name: t.idContinue }));
+  }
+
+  it("starts a fresh ID with no friction — no dialog on the way to the task", async () => {
+    preview.mockReturnValue(new Promise(() => {})); // hold in loading
+    render(<RunFlow config={DEFAULT_STUDY} onExit={() => {}} />);
+
+    await submitId();
+
+    expect(await screen.findByRole("status")).toBeTruthy(); // loading spinner
+    expect(checkId).toHaveBeenCalledWith("P001", DEFAULT_STUDY);
+    expect(screen.queryByText(t.duplicateTitle)).toBeNull();
+  });
+
+  it("warns when the ID already has sessions and cancel returns to the ID screen", async () => {
+    checkId.mockResolvedValue({ ok: true, sessions: 2, error: null });
+    render(<RunFlow config={DEFAULT_STUDY} onExit={() => {}} />);
+
+    await submitId();
+
+    // The warning names the ID and its session count; nothing has started yet.
+    expect(await screen.findByText(t.duplicateTitle)).toBeTruthy();
+    expect(screen.getByText(/P001/).textContent).toContain("2");
+    expect(preview).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: t.duplicateCancel }));
+
+    // Back on the ID screen, free to correct the ID.
+    expect(screen.getByPlaceholderText(t.idPlaceholder)).toBeTruthy();
+    expect(screen.queryByText(t.duplicateTitle)).toBeNull();
+  });
+
+  it("stamps the acknowledgment into the session when the RA continues anyway", async () => {
+    const tinyStudy = {
+      ...DEFAULT_STUDY,
+      colors: [
+        {
+          name: "purple",
+          label: "Purple",
+          display_hex: "#7c3aed",
+          max_pumps: 8,
+          trials: 1,
+          hazard: { family: "dynamic" as const },
+        },
+      ],
+    };
+    checkId.mockResolvedValue({ ok: true, sessions: 1, error: null });
+    preview.mockResolvedValue({
+      curves: { purple: { hazard: [0, 0, 0, 0, 0, 0, 0, 0], survival: [], ev: [], optimum: 1, optimal_ev: 0 } },
+    });
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({});
+
+    render(<RunFlow config={tinyStudy} onExit={() => {}} />);
+    await submitId();
+    await userEvent.click(await screen.findByRole("button", { name: t.duplicateContinue }));
+
+    await userEvent.click(await screen.findByRole("button", { name: t.startButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    await waitFor(() => expect(submitSession).toHaveBeenCalledTimes(1));
+    const [payload] = submitSession.mock.calls[0] as [
+      { candidate_id: string; duplicate_acknowledged: boolean },
+    ];
+    expect(payload.duplicate_acknowledged).toBe(true);
+    expect(payload.candidate_id).toBe("P001");
+  });
+
+  it("shows a readable localized message for an ID the sidecar rejects", async () => {
+    checkId.mockResolvedValue({ ok: false, sessions: 0, error: "unusable in file names" });
+    render(<RunFlow config={DEFAULT_STUDY} onExit={() => {}} />);
+
+    await submitId("004/E");
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe(t.idInvalid);
+    // Still on the ID screen; no dialog, no task start.
+    expect(screen.getByPlaceholderText(t.idPlaceholder)).toBeTruthy();
+    expect(preview).not.toHaveBeenCalled();
   });
 });

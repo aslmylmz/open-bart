@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 
 import BartGame from "../BartGame";
-import { preview } from "../lib/api";
+import { checkId, preview } from "../lib/api";
 import type { TaskConfig } from "../lib/config";
 import { taskStrings } from "../lib/i18n";
 import { cardStyle, centerStyle, headingStyle, pageStyle } from "./participantStyles";
@@ -31,11 +31,42 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
   const [condition, setCondition] = useState("");
   const [hazards, setHazards] = useState<Record<string, number[]> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Duplicate-ID warn-confirm (issue 38): number of sessions the entered ID
+  // already has (null = no warning showing), and whether the researcher chose
+  // to continue past the warning — stamped into the session's data.
+  const [duplicateSessions, setDuplicateSessions] = useState<number | null>(null);
+  const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
+  const [idError, setIdError] = useState<string | null>(null);
+  const [checkingId, setCheckingId] = useState(false);
 
   // Preset-driven enum (issue 37): a study that declares conditions forces a
   // dropdown choice — no typing, no typos. No conditions → no condition UI.
   const conditions = config.conditions ?? [];
   const needsCondition = conditions.length > 0 && !condition;
+
+  /** The ID is mandatory and vetted by the sidecar (the file-I/O owner) before
+   * anything starts: unusable IDs get a readable message, known IDs get the
+   * warn-confirm. If the check itself cannot run, proceed — a down sidecar
+   * surfaces on the loading screen's own error path, with retry. */
+  async function handleIdContinue() {
+    setCheckingId(true);
+    try {
+      const verdict = await checkId(participantId.trim(), config);
+      if (!verdict.ok) {
+        setIdError(t.idInvalid);
+        return;
+      }
+      if (verdict.sessions > 0) {
+        setDuplicateSessions(verdict.sessions);
+        return;
+      }
+      setPhase("loading");
+    } catch {
+      setPhase("loading");
+    } finally {
+      setCheckingId(false);
+    }
+  }
 
   useEffect(() => {
     if (phase !== "loading") return;
@@ -74,8 +105,9 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
         <BartGame
           config={config}
           hazards={hazards}
-          candidateId={participantId || "anonymous"}
+          candidateId={participantId.trim()}
           condition={condition || null}
+          duplicateAcknowledged={duplicateAcknowledged}
           onExit={onExit}
         />
       </div>
@@ -102,7 +134,40 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
             </button>
           </div>
         )}
-        {phase === "id" && (
+        {phase === "id" && duplicateSessions !== null && (
+          <div style={{ ...cardStyle, borderLeft: "4px solid #d97706" }}>
+            <h1 style={headingStyle}>{t.duplicateTitle}</h1>
+            <p
+              role="alert"
+              style={{ fontSize: "1.05rem", lineHeight: 1.6, color: "#374151", margin: "0 0 24px" }}
+            >
+              {t.duplicateBody
+                .replace("{id}", participantId.trim())
+                .replace("{n}", String(duplicateSessions))}
+            </p>
+            <button
+              type="button"
+              className="btn-primary-participant"
+              style={primaryBtnStyle}
+              onClick={() => {
+                setDuplicateAcknowledged(true);
+                setDuplicateSessions(null);
+                setPhase("loading");
+              }}
+            >
+              {t.duplicateContinue}
+            </button>
+            <button
+              type="button"
+              className="btn-ghost-participant"
+              style={{ ...primaryBtnStyle, marginTop: 12 }}
+              onClick={() => setDuplicateSessions(null)}
+            >
+              {t.duplicateCancel}
+            </button>
+          </div>
+        )}
+        {phase === "id" && duplicateSessions === null && (
           <div style={cardStyle}>
             <h1 style={headingStyle}>{t.idPrompt}</h1>
             <input
@@ -116,8 +181,16 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
               }}
               value={participantId}
               placeholder={t.idPlaceholder}
-              onChange={(e) => setParticipantId(e.target.value)}
+              onChange={(e) => {
+                setParticipantId(e.target.value);
+                setIdError(null);
+              }}
             />
+            {idError && (
+              <p role="alert" style={{ color: "#b91c1c", margin: "0 0 16px", fontSize: "0.95rem" }}>
+                {idError}
+              </p>
+            )}
             {conditions.length > 0 && (
               <label
                 style={{
@@ -155,8 +228,8 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
               type="button"
               className="btn-primary-participant"
               style={primaryBtnStyle}
-              disabled={!participantId.trim() || needsCondition}
-              onClick={() => setPhase("loading")}
+              disabled={!participantId.trim() || needsCondition || checkingId}
+              onClick={handleIdContinue}
             >
               {t.idContinue}
             </button>

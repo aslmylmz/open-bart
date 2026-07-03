@@ -55,6 +55,25 @@ class ScoreRequest(BaseModel):
     config: TaskConfig | None = None
 
 
+class CheckIdRequest(BaseModel):
+    """A candidate participant ID to vet before a session starts (issue 38).
+    ``config`` names the study whose output directory is scanned; omitted →
+    the default study, mirroring ``/score`` and ``/write-output``."""
+
+    candidate_id: str
+    config: TaskConfig | None = None
+
+
+class CheckIdResponse(BaseModel):
+    """Verdict on a participant ID: whether it can be used at all (``ok`` /
+    ``error``) and how many sessions the study already has for it — the ID
+    screen's warn-confirm input (issue 38)."""
+
+    ok: bool
+    sessions: int
+    error: str | None = None
+
+
 class WriteOutputRequest(BaseModel):
     """A session to persist, optionally with the study config it ran under (SPEC
     §13). When ``config`` is omitted the sidecar falls back to the default study,

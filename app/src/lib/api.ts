@@ -117,6 +117,21 @@ export async function validateConfig(config: TaskConfig): Promise<ValidateResult
   return (await response.json()) as ValidateResult;
 }
 
+/** The sidecar's /check-id verdict (mirrors CheckIdResponse, issue 38). */
+export interface CheckIdResult {
+  ok: boolean;
+  sessions: number;
+  error: string | null;
+}
+
+/** Vet a participant ID before starting a session (issue 38): the sidecar (the
+ * owner of all file I/O) validates it against the filename rules and reports
+ * how many sessions the study already has for it — the warn-confirm's input. */
+export async function checkId(candidateId: string, config?: TaskConfig): Promise<CheckIdResult> {
+  const body = config ? { candidate_id: candidateId, config } : { candidate_id: candidateId };
+  return postJson<CheckIdResult>(`${resolveApiUrl()}/check-id`, body);
+}
+
 /** Fetch each color's hazard/survival/EV curves + numeric optimum for a config
  * (SPEC §7.3). Throws if the config is invalid (the sidecar returns 422), so the
  * caller can keep the last-good preview rather than blanking the plot. */

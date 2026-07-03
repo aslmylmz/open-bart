@@ -374,6 +374,56 @@ def test_validate_config_rejects_bad_conditions(conditions):
     assert any("conditions" in e for e in body["errors"])
 
 
+def test_check_id_fresh_id_has_no_sessions(tmp_path):
+    """POST /check-id with an ID the study has never seen reports zero existing
+    sessions — the ID screen can start the run with no friction (issue 38)."""
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    resp = client.post("/check-id", json={"candidate_id": "P001", "config": cfg})
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"ok": True, "sessions": 0, "error": None}
+
+
+def test_check_id_reports_how_many_sessions_an_id_already_has(tmp_path):
+    """After two recorded sessions for P001, /check-id reports 2 for P001 —
+    the warn-confirm's count. An ID that merely shares a prefix (P001_2) keeps
+    its own tally: its sessions are not attributed to P001 (issue 38)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    for candidate in ("P001", "P001", "P001_2"):
+        resp = client.post(
+            "/write-output",
+            json={"session": _session_payload(events, candidate_id=candidate), "config": cfg},
+        )
+        assert resp.status_code == 200, resp.text
+
+    check = client.post("/check-id", json={"candidate_id": "P001", "config": cfg})
+    assert check.status_code == 200, check.text
+    assert check.json() == {"ok": True, "sessions": 2, "error": None}
+
+    cousin = client.post("/check-id", json={"candidate_id": "P001_2", "config": cfg})
+    assert cousin.json() == {"ok": True, "sessions": 1, "error": None}
+
+
+@pytest.mark.parametrize("bad_id", ["", "   ", "004/E", "P?01", "a b"])
+def test_check_id_rejects_unusable_ids_with_a_readable_message(tmp_path, bad_id):
+    """Empty/whitespace and filesystem-hostile IDs come back ok=False with a
+    readable message; the existing filename slug rules stay the single source
+    of truth for what is allowed (issue 38)."""
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    resp = client.post("/check-id", json={"candidate_id": bad_id, "config": cfg})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ok"] is False
+    assert body["sessions"] == 0
+    assert body["error"]  # a human-readable reason, not a bare flag
+
+
 def test_write_output_persists_session_files(tmp_path):
     """POST /write-output writes the raw events, scored metrics, and a config
     snapshot under the config's output_dir, and returns their paths (SPEC §13)."""
@@ -536,6 +586,35 @@ def test_adding_conditions_mid_study_migrates_master_csv(tmp_path):
     assert [r["condition"] for r in rows] == ["", "control"]
     assert [r["candidate_id"] for r in rows] == ["cand-1", "cand-2"]
     assert len(list(tmp_path.glob("*_backup_*.csv"))) == 1
+
+
+def test_duplicate_acknowledgment_is_recorded_in_the_session_envelope(tmp_path):
+    """When the RA continues past the duplicate-ID warning, the acknowledgment
+    rides the session and is stamped into `*_session.json` — the accident stays
+    visible in the data (issue 38). Sessions without a warning record False."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    plain = client.post(
+        "/write-output", json={"session": _session_payload(events), "config": cfg}
+    )
+    assert plain.status_code == 200, plain.text
+    envelope = json.loads(Path(plain.json()["session"]).read_text(encoding="utf-8"))
+    assert envelope["duplicate_acknowledged"] is False
+
+    acknowledged = client.post(
+        "/write-output",
+        json={
+            "session": _session_payload(events, duplicate_acknowledged=True),
+            "config": cfg,
+        },
+    )
+    assert acknowledged.status_code == 200, acknowledged.text
+    envelope = json.loads(
+        Path(acknowledged.json()["session"]).read_text(encoding="utf-8")
+    )
+    assert envelope["duplicate_acknowledged"] is True
 
 
 def test_write_output_migrates_master_csv_with_older_header(tmp_path):

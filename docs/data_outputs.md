@@ -40,8 +40,11 @@ candidate ID, and a UTC timestamp so nothing is ever overwritten:
   - A snapshot of the exact `TaskConfig` that produced the session, making
     every dataset self-documenting and reproducible.
 * - `*_session.json`
-  - The session envelope: `session_id`, `game_type`, `candidate_id`, and the
-    assigned `condition` (`null` for studies without conditions). Keeps the
+  - The session envelope: `session_id`, `game_type`, `candidate_id`, the
+    assigned `condition` (`null` for studies without conditions), and
+    `duplicate_acknowledged` — `true` when the ID screen warned that this
+    participant ID already had recorded sessions and the researcher chose to
+    continue, so accidental ID reuse stays visible in the data. Keeps the
     session's identity in the data itself — not just in filenames — so the
     Master CSV can always be rebuilt from the per-session files.
 ```

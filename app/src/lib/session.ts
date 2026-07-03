@@ -8,6 +8,9 @@ export interface SessionPayload {
   /** Assigned condition for between-subject designs; null when the study
    * declares no conditions (issue 37). */
   condition: string | null;
+  /** True when the ID screen warned this ID already had sessions and the
+   * researcher chose to continue (issue 38) — keeps ID reuse visible. */
+  duplicate_acknowledged: boolean;
   events: GameEvent[];
 }
 
@@ -16,12 +19,14 @@ export function buildSessionPayload(
   candidateId: string,
   events: GameEvent[],
   condition: string | null = null,
+  duplicateAcknowledged = false,
 ): SessionPayload {
   return {
     session_id: sessionId,
     game_type: "BART_RISK",
     candidate_id: candidateId,
     condition,
+    duplicate_acknowledged: duplicateAcknowledged,
     events,
   };
 }

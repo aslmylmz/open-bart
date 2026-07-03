@@ -13,6 +13,7 @@ describe("buildSessionPayload", () => {
       game_type: "BART_RISK",
       candidate_id: "cand-1",
       condition: null,
+      duplicate_acknowledged: false,
       events,
     });
   });
@@ -23,5 +24,13 @@ describe("buildSessionPayload", () => {
     ];
     const payload = buildSessionPayload("sess-1", "cand-1", events, "experimental");
     expect(payload.condition).toBe("experimental");
+  });
+
+  it("records that the researcher continued past a duplicate-ID warning", () => {
+    const events = [
+      { timestamp: 1, type: "pump" as const, payload: { color: "teal" } },
+    ];
+    const payload = buildSessionPayload("sess-1", "cand-1", events, null, true);
+    expect(payload.duplicate_acknowledged).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  checkId,
   initSidecarUrl,
   persistSession,
   resolveApiUrl,
@@ -67,6 +68,7 @@ describe("persistSession", () => {
       game_type: "BART_RISK",
       candidate_id: "c",
       condition: null,
+      duplicate_acknowledged: false,
       events: [],
     });
 
@@ -75,7 +77,14 @@ describe("persistSession", () => {
     expect(url).toBe("http://127.0.0.1:8000/write-output");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({
-      session: { session_id: "s", game_type: "BART_RISK", candidate_id: "c", condition: null, events: [] },
+      session: {
+        session_id: "s",
+        game_type: "BART_RISK",
+        candidate_id: "c",
+        condition: null,
+        duplicate_acknowledged: false,
+        events: [],
+      },
     });
   });
 });
@@ -95,6 +104,22 @@ describe("validateConfig", () => {
     expect(url).toBe("http://127.0.0.1:8000/validate-config");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual(DEFAULT_STUDY);
+  });
+});
+
+describe("checkId", () => {
+  it("POSTs the candidate ID + study to /check-id and returns the verdict", async () => {
+    const verdict = { ok: true, sessions: 2, error: null };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => verdict });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await checkId("P001", DEFAULT_STUDY);
+
+    expect(result).toEqual(verdict);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://127.0.0.1:8000/check-id");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ candidate_id: "P001", config: DEFAULT_STUDY });
   });
 });
 
@@ -162,6 +187,7 @@ describe("submitSession", () => {
     game_type: "BART_RISK",
     candidate_id: "c",
     condition: null,
+    duplicate_acknowledged: false,
     events: [],
   };
 

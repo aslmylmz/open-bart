@@ -116,6 +116,14 @@ class GameSession(BaseModel):
             "has none"
         ),
     )
+    duplicate_acknowledged: bool = Field(
+        default=False,
+        description=(
+            "True when the ID screen warned that this candidate_id already had "
+            "recorded sessions and the researcher chose to continue (issue 38) "
+            "— keeps accidental ID reuse visible in the data"
+        ),
+    )
     events: list[GameEvent] = Field(
         ...,
         min_length=1,

@@ -22,6 +22,8 @@ from scoring.bart import score_bart
 from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
 from scoring.schemas import AssessmentResponse, BARTMetrics
 from sidecar.models import (
+    CheckIdRequest,
+    CheckIdResponse,
     CurvePreview,
     PreviewResponse,
     ScoreRequest,
@@ -51,6 +53,23 @@ def _flatten_metrics(metrics: BARTMetrics) -> dict[str, Any]:
         for field, value in color.items():
             row[f"{name}_{field}"] = value
     return row
+
+
+def _count_sessions(out_dir: Path, config: TaskConfig, candidate_id: str) -> int:
+    """How many sessions this study has already recorded for ``candidate_id``.
+
+    Counts the raw event logs — one per session since v1.0.0 — by exact stem
+    ``[title]_[candidate]_[timestamp]_events.jsonl``. The timestamp is matched
+    strictly (digits + T + Z, no underscores) so an ID that merely shares a
+    prefix with another (``P001`` vs ``P001_2``) is never cross-counted.
+    """
+    if not out_dir.is_dir():
+        return 0
+    stem = re.compile(
+        rf"^{re.escape(_slug(config.title))}_{re.escape(candidate_id)}"
+        rf"_\d{{8}}T\d+Z_events\.jsonl$"
+    )
+    return sum(1 for p in out_dir.iterdir() if stem.match(p.name))
 
 
 app = FastAPI(title="BART scoring sidecar", version=__version__)
@@ -123,6 +142,39 @@ def score(req: ScoreRequest) -> AssessmentResponse:
         raw_metrics=metrics,
         normalized_scores=[],
         profile_traits={},
+    )
+
+
+@app.post("/check-id", response_model=CheckIdResponse)
+def check_id(req: CheckIdRequest) -> CheckIdResponse:
+    """Vet a participant ID before the session starts (issue 38).
+
+    The sidecar owns all file I/O (CONTEXT.md), so the duplicate check lives
+    here: the study's output directory is scanned for session files already
+    recorded under this ID, and the count feeds the ID screen's warn-confirm.
+    """
+    config = req.config or DEFAULT_TASK_CONFIG
+    candidate_id = req.candidate_id
+    if not candidate_id.strip():
+        return CheckIdResponse(
+            ok=False, sessions=0, error="Participant ID must not be empty."
+        )
+    # The filename slug rules are the single source of truth: an ID the output
+    # files would silently rewrite (004/E → 004-E) is rejected up front, so the
+    # ID in the data always matches the ID in the filenames.
+    if _slug(candidate_id) != candidate_id:
+        return CheckIdResponse(
+            ok=False,
+            sessions=0,
+            error=(
+                f"Participant ID '{candidate_id}' cannot be used in file names. "
+                f"Use only letters, numbers, dots, underscores, and dashes."
+            ),
+        )
+    return CheckIdResponse(
+        ok=True,
+        sessions=_count_sessions(Path(config.output_dir), config, candidate_id),
+        error=None,
     )
 
 

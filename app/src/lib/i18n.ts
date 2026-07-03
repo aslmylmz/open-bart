@@ -20,6 +20,13 @@ export interface TaskStrings {
   // Condition assignment (issue 37; shown only when the study declares conditions)
   conditionLabel: string;
   conditionPlaceholder: string;
+  // Duplicate-ID warn-confirm + ID validation (issue 38). duplicateBody is a
+  // template: the component substitutes {id} and {n}.
+  duplicateTitle: string;
+  duplicateBody: string;
+  duplicateContinue: string;
+  duplicateCancel: string;
+  idInvalid: string;
   // Idle / instructions
   taskTitle: string;
   instructions: string;
@@ -62,6 +69,12 @@ export const STRINGS: Record<Language, TaskStrings> = {
     idContinue: "Start task",
     conditionLabel: "Condition",
     conditionPlaceholder: "Select a condition…",
+    duplicateTitle: "This ID already has data",
+    duplicateBody: "{id} already has {n} recorded session(s) in this study. Continue anyway?",
+    duplicateContinue: "Continue anyway",
+    duplicateCancel: "Cancel",
+    idInvalid:
+      "This ID cannot be used in file names. Use only letters, numbers, dots, underscores, and dashes.",
     taskTitle: "Balloon Analogue Risk Task",
     instructions:
       "Inflate the balloon to earn money. Each pump raises the chance it pops. Collect your money before it pops!",
@@ -98,6 +111,12 @@ export const STRINGS: Record<Language, TaskStrings> = {
     idContinue: "Göreve Başla",
     conditionLabel: "Koşul",
     conditionPlaceholder: "Bir koşul seçin…",
+    duplicateTitle: "Bu kimliğin zaten kaydı var",
+    duplicateBody: "{id} bu çalışmada zaten {n} kayıtlı oturuma sahip. Yine de devam edilsin mi?",
+    duplicateContinue: "Yine de devam et",
+    duplicateCancel: "İptal",
+    idInvalid:
+      "Bu kimlik dosya adlarında kullanılamaz. Yalnızca harf, rakam, nokta, alt çizgi ve tire kullanın.",
     taskTitle: "Balon Analog Risk Görevi",
     instructions:
       "Balonu şişirerek para kazanın. Her şişirme patlama riskini artırır. Patlamadan önce paranızı toplayın!",
