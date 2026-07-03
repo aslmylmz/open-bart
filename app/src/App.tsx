@@ -7,7 +7,7 @@ import { EvPreview } from "./setup/EvPreview";
 import { StudySetup } from "./setup/StudySetup";
 import { VersionGuard } from "./VersionGuard";
 
-type Mode = "setup" | "run";
+type Mode = "setup" | "run" | "practice";
 
 // Phase 3 app shell: two modes in the SPA — Study Setup (researcher) and Run
 // (participant). This issue stands up the mode switch and the in-memory active
@@ -35,15 +35,25 @@ export function App() {
   // The guard wraps both modes: a version-mismatched sidecar must block before
   // any study is configured or run against it.
   const content =
-    mode === "run" ? (
-      <RunFlow config={config} onExit={() => setMode("setup")} />
+    mode === "run" || mode === "practice" ? (
+      <RunFlow config={config} practice={mode === "practice"} onExit={() => setMode("setup")} />
     ) : (
       // Study Setup (issue 14). Issue 15 adds the live EV preview alongside the form;
       // the active study defaults to the validated 128/32/8 linear config.
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", paddingBottom: "64px" }}>
         <StudySetup config={config} onChange={setConfig} />
         <EvPreview config={config} />
-        <div style={{ maxWidth: 720, width: "100%", margin: "0 auto", padding: "0 16px", marginTop: "32px", display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ maxWidth: 720, width: "100%", margin: "0 auto", padding: "0 16px", marginTop: "32px", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          {/* Test Run (issue 43): the same participant flow, but bannered,
+              stamped, and routed to practice/ — for RAs to click through a
+              setup without touching the dataset. */}
+          <button
+            type="button"
+            onClick={() => setMode("practice")}
+            style={{ background: "transparent", borderColor: "#d97706", color: "#fbbf24", fontSize: "1.125rem", padding: "12px 24px", borderRadius: "8px", fontWeight: 600 }}
+          >
+            Test run
+          </button>
           <button
             type="button"
             onClick={() => setMode("run")}

@@ -27,6 +27,9 @@ export interface TaskStrings {
   duplicateContinue: string;
   duplicateCancel: string;
   idInvalid: string;
+  /** Persistent Test Run banner shown on every screen of a practice session
+   * (issue 43) — must read at a glance from across a lab room. */
+  practiceBanner: string;
   // Idle / instructions
   taskTitle: string;
   instructions: string;
@@ -77,6 +80,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     duplicateCancel: "Cancel",
     idInvalid:
       "This ID cannot be used in file names. Use only letters, numbers, dots, underscores, and dashes.",
+    practiceBanner: "TEST RUN — data not recorded",
     taskTitle: "Balloon Analogue Risk Task",
     instructions:
       "Inflate the balloon to earn money. Each pump raises the chance it pops. Collect your money before it pops!",
@@ -120,6 +124,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     duplicateCancel: "İptal",
     idInvalid:
       "Bu kimlik dosya adlarında kullanılamaz. Yalnızca harf, rakam, nokta, alt çizgi ve tire kullanın.",
+    practiceBanner: "DENEME OTURUMU — veriler kaydedilmiyor",
     taskTitle: "Balon Analog Risk Görevi",
     instructions:
       "Balonu şişirerek para kazanın. Her şişirme patlama riskini artırır. Patlamadan önce paranızı toplayın!",

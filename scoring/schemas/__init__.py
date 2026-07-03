@@ -124,6 +124,15 @@ class GameSession(BaseModel):
             "— keeps accidental ID reuse visible in the data"
         ),
     )
+    practice: bool = Field(
+        default=False,
+        description=(
+            "True for Test Run sessions (issue 43): written under the "
+            "practice/ subfolder of the output directory and never appended "
+            "to the study-wide CSVs — inspectable, but never mingled with "
+            "official data"
+        ),
+    )
     events: list[GameEvent] = Field(
         ...,
         min_length=1,

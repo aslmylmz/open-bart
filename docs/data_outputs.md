@@ -94,13 +94,37 @@ candidate ID, and a UTC timestamp so nothing is ever overwritten:
     every dataset self-documenting and reproducible.
 * - `*_session.json`
   - The session envelope: `session_id`, `game_type`, `candidate_id`, the
-    assigned `condition` (`null` for studies without conditions), and
+    assigned `condition` (`null` for studies without conditions),
     `duplicate_acknowledged` — `true` when the ID screen warned that this
     participant ID already had recorded sessions and the researcher chose to
-    continue, so accidental ID reuse stays visible in the data. Keeps the
-    session's identity in the data itself — not just in filenames — so the
-    Master CSV can always be rebuilt from the per-session files.
+    continue, so accidental ID reuse stays visible in the data — and
+    `practice`, `true` for [Test Run sessions](#test-run-practice-sessions).
+    Keeps the session's identity in the data itself — not just in filenames —
+    so the Master CSV can always be rebuilt from the per-session files.
 ```
+
+## Test Run (practice) sessions
+
+Use the **Test run** button in the Researcher View to click through a study —
+new preset, new lab machine, RA training — without touching the dataset.
+A Test Run is the real pipeline end-to-end (gameplay, scoring, file writing),
+so a passing test run is evidence the real thing works. It differs from an
+official run in exactly three ways:
+
+- **Destination.** Its four session files land in a `practice/` subfolder of
+  the output directory — inspectable, but never mingled with official data.
+  The Master CSV, the trials CSV, and the provenance files are **never**
+  created, appended to, or refreshed by a practice session.
+- **Stamps.** The participant ID is pre-filled with `TEST` (practice is
+  exempt from the ID guardrails), and the session envelope carries
+  `"practice": true`, so a stray file is identifiable by content, not just by
+  location.
+- **Banner.** Every screen of the session — consent, ID, gameplay, debrief —
+  wears a high-contrast "TEST RUN — data not recorded" banner, so a real
+  participant can never be run in practice mode unnoticed.
+
+When publishing or archiving an output directory, the `practice/` subfolder
+can simply be deleted (or left in — it is clearly separated and stamped).
 
 ## The Master CSV
 

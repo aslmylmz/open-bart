@@ -197,6 +197,10 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     """
     config = req.config or DEFAULT_TASK_CONFIG
     out_dir = Path(config.output_dir)
+    # Practice sessions (issue 43) run the identical pipeline into a practice/
+    # subfolder: inspectable but never mingled with official data.
+    if req.session.practice:
+        out_dir = out_dir / "practice"
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     stem = f"{_slug(config.title)}_{_slug(req.session.candidate_id)}_{ts}"
@@ -223,10 +227,18 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     )
 
     # The study-wide files — provenance (issue 42), master CSV, trials CSV —
-    # are written together here: one decision point, so a future practice mode
-    # (issue 43) can skip them all in one place. The condition column exists
-    # only for studies that declare conditions, so condition-less studies keep
-    # their v1.0.0 sheets untouched (issue 37).
+    # are written together here: one decision point, and practice sessions
+    # (issue 43) skip all of it — a test run must leave the official study
+    # files untouched. The condition column exists only for studies that
+    # declare conditions, so condition-less studies keep their v1.0.0 sheets
+    # untouched (issue 37).
+    if req.session.practice:
+        return WriteOutputResponse(
+            events=str(events_path),
+            metrics=str(metrics_path),
+            config=str(config_path),
+            session=str(session_path),
+        )
     provenance_warnings = ensure_provenance(out_dir, config, _slug(config.title))
     identity = {
         "timestamp_utc": ts,

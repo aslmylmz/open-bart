@@ -69,6 +69,7 @@ describe("persistSession", () => {
       candidate_id: "c",
       condition: null,
       duplicate_acknowledged: false,
+      practice: false,
       events: [],
     });
 
@@ -83,6 +84,7 @@ describe("persistSession", () => {
         candidate_id: "c",
         condition: null,
         duplicate_acknowledged: false,
+        practice: false,
         events: [],
       },
     });
@@ -188,6 +190,7 @@ describe("submitSession", () => {
     candidate_id: "c",
     condition: null,
     duplicate_acknowledged: false,
+    practice: false,
     events: [],
   };
 

@@ -14,6 +14,7 @@ describe("buildSessionPayload", () => {
       candidate_id: "cand-1",
       condition: null,
       duplicate_acknowledged: false,
+      practice: false,
       events,
     });
   });
@@ -32,5 +33,13 @@ describe("buildSessionPayload", () => {
     ];
     const payload = buildSessionPayload("sess-1", "cand-1", events, null, true);
     expect(payload.duplicate_acknowledged).toBe(true);
+  });
+
+  it("stamps Test Run sessions as practice (issue 43)", () => {
+    const events = [
+      { timestamp: 1, type: "pump" as const, payload: { color: "teal" } },
+    ];
+    const payload = buildSessionPayload("sess-1", "TEST", events, null, false, true);
+    expect(payload.practice).toBe(true);
   });
 });

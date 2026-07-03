@@ -23,6 +23,25 @@ vi.mock("../lib/api", () => ({
 
 const t = taskStrings("en");
 
+// A one-balloon, zero-hazard study so a whole participant flow — consent →
+// ID → task → submit — runs deterministically in a test.
+const tinyStudy = {
+  ...DEFAULT_STUDY,
+  colors: [
+    {
+      name: "purple",
+      label: "Purple",
+      display_hex: "#7c3aed",
+      max_pumps: 8,
+      trials: 1,
+      hazard: { family: "dynamic" as const },
+    },
+  ],
+};
+const tinyPreview = {
+  curves: { purple: { hazard: [0, 0, 0, 0, 0, 0, 0, 0], survival: [], ev: [], optimum: 1, optimal_ev: 0 } },
+};
+
 beforeEach(() => {
   // Default: a fresh, valid ID — tests for duplicates/invalid IDs override.
   checkId.mockResolvedValue({ ok: true, sessions: 0, error: null });
@@ -137,29 +156,12 @@ describe("condition assignment on the ID screen (issue 37)", () => {
   });
 
   it("carries the dropdown choice through the task into the submitted session", async () => {
-    // A one-balloon study with zero hazard, so the whole participant flow —
-    // consent → ID + condition → task → submit — runs deterministically.
-    const tinyStudy = {
-      ...DEFAULT_STUDY,
-      conditions: ["control", "experimental"],
-      colors: [
-        {
-          name: "purple",
-          label: "Purple",
-          display_hex: "#7c3aed",
-          max_pumps: 8,
-          trials: 1,
-          hazard: { family: "dynamic" as const },
-        },
-      ],
-    };
-    preview.mockResolvedValue({
-      curves: { purple: { hazard: [0, 0, 0, 0, 0, 0, 0, 0], survival: [], ev: [], optimum: 1, optimal_ev: 0 } },
-    });
+    const conditionedTinyStudy = { ...tinyStudy, conditions: ["control", "experimental"] };
+    preview.mockResolvedValue(tinyPreview);
     submitSession.mockResolvedValue({ session_id: "s-1" });
     persistSession.mockResolvedValue({});
 
-    render(<RunFlow config={tinyStudy} onExit={() => {}} />);
+    render(<RunFlow config={conditionedTinyStudy} onExit={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
     await userEvent.type(screen.getByPlaceholderText(t.idPlaceholder), "P001");
     await userEvent.selectOptions(screen.getByLabelText(t.conditionLabel), "control");
@@ -175,6 +177,77 @@ describe("condition assignment on the ID screen (issue 37)", () => {
     const [payload] = submitSession.mock.calls[0] as [{ condition: string | null; candidate_id: string }];
     expect(payload.condition).toBe("control");
     expect(payload.candidate_id).toBe("P001");
+  });
+});
+
+describe("Test Run / practice mode (issue 43)", () => {
+  it("banners the practice session from the first screen and skips the ID guardrails", async () => {
+    preview.mockReturnValue(new Promise(() => {})); // hold in loading
+    render(<RunFlow config={DEFAULT_STUDY} onExit={() => {}} practice />);
+
+    // The banner is up before anything else happens — consent screen included.
+    expect(screen.getByText(t.practiceBanner)).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
+
+    // The ID is auto-filled with the test marker; the banner stays.
+    const input = screen.getByPlaceholderText<HTMLInputElement>(t.idPlaceholder);
+    expect(input.value).toBe("TEST");
+    expect(screen.getByText(t.practiceBanner)).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: t.idContinue }));
+
+    // Straight to loading: practice is exempt from the mandatory-ID /
+    // duplicate-ID guardrails (issue 38) — /check-id is never consulted.
+    expect(await screen.findByRole("status")).toBeTruthy();
+    expect(checkId).not.toHaveBeenCalled();
+    expect(screen.getByText(t.practiceBanner)).toBeTruthy();
+  });
+
+  it("keeps the banner up through gameplay and debrief and stamps the session", async () => {
+    preview.mockResolvedValue(tinyPreview);
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({});
+
+    render(<RunFlow config={tinyStudy} onExit={() => {}} practice />);
+    await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
+    await userEvent.click(screen.getByRole("button", { name: t.idContinue }));
+
+    // Gameplay: the banner never leaves.
+    await userEvent.click(await screen.findByRole("button", { name: t.startButton }));
+    expect(screen.getByText(t.practiceBanner)).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    // The session is stamped: no path from the Test Run control to an
+    // unstamped session.
+    await waitFor(() => expect(submitSession).toHaveBeenCalledTimes(1));
+    const [payload] = submitSession.mock.calls[0] as [
+      { practice: boolean; candidate_id: string },
+    ];
+    expect(payload.practice).toBe(true);
+    expect(payload.candidate_id).toBe("TEST");
+    await waitFor(() => expect(persistSession).toHaveBeenCalledTimes(1));
+    const [persisted] = persistSession.mock.calls[0] as [{ practice: boolean }];
+    expect(persisted.practice).toBe(true);
+
+    // Debrief: still bannered.
+    expect(screen.getByText(t.practiceBanner)).toBeTruthy();
+  });
+
+  it("shows no banner and keeps the ID empty in an official run", async () => {
+    render(<RunFlow config={DEFAULT_STUDY} onExit={() => {}} />);
+
+    expect(screen.queryByText(t.practiceBanner)).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
+
+    expect(screen.queryByText(t.practiceBanner)).toBeNull();
+    const input = screen.getByPlaceholderText<HTMLInputElement>(t.idPlaceholder);
+    expect(input.value).toBe("");
   });
 });
 
@@ -215,23 +288,8 @@ describe("mandatory ID + duplicate warn-confirm (issue 38)", () => {
   });
 
   it("stamps the acknowledgment into the session when the RA continues anyway", async () => {
-    const tinyStudy = {
-      ...DEFAULT_STUDY,
-      colors: [
-        {
-          name: "purple",
-          label: "Purple",
-          display_hex: "#7c3aed",
-          max_pumps: 8,
-          trials: 1,
-          hazard: { family: "dynamic" as const },
-        },
-      ],
-    };
     checkId.mockResolvedValue({ ok: true, sessions: 1, error: null });
-    preview.mockResolvedValue({
-      curves: { purple: { hazard: [0, 0, 0, 0, 0, 0, 0, 0], survival: [], ev: [], optimum: 1, optimal_ev: 0 } },
-    });
+    preview.mockResolvedValue(tinyPreview);
     submitSession.mockResolvedValue({ session_id: "s-1" });
     persistSession.mockResolvedValue({});
 

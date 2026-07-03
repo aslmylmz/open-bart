@@ -11,6 +11,9 @@ export interface SessionPayload {
   /** True when the ID screen warned this ID already had sessions and the
    * researcher chose to continue (issue 38) — keeps ID reuse visible. */
   duplicate_acknowledged: boolean;
+  /** True for Test Run sessions (issue 43): the sidecar writes them under
+   * practice/ and never appends them to the study-wide CSVs. */
+  practice: boolean;
   events: GameEvent[];
 }
 
@@ -20,6 +23,7 @@ export function buildSessionPayload(
   events: GameEvent[],
   condition: string | null = null,
   duplicateAcknowledged = false,
+  practice = false,
 ): SessionPayload {
   return {
     session_id: sessionId,
@@ -27,6 +31,7 @@ export function buildSessionPayload(
     candidate_id: candidateId,
     condition,
     duplicate_acknowledged: duplicateAcknowledged,
+    practice,
     events,
   };
 }

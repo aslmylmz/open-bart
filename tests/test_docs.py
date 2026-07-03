@@ -135,6 +135,14 @@ def test_provenance_files_are_documented(tmp_path):
         assert needle in page, f"data_outputs.md does not mention {needle}"
 
 
+def test_practice_mode_is_documented():
+    """The data-outputs page tells researchers when to use Test Run and where
+    its files land (issue 43)."""
+    page = (DOCS / "data_outputs.md").read_text(encoding="utf-8")
+    assert "Test Run" in page
+    assert "practice/" in page
+
+
 @pytest.mark.skipif(not _docs_deps_available(), reason="docs extras not installed")
 def test_sphinx_build_is_warning_free(tmp_path):
     """The published site builds with zero warnings (the Phase 4 standard):

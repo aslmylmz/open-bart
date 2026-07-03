@@ -9,6 +9,10 @@ import { cardStyle, centerStyle, headingStyle, pageStyle } from "./participantSt
 interface RunFlowProps {
   config: TaskConfig;
   onExit: () => void;
+  /** Test Run (issue 43): same flow, but banners every screen, auto-fills the
+   * test ID, skips the ID guardrails, and stamps the session as practice so
+   * the sidecar routes it to practice/ and away from the study-wide CSVs. */
+  practice?: boolean;
 }
 
 type Phase = "consent" | "id" | "loading" | "task" | "error";
@@ -24,10 +28,10 @@ const primaryBtnStyle: CSSProperties = {
  * Before the task it fetches the per-color hazard vectors from `/preview` (the same
  * landscape the scorer uses) so the client bursts from the config, not a hardcoded
  * model. The debrief is BartGame's own results screen (reused, decision this session). */
-export function RunFlow({ config, onExit }: RunFlowProps) {
+export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
   const t = taskStrings(config.language);
   const [phase, setPhase] = useState<Phase>("consent");
-  const [participantId, setParticipantId] = useState("");
+  const [participantId, setParticipantId] = useState(practice ? "TEST" : "");
   const [condition, setCondition] = useState("");
   const [hazards, setHazards] = useState<Record<string, number[]> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +51,13 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
   /** The ID is mandatory and vetted by the sidecar (the file-I/O owner) before
    * anything starts: unusable IDs get a readable message, known IDs get the
    * warn-confirm. If the check itself cannot run, proceed — a down sidecar
-   * surfaces on the loading screen's own error path, with retry. */
+   * surfaces on the loading screen's own error path, with retry. Practice is
+   * exempt (issue 43): its data can't contaminate anything, so nothing gates. */
   async function handleIdContinue() {
+    if (practice) {
+      setPhase("loading");
+      return;
+    }
     setCheckingId(true);
     try {
       const verdict = await checkId(participantId.trim(), config);
@@ -97,17 +106,42 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
     </div>
   );
 
+  // The Test Run banner (issue 43): pinned to the top of *every* practice
+  // screen, high-contrast, readable from across a lab room — a real
+  // participant must never be run in practice mode unnoticed.
+  const practiceBanner = practice ? (
+    <div
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        width: "100%",
+        background: "#b91c1c",
+        color: "#ffffff",
+        textAlign: "center",
+        padding: "12px 16px",
+        fontSize: "1.25rem",
+        fontWeight: 800,
+        letterSpacing: "0.05em",
+      }}
+    >
+      {t.practiceBanner}
+    </div>
+  ) : null;
+
   if (phase === "task" && hazards) {
     // BartGame owns the back button here: it only offers the exit while no
     // balloon is live, so a participant can't leave mid-trial (Issue 27).
     return (
       <div style={pageStyle}>
+        {practiceBanner}
         <BartGame
           config={config}
           hazards={hazards}
           candidateId={participantId.trim()}
           condition={condition || null}
           duplicateAcknowledged={duplicateAcknowledged}
+          practice={practice}
           onExit={onExit}
         />
       </div>
@@ -116,6 +150,7 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
 
   return (
     <div style={pageStyle}>
+      {practiceBanner}
       {backBar}
       <div style={centerStyle}>
         {phase === "consent" && (

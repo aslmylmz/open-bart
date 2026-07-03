@@ -49,13 +49,16 @@ interface BartGameProps {
     /** True when the ID screen warned this ID already had sessions and the
      * researcher chose to continue (issue 38). */
     duplicateAcknowledged?: boolean;
+    /** True for Test Run sessions (issue 43) — stamped into the payload so the
+     * sidecar routes the files to practice/ and skips the study-wide CSVs. */
+    practice?: boolean;
     onComplete?: (data: AssessmentResult) => void;
     /** Escape hatch back to the researcher view. Only offered while no balloon is
      * live (idle / finished / results) so a participant can't exit mid-trial. */
     onExit?: () => void;
 }
 
-export default function BartGame({ config, hazards, candidateId, condition = null, duplicateAcknowledged = false, onComplete, onExit }: BartGameProps) {
+export default function BartGame({ config, hazards, candidateId, condition = null, duplicateAcknowledged = false, practice = false, onComplete, onExit }: BartGameProps) {
     const eventLogRef = useRef<GameEvent[]>([]);
     const sessionIdRef = useRef(crypto.randomUUID());
     const sequenceRef = useRef<Balloon[]>([]);
@@ -129,7 +132,7 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        const payload = buildSessionPayload(sessionIdRef.current, candidateId, eventLogRef.current, condition, duplicateAcknowledged);
+        const payload = buildSessionPayload(sessionIdRef.current, candidateId, eventLogRef.current, condition, duplicateAcknowledged, practice);
         try {
             const data = await submitSession<AssessmentResult>(payload, config);
             setResults(data);
