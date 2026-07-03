@@ -1,0 +1,65 @@
+name: CI
+
+# The full local gate set, run in CI (issue 48). Until now pytest / npm test /
+# tsc / vite build were run by hand, so the issue-46 pydantic↔TypeScript parity
+# guard — split across a Python contract test and a TS vitest/tsc check — only
+# fired when a developer remembered to run both suites. This job runs them
+# together so contract drift (and any unit regression) is a red build.
+#
+# No frozen sidecar binary is needed: the Python suite exercises the in-process
+# FastAPI app via TestClient, and the vitest suite mocks the sidecar API.
+
+on:
+  push:
+    branches: [main, feat/standalone-instrument]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Python: scoring engine + sidecar + issue-46 contract test ────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install engine + sidecar + dev tooling
+        # sidecar → fastapi/uvicorn for test_sidecar's TestClient; dev → pytest
+        # + httpx. No build/scripts extras: no PyInstaller freeze, engine is
+        # scipy-free.
+        run: python -m pip install -e ".[sidecar,dev]"
+
+      - name: pytest (engine + sidecar + contract parity)
+        run: python -m pytest -q
+
+      # ── Webview: vitest + tsc + vite build ───────────────────────────────
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install webview deps
+        working-directory: app
+        run: npm ci
+
+      - name: vitest (webview units + contract sentinel)
+        working-directory: app
+        run: npm test
+
+      - name: tsc --noEmit (types + contract Record sentinels)
+        working-directory: app
+        run: npm run typecheck
+
+      - name: vite build (production bundle)
+        working-directory: app
+        run: npm run build
