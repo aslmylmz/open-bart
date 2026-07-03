@@ -15,7 +15,7 @@ Models:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -196,6 +196,38 @@ class ColorMetrics(BaseModel):
     excess_explosion_rate: Optional[float] = Field(
         default=None,
         description="Observed explosion rate minus expected rate at EV-optimal. Positive = over-pumping.",
+    )
+
+
+class TrialRecord(BaseModel):
+    """One trial (balloon) of a session in long format (issue 39).
+
+    The row shape of the study-wide trials CSV — identity columns are added by
+    the writer; this model carries the design + behavior columns the scoring
+    engine computes from the event log. Field names follow the canonical BART
+    nomenclature (CONTEXT.md) so the file reads without a codebook.
+    """
+
+    trial: int = Field(description="1-based trial index within the session")
+    balloon_color: str
+    hazard_family: Optional[str] = Field(
+        default=None,
+        description=(
+            "the hazard family this balloon's color ran under (from the study "
+            "config); None when the color is not in the config"
+        ),
+    )
+    pumps: int
+    outcome: Literal["collected", "exploded"]
+    trial_earnings: float = Field(
+        description="pumps × reward_per_pump when collected; 0 when popped"
+    )
+    mean_latency_between_pumps: Optional[float] = Field(
+        default=None,
+        description=(
+            "mean gap between this trial's successive pumps (ms); None when "
+            "the trial has fewer than two pumps"
+        ),
     )
 
 

@@ -16,6 +16,7 @@ from scoring.schemas import (
     GameSession,
     GameType,
     NormalizedScore,
+    TrialRecord,
 )
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "GameSession",
     "GameType",
     "NormalizedScore",
+    "TrialRecord",
     "validate_bart_events",
 ]
 

@@ -22,7 +22,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import scoring
-from scoring.bart import score_bart
+from scoring.bart import score_bart, trial_table
 from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
 from scoring.schemas import EventPayload, GameEvent
 from sidecar.app import app
@@ -585,7 +585,9 @@ def test_adding_conditions_mid_study_migrates_master_csv(tmp_path):
         rows = list(csv.DictReader(fh))
     assert [r["condition"] for r in rows] == ["", "control"]
     assert [r["candidate_id"] for r in rows] == ["cand-1", "cand-2"]
-    assert len(list(tmp_path.glob("*_backup_*.csv"))) == 1
+    # One backup for the master CSV (the trials CSV migrates separately, with
+    # its own backup — issue 39).
+    assert len(list(tmp_path.glob("*_results_backup_*.csv"))) == 1
 
 
 def test_duplicate_acknowledgment_is_recorded_in_the_session_envelope(tmp_path):
@@ -615,6 +617,121 @@ def test_duplicate_acknowledgment_is_recorded_in_the_session_envelope(tmp_path):
         Path(acknowledged.json()["session"]).read_text(encoding="utf-8")
     )
     assert envelope["duplicate_acknowledged"] is True
+
+
+def test_write_output_appends_trials_csv_long_format(tmp_path):
+    """Every /write-output appends one row per trial to the study-wide
+    `[StudyTitle]_trials.csv` — the long-format table mixed-model analyses
+    consume (issue 39). Two 30-trial sessions → 60 data rows under one header,
+    in session order; identity columns tie each row to its session, and a
+    study without conditions gets no condition column (same rule as the
+    Master CSV)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    for candidate in ("cand-1", "cand-2"):
+        resp = client.post(
+            "/write-output",
+            json={
+                "session": _session_payload(events, candidate_id=candidate),
+                "config": cfg,
+            },
+        )
+        assert resp.status_code == 200, resp.text
+
+    trials_path = Path(resp.json()["trials_csv"])
+    assert trials_path.parent == tmp_path
+    assert trials_path.name.endswith("_trials.csv")
+
+    with trials_path.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+
+    assert len(rows) == 60  # 30 trials × 2 sessions, one header
+    assert [r["candidate_id"] for r in rows] == ["cand-1"] * 30 + ["cand-2"] * 30
+    assert [int(r["trial"]) for r in rows] == list(range(1, 31)) * 2
+    assert rows[0]["session_id"] == "sess-1"
+    assert rows[0]["timestamp_utc"]
+    assert "condition" not in rows[0]
+
+    # Behavior columns match the engine's own trial table (same source).
+    engine_trials = trial_table(events, DEFAULT_TASK_CONFIG)
+    assert rows[0]["balloon_color"] == engine_trials[0].balloon_color
+    assert rows[0]["hazard_family"] == "dynamic"
+    assert int(rows[0]["pumps"]) == engine_trials[0].pumps
+    assert {r["outcome"] for r in rows} == {"collected"}  # all-collected session
+    assert float(rows[0]["trial_earnings"]) == pytest.approx(
+        engine_trials[0].trial_earnings
+    )
+
+
+def test_trials_csv_carries_condition_for_conditioned_studies(tmp_path):
+    """A study with declared conditions stamps the session's assignment on
+    every trial row — the design column between-subject models group by
+    (issues 37 + 39)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+    cfg["conditions"] = ["control", "experimental"]
+
+    resp = client.post(
+        "/write-output",
+        json={
+            "session": _session_payload(events, condition="experimental"),
+            "config": cfg,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    with Path(resp.json()["trials_csv"]).open(newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        header = list(reader.fieldnames or [])
+        rows = list(reader)
+    assert header[:4] == ["timestamp_utc", "session_id", "candidate_id", "condition"]
+    assert {r["condition"] for r in rows} == {"experimental"}
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="chmod does not make a file unwritable on Windows"
+)
+def test_locked_trials_csv_never_loses_the_session_rows(tmp_path):
+    """The trials CSV plays by the issue-36 rules: locked (e.g. open in Excel)
+    → the session's 30 trial rows land in a timestamped sibling file with a
+    readable warning, and the master CSV append is unaffected (issue 39)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    first = client.post(
+        "/write-output", json={"session": _session_payload(events), "config": cfg}
+    )
+    assert first.status_code == 200, first.text
+    trials_path = Path(first.json()["trials_csv"])
+
+    trials_path.chmod(0o444)
+    try:
+        second = client.post(
+            "/write-output",
+            json={
+                "session": _session_payload(events, candidate_id="cand-2"),
+                "config": cfg,
+            },
+        )
+    finally:
+        trials_path.chmod(0o644)
+
+    assert second.status_code == 200, second.text
+    body = second.json()
+    sibling = Path(body["trials_csv"])
+    assert sibling != trials_path
+    assert "_unmerged_" in sibling.name
+    assert body["warnings"] and sibling.name in body["warnings"][0]
+    # The master CSV kept both sessions; the sibling holds all 30 trial rows.
+    assert Path(body["master_csv"]) == Path(first.json()["master_csv"])
+    with sibling.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    assert len(rows) == 30
+    assert {r["candidate_id"] for r in rows} == {"cand-2"}
 
 
 def test_write_output_migrates_master_csv_with_older_header(tmp_path):

@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from scoring import __version__
-from scoring.bart import score_bart
+from scoring.bart import score_bart, trial_table
 from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
 from scoring.schemas import AssessmentResponse, BARTMetrics
 from sidecar.models import (
@@ -31,7 +31,7 @@ from sidecar.models import (
     WriteOutputRequest,
     WriteOutputResponse,
 )
-from sidecar.versioned_csv import append_row
+from sidecar.versioned_csv import append_row, append_rows
 
 
 def _slug(text: str) -> str:
@@ -216,20 +216,27 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
         req.session.model_dump_json(exclude={"events"}, indent=2), encoding="utf-8"
     )
 
-    # The condition column exists only for studies that declare conditions, so
-    # condition-less studies keep their v1.0.0 sheet untouched (issue 37).
-    condition = (
-        {"condition": req.session.condition or ""} if config.conditions else {}
-    )
+    # The two study-wide append files (master CSV, trials CSV) are written
+    # together here — one decision point, so a future practice mode (issue 43)
+    # can skip both in one place. The condition column exists only for studies
+    # that declare conditions, so condition-less studies keep their v1.0.0
+    # sheets untouched (issue 37).
+    identity = {
+        "timestamp_utc": ts,
+        "session_id": req.session.session_id,
+        "candidate_id": req.session.candidate_id,
+        **({"condition": req.session.condition or ""} if config.conditions else {}),
+    }
     master_csv = append_row(
         out_dir / f"{_slug(config.title)}_results.csv",
-        {
-            "timestamp_utc": ts,
-            "session_id": req.session.session_id,
-            "candidate_id": req.session.candidate_id,
-            **condition,
-            **_flatten_metrics(metrics),
-        },
+        {**identity, **_flatten_metrics(metrics)},
+    )
+    trials_csv = append_rows(
+        out_dir / f"{_slug(config.title)}_trials.csv",
+        [
+            {**identity, **trial.model_dump(mode="json")}
+            for trial in trial_table(req.session.events, config)
+        ],
     )
 
     return WriteOutputResponse(
@@ -238,5 +245,6 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
         config=str(config_path),
         session=str(session_path),
         master_csv=str(master_csv.path),
-        warnings=[master_csv.warning] if master_csv.warning else [],
+        trials_csv=str(trials_csv.path),
+        warnings=[r.warning for r in (master_csv, trials_csv) if r.warning],
     )

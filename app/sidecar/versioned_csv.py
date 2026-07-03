@@ -15,7 +15,7 @@ import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -39,12 +39,12 @@ def _read_header(path: Path) -> list[str] | None:
         return next(csv.reader(fh), None)
 
 
-def _append(path: Path, fieldnames: list[str], row: Mapping[str, Any]) -> None:
+def _append(path: Path, fieldnames: list[str], rows: list[Mapping[str, Any]]) -> None:
     with path.open("a", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         if fh.tell() == 0:
             writer.writeheader()
-        writer.writerow(row)
+        writer.writerows(rows)
 
 
 def _migrate(path: Path, backup: Path, fieldnames: list[str]) -> None:
@@ -59,63 +59,75 @@ def _migrate(path: Path, backup: Path, fieldnames: list[str]) -> None:
         writer.writerows(rows)
 
 
-def _write_sibling(path: Path, fieldnames: list[str], row: Mapping[str, Any]) -> Path:
-    """Write the row to a timestamped sibling file so the session is never
+def _write_sibling(
+    path: Path, fieldnames: list[str], rows: list[Mapping[str, Any]]
+) -> Path:
+    """Write the rows to a timestamped sibling file so the session is never
     lost when the main file cannot be appended to."""
     sibling = path.with_name(f"{path.stem}_unmerged_{_timestamp()}{path.suffix}")
-    _append(sibling, fieldnames, row)
+    _append(sibling, fieldnames, rows)
     return sibling
 
 
 def append_row(path: Path, row: Mapping[str, Any]) -> AppendResult:
-    """Append ``row`` to the CSV at ``path``, creating it with a header row
-    when absent. The row's key order is the canonical column order.
+    """Append one row to the CSV at ``path`` — see ``append_rows``."""
+    return append_rows(path, [row])
 
-    When the file's header is *older* (a subset of the row's columns), the file
+
+def append_rows(path: Path, rows: Sequence[Mapping[str, Any]]) -> AppendResult:
+    """Append ``rows`` (sharing one key set) to the CSV at ``path``, creating
+    it with a header row when absent. The first row's key order is the
+    canonical column order.
+
+    When the file's header is *older* (a subset of the rows' columns), the file
     is backed up alongside and auto-migrated to the current header first. When
-    it has columns this app doesn't know (a *newer* app wrote it), the row goes
+    it has columns this app doesn't know (a *newer* app wrote it), the rows go
     to a timestamped sibling file instead — migration is add-columns-only. A
     locked, unwritable, or unparseable file (e.g. open in Excel on Windows, or
     re-saved in a non-UTF-8 encoding) likewise falls back to a sibling file:
     the session is never lost and never raises.
     """
-    fieldnames = list(row)
+    rows = list(rows)
+    if not rows:
+        return AppendResult(path=path)
+    fieldnames = list(rows[0])
     try:
-        return _append_or_migrate(path, fieldnames, row)
+        return _append_or_migrate(path, fieldnames, rows)
     except (OSError, ValueError, csv.Error) as exc:
         reason = getattr(exc, "strerror", None) or str(exc) or type(exc).__name__
-        sibling = _write_sibling(path, fieldnames, row)
+        sibling = _write_sibling(path, fieldnames, rows)
         return AppendResult(
             path=sibling,
             warning=(
                 f"Could not update {path.name} ({reason}) — the file may be open "
-                f"in another program (e.g. Excel) or damaged. The session row was "
-                f"saved to {sibling.name}; merge it into the main file by hand."
+                f"in another program (e.g. Excel) or damaged. The session's rows "
+                f"were saved to {sibling.name}; merge them into the main file by "
+                f"hand."
             ),
         )
 
 
 def _append_or_migrate(
-    path: Path, fieldnames: list[str], row: Mapping[str, Any]
+    path: Path, fieldnames: list[str], rows: list[Mapping[str, Any]]
 ) -> AppendResult:
     existing = _read_header(path)
     if existing is not None and existing != fieldnames:
         unknown = [column for column in existing if column not in set(fieldnames)]
         if unknown:
-            sibling = _write_sibling(path, fieldnames, row)
+            sibling = _write_sibling(path, fieldnames, rows)
             return AppendResult(
                 path=sibling,
                 warning=(
                     f"{path.name} has columns this app version does not know "
                     f"({', '.join(unknown)}) — it was likely written by a newer "
-                    f"version. The session row was saved to {sibling.name}; "
-                    f"merge it into the main file by hand."
+                    f"version. The session's rows were saved to {sibling.name}; "
+                    f"merge them into the main file by hand."
                 ),
             )
         backup = path.with_name(f"{path.stem}_backup_{_timestamp()}{path.suffix}")
         shutil.copy2(path, backup)
         _migrate(path, backup, fieldnames)
-        _append(path, fieldnames, row)
+        _append(path, fieldnames, rows)
         return AppendResult(
             path=path,
             warning=(
@@ -124,5 +136,5 @@ def _append_or_migrate(
                 f"file was backed up as {backup.name}."
             ),
         )
-    _append(path, fieldnames, row)
+    _append(path, fieldnames, rows)
     return AppendResult(path=path)

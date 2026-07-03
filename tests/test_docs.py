@@ -87,6 +87,36 @@ def test_every_master_csv_column_is_documented(tmp_path):
     assert undocumented == []
 
 
+def test_every_trials_csv_column_is_documented(tmp_path):
+    """Write a real session through /write-output and check that every column
+    of the resulting trials CSV appears in the data-outputs page (issue 39).
+    The study declares conditions so the widest schema is documented."""
+    import csv
+
+    from scoring.config import DEFAULT_TASK_CONFIG
+    from tests.test_sidecar import _collected_session, _session_payload, client
+
+    page = (DOCS / "data_outputs.md").read_text(encoding="utf-8")
+
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+    cfg["conditions"] = ["control", "experimental"]
+    resp = client.post(
+        "/write-output",
+        json={
+            "session": _session_payload(_collected_session(), condition="control"),
+            "config": cfg,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    with open(resp.json()["trials_csv"], newline="", encoding="utf-8") as fh:
+        header = next(csv.reader(fh))
+    assert header, "trials CSV should have a header row"
+
+    undocumented = [column for column in header if column not in page]
+    assert undocumented == []
+
+
 @pytest.mark.skipif(not _docs_deps_available(), reason="docs extras not installed")
 def test_sphinx_build_is_warning_free(tmp_path):
     """The published site builds with zero warnings (the Phase 4 standard):

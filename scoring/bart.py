@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 
 from scoring.config import DEFAULT_TASK_CONFIG, BalloonCurve, TaskConfig
-from scoring.schemas.game_events import BARTMetrics, ColorMetrics, GameEvent
+from scoring.schemas.game_events import BARTMetrics, ColorMetrics, GameEvent, TrialRecord
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +114,45 @@ def _extract_balloon_color(balloon_events: list[GameEvent]) -> str:
             return event.payload.balloon_color.lower()
 
     return "teal"
+
+
+def trial_table(
+    events: list[GameEvent],
+    config: TaskConfig = DEFAULT_TASK_CONFIG,
+) -> list[TrialRecord]:
+    """The session as long-format trial rows: one record per balloon (issue 39).
+
+    This is the row shape of the study-wide trials CSV, computed here — not
+    re-derived in the sidecar — so CLI users of ``scoring`` get the same trial
+    table. A trailing balloon without a terminal event (an aborted session)
+    has no outcome and is omitted.
+    """
+    families = {c.name: c.hazard.family for c in config.colors}
+    records: list[TrialRecord] = []
+    for index, balloon_events in enumerate(_segment_balloons(events), start=1):
+        terminal = next(
+            (e.type for e in reversed(balloon_events) if e.type in ("collect", "explode")),
+            None,
+        )
+        if terminal is None:
+            continue
+        color = _extract_balloon_color(balloon_events)
+        pumps = sum(1 for e in balloon_events if e.type == "pump")
+        collected = terminal == "collect"
+        pump_times = [e.timestamp for e in balloon_events if e.type == "pump"]
+        gaps = np.diff(pump_times)
+        records.append(
+            TrialRecord(
+                trial=index,
+                balloon_color=color,
+                hazard_family=families.get(color),
+                pumps=pumps,
+                outcome="collected" if collected else "exploded",
+                trial_earnings=pumps * config.reward_per_pump if collected else 0.0,
+                mean_latency_between_pumps=float(np.mean(gaps)) if gaps.size else None,
+            )
+        )
+    return records
 
 
 def _prefer_collected(

@@ -195,3 +195,42 @@ def test_validate_bart_events_rejects_zero_pump_terminal():
     events = [GameEvent(timestamp=1, type="collect", payload=EventPayload(color="teal"))]
     with pytest.raises(ValueError):
         validate_bart_events(events)
+
+
+# ── Trial table (issue 39) ───────────────────────────────────────────────────
+
+
+def test_trial_table_yields_one_record_per_balloon():
+    """`trial_table` turns an event log into the long-format trial rows analysts
+    feed to mixed models: one record per balloon, in session order, with pumps,
+    outcome, and this trial's earnings (pumps × reward when collected, 0 when
+    popped) — computed in the engine so CLI users get the same table (issue 39)."""
+    from scoring.bart import trial_table
+    from scoring.config import DEFAULT_TASK_CONFIG
+
+    events = build_events([("teal", 3, True), ("orange", 2, False)])
+    trials = trial_table(events, DEFAULT_TASK_CONFIG)
+
+    assert [t.trial for t in trials] == [1, 2]
+    assert [t.balloon_color for t in trials] == ["teal", "orange"]
+    assert [t.pumps for t in trials] == [3, 2]
+    assert [t.outcome for t in trials] == ["collected", "exploded"]
+    assert trials[0].trial_earnings == pytest.approx(3 * DEFAULT_TASK_CONFIG.reward_per_pump)
+    assert trials[1].trial_earnings == 0.0
+
+
+def test_trial_table_carries_design_and_latency_columns():
+    """Each trial row names the hazard family its color ran under (from the
+    study config — the design column mixed models condition on) and summarizes
+    response latency as the mean gap between that trial's pumps in ms; a trial
+    with fewer than two pumps has no gaps, so its summary is honestly empty."""
+    from scoring.bart import trial_table
+    from scoring.config import DEFAULT_TASK_CONFIG
+
+    # build_events spaces pumps 300 ms apart.
+    events = build_events([("teal", 3, True), ("orange", 1, True)])
+    trials = trial_table(events, DEFAULT_TASK_CONFIG)
+
+    assert [t.hazard_family for t in trials] == ["dynamic", "dynamic"]
+    assert trials[0].mean_latency_between_pumps == pytest.approx(300.0)
+    assert trials[1].mean_latency_between_pumps is None

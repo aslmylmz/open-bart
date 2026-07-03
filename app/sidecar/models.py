@@ -93,4 +93,5 @@ class WriteOutputResponse(BaseModel):
     config: str
     session: str
     master_csv: str
+    trials_csv: str
     warnings: list[str] = Field(default_factory=list)

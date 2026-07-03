@@ -1,6 +1,7 @@
 # Data Outputs Reference
 
-Everything a session writes to disk, and every column of the Master CSV.
+Everything a session writes to disk, and every column of the Master CSV and
+the Trials CSV.
 Metric *definitions* live in the [Metrics Reference](metrics_reference.md);
 this page documents the files and column names as they appear in your output
 directory.
@@ -178,3 +179,35 @@ for the default color names only).
 description and dominant traits — is only in `*_metrics.json`. Join the CSV
 to the JSON files on `candidate_id` + `timestamp_utc` if you need it in a
 dataframe.
+
+## The Trials CSV
+
+Alongside the session-level Master CSV, the sidecar appends **one row per
+trial (balloon)** to a second study-wide spreadsheet — the long-format table
+mixed-model analyses in R or SPSS consume directly, with no manual
+concatenation of per-session files:
+
+```
+[StudyTitle]_trials.csv
+```
+
+Rows are appended in session order at each session's completion, and the file
+follows the same [migration and backup rules](#upgrading-mid-study-migration-and-backups)
+as the Master CSV (header on create, timestamped backup + auto-migrate on a
+schema change, timestamped `*_unmerged_*` sibling when the file is locked).
+The trial rows are computed by the scoring engine (`scoring.bart.trial_table`),
+so CLI users of the `scoring` package get exactly the same table.
+
+| Column | Meaning |
+|--------|---------|
+| `timestamp_utc` | Session write time (UTC) — same value as the session's Master CSV row |
+| `session_id` | The client-generated session identifier |
+| `candidate_id` | The participant ID entered at the start of the run |
+| `condition` | The session's assigned condition — present only for studies whose preset declares `conditions`, exactly as in the Master CSV |
+| `trial` | 1-based trial index within the session |
+| `balloon_color` | The balloon's color name |
+| `hazard_family` | The hazard family this balloon's color ran under (from the study config) |
+| `pumps` | Pumps on this balloon |
+| `outcome` | `collected` (banked) or `exploded` (popped) |
+| `trial_earnings` | Pumps × reward when collected; 0 when popped |
+| `mean_latency_between_pumps` | Mean gap between this trial's successive pumps (ms); empty when the trial has fewer than two pumps |
