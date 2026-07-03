@@ -234,3 +234,83 @@ def test_trial_table_carries_design_and_latency_columns():
     assert [t.hazard_family for t in trials] == ["dynamic", "dynamic"]
     assert trials[0].mean_latency_between_pumps == pytest.approx(300.0)
     assert trials[1].mean_latency_between_pumps is None
+
+
+# ── QC flags (issue 40) ──────────────────────────────────────────────────────
+
+
+def test_clean_session_trips_no_qc_flags():
+    """A session with unhurried pumping (300 ms gaps) and engagement on every
+    balloon carries QC fields that all read clean: flags annotate data quality,
+    and clean data is visibly clean (issue 40)."""
+    events = build_events([("teal", 4, True), ("orange", 2, True), ("purple", 8, True)])
+    metrics = score_bart(events)
+
+    assert metrics.qc_fast_response_trials == 0
+    assert metrics.qc_zero_pump_streak == 0
+    assert metrics.qc_flagged is False
+
+
+def test_sub_threshold_latency_trips_the_fast_response_rule():
+    """One trial with a 50 ms inter-pump gap (default threshold: 100 ms) is
+    counted and flags the session; the rule counts trials, not gaps, so a
+    single bad trial reads as 1 regardless of how many fast gaps it holds."""
+    events = build_events([("teal", 4, True), ("orange", 2, True)])
+    # Splice in one hurried trial: three pumps 50 ms apart, then collect.
+    t = events[-1].timestamp
+    for _ in range(3):
+        t += 50.0
+        events.append(GameEvent(timestamp=t, type="pump", payload=EventPayload(color="teal")))
+    events.append(GameEvent(timestamp=t + 200.0, type="collect", payload=EventPayload(color="teal")))
+
+    metrics = score_bart(events)
+
+    assert metrics.qc_fast_response_trials == 1
+    assert metrics.qc_flagged is True
+    # Annotation only: the flagged trial still counts everywhere else.
+    assert metrics.total_balloons == 3
+
+
+def test_zero_pump_streak_rule_trips_at_the_threshold():
+    """Five consecutive zero-pump trials (default threshold) read as disengagement
+    and flag the session; four in a row stay below the line. The streak length is
+    reported either way, so the analyst sees exactly what happened."""
+    engaged = [("teal", 3, True)]
+    zero = ("orange", 0, False)  # explode logged with no pumps: pure disengagement
+
+    below = score_bart(build_events(engaged + [zero] * 4 + engaged))
+    assert below.qc_zero_pump_streak == 4
+    assert below.qc_flagged is False
+
+    tripped = score_bart(build_events(engaged + [zero] * 5 + engaged))
+    assert tripped.qc_zero_pump_streak == 5
+    assert tripped.qc_flagged is True
+
+
+def test_preset_qc_thresholds_change_outcomes_and_are_recorded():
+    """Labs align flags with their preregistration by declaring thresholds in
+    the Study Preset; the thresholds actually used are recorded in the metrics,
+    so a flag's criteria can be stated post hoc. A v1.0.0 preset without a `qc`
+    block keeps validating and gets the literature defaults (100 ms / 5)."""
+    from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
+
+    v1 = DEFAULT_TASK_CONFIG.model_dump()
+    v1.pop("qc", None)  # exactly what a v1.0.0 study.json contains
+    defaults = TaskConfig.model_validate(v1)
+    assert defaults.qc.fast_response_ms == 100.0
+    assert defaults.qc.zero_pump_streak == 5
+
+    # build_events paces pumps 300 ms apart — clean under the default
+    # threshold, hurried under a strict preregistration of 400 ms.
+    events = build_events([("teal", 3, True), ("teal", 4, True)])
+    strict = TaskConfig.model_validate({**v1, "qc": {"fast_response_ms": 400.0}})
+
+    clean = score_bart(events, defaults)
+    assert clean.qc_flagged is False
+    assert clean.qc_fast_response_ms == 100.0
+    assert clean.qc_zero_pump_streak_threshold == 5
+
+    flagged = score_bart(events, strict)
+    assert flagged.qc_fast_response_trials == 2
+    assert flagged.qc_flagged is True
+    assert flagged.qc_fast_response_ms == 400.0

@@ -23,12 +23,18 @@ from scoring.config.hazards import (
     LejuezHazard,
     WeibullHazard,
 )
-from scoring.config.task_config import DEFAULT_TASK_CONFIG, ColorProfile, TaskConfig
+from scoring.config.task_config import (
+    DEFAULT_TASK_CONFIG,
+    ColorProfile,
+    QCThresholds,
+    TaskConfig,
+)
 
 __all__ = [
     # Main domain entities
     "TaskConfig",
     "ColorProfile",
+    "QCThresholds",
     "DEFAULT_TASK_CONFIG",
     # Specific hazard families
     "ConstantHazard",

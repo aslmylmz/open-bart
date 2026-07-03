@@ -33,7 +33,9 @@ client = TestClient(app)
 
 
 def _collected_session() -> list[GameEvent]:
-    """A varied 3-color session, all balloons collected near their EV-optima."""
+    """A varied 3-color session, all balloons collected near their EV-optima.
+    Timestamps are ms (performance.now), paced like a real participant so the
+    session reads clean under the QC latency rules (issue 40)."""
     plan = {
         "purple": [9, 11, 10, 13, 12, 14, 11, 12, 13, 15],
         "teal": [4, 5, 6, 5, 7, 6, 5, 6, 4, 5],
@@ -44,11 +46,11 @@ def _collected_session() -> list[GameEvent]:
     for color, pump_seq in plan.items():
         for pumps in pump_seq:
             for _ in range(pumps):
-                t += 1.0
+                t += 300.0
                 events.append(
                     GameEvent(timestamp=t, type="pump", payload=EventPayload(color=color))
                 )
-            t += 1.0
+            t += 300.0
             events.append(
                 GameEvent(timestamp=t, type="collect", payload=EventPayload(color=color))
             )
@@ -732,6 +734,45 @@ def test_locked_trials_csv_never_loses_the_session_rows(tmp_path):
         rows = list(csv.DictReader(fh))
     assert len(rows) == 30
     assert {r["candidate_id"] for r in rows} == {"cand-2"}
+
+
+def test_flagged_session_lands_in_master_csv_with_qc_columns(tmp_path):
+    """QC flags annotate, never exclude (issue 40): a session that trips the
+    fast-response rule still writes all four session files and its Master CSV
+    row — with the flag, the counts, and the thresholds it was judged against
+    visible in the columns."""
+    events = _collected_session()
+    # Append one hurried trial: pumps 50 ms apart (default threshold: 100 ms).
+    t = events[-1].timestamp
+    hurried = [
+        GameEvent(timestamp=t + 50.0 * (i + 1), type="pump", payload=EventPayload(color="teal"))
+        for i in range(3)
+    ]
+    hurried.append(
+        GameEvent(timestamp=t + 400.0, type="collect", payload=EventPayload(color="teal"))
+    )
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    resp = client.post(
+        "/write-output",
+        json={"session": _session_payload(events + hurried), "config": cfg},
+    )
+    assert resp.status_code == 200, resp.text
+    paths = resp.json()
+    for key in ("events", "metrics", "config", "session"):
+        assert Path(paths[key]).exists()
+
+    with Path(paths["master_csv"]).open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    assert len(rows) == 1  # flagged, not excluded
+    assert rows[0]["qc_flagged"] == "True"
+    assert int(rows[0]["qc_fast_response_trials"]) == 1
+    assert float(rows[0]["qc_fast_response_ms"]) == 100.0
+    assert int(rows[0]["qc_zero_pump_streak_threshold"]) == 5
+
+    metrics = json.loads(Path(paths["metrics"]).read_text(encoding="utf-8"))
+    assert metrics["qc_flagged"] is True
 
 
 def test_write_output_migrates_master_csv_with_older_header(tmp_path):

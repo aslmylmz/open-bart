@@ -150,6 +150,24 @@ misaligned:
 | `money_collected` | Session earnings in the study's currency |
 | `money_efficiency` | Earnings relative to simulated optimal play |
 
+### Data-quality (QC) columns
+
+Automatic data-quality flags (also in `*_metrics.json`). **Flags annotate,
+never exclude**: no session is ever dropped, reordered, or withheld because a
+rule tripped — exclusion is the analyst's preregistered decision. Thresholds
+are configurable in the Study Preset's optional `qc` block and travel in
+`study.json`; when the block is absent, the literature-informed defaults
+below apply. The thresholds each session was actually judged against are
+recorded in its own row, so a flag's criteria can be stated post hoc.
+
+| Column | Rule | Default |
+|--------|------|---------|
+| `qc_fast_response_trials` | Number of trials containing at least one inter-pump gap faster than the fast-response threshold | threshold: 100 ms (`qc.fast_response_ms`) |
+| `qc_zero_pump_streak` | Longest run of consecutive trials with zero pumps | threshold: 5 trials (`qc.zero_pump_streak`) |
+| `qc_flagged` | `True` when any rule tripped: a fast-response trial exists, or the zero-pump streak reached the threshold | — |
+| `qc_fast_response_ms` | The fast-response threshold (ms) this session was judged against | 100 |
+| `qc_zero_pump_streak_threshold` | The streak length this session was judged against | 5 |
+
 ### Per-color columns — `{color}_{field}`
 
 One set per configured color, in the study's color order (for the default

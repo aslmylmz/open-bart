@@ -16,6 +16,23 @@ from scoring.config.curve import BalloonCurve, balloon_curve
 from scoring.config.hazards import HazardSpec, DynamicHazard
 
 
+class QCThresholds(BaseModel):
+    """Data-quality flag thresholds (issue 40), carried in the Study Preset so
+    labs can align flags with their preregistration. Flags annotate — nothing
+    is ever excluded because of them. Defaults are literature-informed."""
+
+    fast_response_ms: float = Field(
+        default=100.0,
+        gt=0,
+        description="inter-pump gaps faster than this (ms) count as fast responses",
+    )
+    zero_pump_streak: int = Field(
+        default=5,
+        gt=0,
+        description="consecutive zero-pump trials at or above this length flag the session",
+    )
+
+
 class ColorProfile(BaseModel):
     """One balloon color: a hazard family bounded by a per-color pump cap."""
 
@@ -50,6 +67,13 @@ class TaskConfig(BaseModel):
         description=(
             "allowed condition names for between-subject designs; empty means "
             "this study has no conditions (issue 37)"
+        ),
+    )
+    qc: QCThresholds = Field(
+        default_factory=QCThresholds,
+        description=(
+            "data-quality flag thresholds (issue 40); absent means the "
+            "literature-informed defaults"
         ),
     )
 

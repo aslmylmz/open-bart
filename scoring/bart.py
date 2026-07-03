@@ -116,6 +116,31 @@ def _extract_balloon_color(balloon_events: list[GameEvent]) -> str:
     return "teal"
 
 
+def _compute_qc_flags(
+    balloons: list[list[GameEvent]],
+    fast_response_ms: float,
+    zero_pump_streak: int,
+) -> tuple[int, int, bool]:
+    """Data-quality flags from the raw balloons (issue 40).
+
+    Returns (trials containing a sub-threshold inter-pump gap, longest run of
+    consecutive zero-pump trials, any rule tripped). Computed on the raw data —
+    auto-repeat balloons included — because the flags describe data quality;
+    they annotate, never exclude.
+    """
+    fast_trials = 0
+    longest_streak = 0
+    streak = 0
+    for balloon_events in balloons:
+        pump_times = [e.timestamp for e in balloon_events if e.type == "pump"]
+        if len(pump_times) >= 2 and float(np.min(np.diff(pump_times))) < fast_response_ms:
+            fast_trials += 1
+        streak = streak + 1 if not pump_times else 0
+        longest_streak = max(longest_streak, streak)
+    flagged = fast_trials > 0 or longest_streak >= zero_pump_streak
+    return fast_trials, longest_streak, flagged
+
+
 def trial_table(
     events: list[GameEvent],
     config: TaskConfig = DEFAULT_TASK_CONFIG,
@@ -1368,6 +1393,12 @@ def score_bart(
         len(session_warnings),
     )
 
+    qc_fast_trials, qc_streak, qc_flagged = _compute_qc_flags(
+        balloons,
+        fast_response_ms=config.qc.fast_response_ms,
+        zero_pump_streak=config.qc.zero_pump_streak,
+    )
+
     metrics_obj = BARTMetrics(
         average_pumps_adjusted=round(average_pumps_adjusted, 4),
         explosion_rate=round(explosion_rate, 4),
@@ -1405,6 +1436,11 @@ def score_bart(
         adaptive_strategy_score=round(adaptive_strategy_score, 4),
         session_valid=session_valid,
         session_warnings=session_warnings,
+        qc_fast_response_trials=qc_fast_trials,
+        qc_zero_pump_streak=qc_streak,
+        qc_flagged=qc_flagged,
+        qc_fast_response_ms=config.qc.fast_response_ms,
+        qc_zero_pump_streak_threshold=config.qc.zero_pump_streak,
         behavioral_profile={},
     )
 

@@ -496,6 +496,39 @@ class BARTMetrics(BaseModel):
         description="Validation warnings for this session (empty if fully valid).",
     )
 
+    # Data-quality flags (issue 40). Flags annotate — the instrument never
+    # excludes, reorders, or withholds a session because of them; exclusion is
+    # the analyst's preregistered decision.
+    qc_fast_response_trials: int = Field(
+        default=0,
+        description=(
+            "Number of trials containing at least one inter-pump gap faster "
+            "than the study's fast-response threshold."
+        ),
+    )
+    qc_zero_pump_streak: int = Field(
+        default=0,
+        description="Longest run of consecutive trials with zero pumps.",
+    )
+    qc_flagged: bool = Field(
+        default=False,
+        description="True when any QC rule tripped (annotate-only; nothing is excluded).",
+    )
+    qc_fast_response_ms: float = Field(
+        default=100.0,
+        description=(
+            "The fast-response threshold (ms) this session was judged against "
+            "— recorded so a flag's criteria can be stated post hoc."
+        ),
+    )
+    qc_zero_pump_streak_threshold: int = Field(
+        default=5,
+        description=(
+            "The zero-pump streak length this session was judged against "
+            "— recorded so a flag's criteria can be stated post hoc."
+        ),
+    )
+
 
 # ── Normalization (optional) ─────────────────────────────────────────────────
 
