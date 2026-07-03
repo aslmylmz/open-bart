@@ -3,6 +3,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import BartGame from "../BartGame";
 import { checkId, preview } from "../lib/api";
 import type { TaskConfig } from "../lib/config";
+import { setKioskLock } from "../lib/desktop";
 import { taskStrings } from "../lib/i18n";
 import { cardStyle, centerStyle, headingStyle, pageStyle } from "./participantStyles";
 
@@ -42,6 +43,60 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
   const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
   const [idError, setIdError] = useState<string | null>(null);
   const [checkingId, setCheckingId] = useState(false);
+  // Kiosk in-app lock (issue 44): while the study declares an exit_passcode,
+  // every mid-session exit path funnels through the passcode prompt below.
+  const [lockPromptOpen, setLockPromptOpen] = useState(false);
+  const [lockEntry, setLockEntry] = useState("");
+  const [lockError, setLockError] = useState(false);
+  const [completed, setCompleted] = useState(false);
+
+  // The lock gates mid-session escape, not normal completion: once the
+  // session is scored and the debrief is up (researcher hand-back), the lock
+  // disengages by itself.
+  const lockEngaged = Boolean(config.exit_passcode) && !completed;
+
+  function openLockPrompt() {
+    setLockEntry("");
+    setLockError(false);
+    setLockPromptOpen(true);
+  }
+
+  /** The single exit funnel: RunFlow's own back bar and BartGame's exit button
+   * both leave through here, so no path can bypass the lock. */
+  function requestExit() {
+    if (!lockEngaged) {
+      onExit();
+      return;
+    }
+    openLockPrompt();
+  }
+
+  // While locked, swallow the in-app escape keys (Escape, F11) into the
+  // passcode prompt. Capture phase, so the app shell's own F11 fullscreen
+  // toggle never sees the event. In-app swallowing only — no global hooks or
+  // OS-level shortcut suppression (issue 44's honest-limits stance).
+  useEffect(() => {
+    if (!lockEngaged) return;
+    function swallow(e: KeyboardEvent) {
+      if (e.key !== "Escape" && e.key !== "F11") return;
+      e.preventDefault();
+      e.stopPropagation();
+      openLockPrompt();
+    }
+    window.addEventListener("keydown", swallow, true);
+    return () => window.removeEventListener("keydown", swallow, true);
+  }, [lockEngaged]);
+
+  // While locked, hold the native window fullscreen and always-on-top;
+  // release it at debrief or on leaving the flow. Outside Tauri there is no
+  // native window — the rejection is deliberately swallowed.
+  useEffect(() => {
+    if (!lockEngaged) return;
+    void setKioskLock(true).catch(() => {});
+    return () => {
+      void setKioskLock(false).catch(() => {});
+    };
+  }, [lockEngaged]);
 
   // Preset-driven enum (issue 37): a study that declares conditions forces a
   // dropdown choice — no typing, no typos. No conditions → no condition UI.
@@ -100,11 +155,80 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
 
   const backBar = (
     <div style={{ padding: 16 }}>
-      <button type="button" className="btn-ghost-participant" onClick={onExit}>
+      <button type="button" className="btn-ghost-participant" onClick={requestExit}>
         ← Back to setup
       </button>
     </div>
   );
+
+  // The passcode prompt overlays whichever screen the exit was attempted from;
+  // it is rendered outside BartGame's container, so keys typed here can never
+  // reach the task's own key handling.
+  const lockPrompt = lockPromptOpen ? (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        background: "rgba(17, 24, 39, 0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div style={cardStyle}>
+        <h1 style={headingStyle}>{t.lockTitle}</h1>
+        <input
+          className="input-participant"
+          type="password"
+          autoFocus
+          style={{
+            width: "100%",
+            fontSize: "1.05rem",
+            padding: "12px 14px",
+            textAlign: "center",
+            marginBottom: 16,
+          }}
+          value={lockEntry}
+          placeholder={t.lockPlaceholder}
+          onChange={(e) => {
+            setLockEntry(e.target.value);
+            setLockError(false);
+          }}
+        />
+        {lockError && (
+          <p role="alert" style={{ color: "#b91c1c", margin: "0 0 16px", fontSize: "0.95rem" }}>
+            {t.lockWrong}
+          </p>
+        )}
+        <button
+          type="button"
+          className="btn-primary-participant"
+          style={primaryBtnStyle}
+          onClick={() => {
+            if (lockEntry === config.exit_passcode) {
+              setLockPromptOpen(false);
+              onExit();
+              return;
+            }
+            setLockEntry("");
+            setLockError(true);
+          }}
+        >
+          {t.lockConfirm}
+        </button>
+        <button
+          type="button"
+          className="btn-ghost-participant"
+          style={{ ...primaryBtnStyle, marginTop: 12 }}
+          onClick={() => setLockPromptOpen(false)}
+        >
+          {t.lockCancel}
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   // The Test Run banner (issue 43): pinned to the top of *every* practice
   // screen, high-contrast, readable from across a lab room — a real
@@ -135,6 +259,7 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
     return (
       <div style={pageStyle}>
         {practiceBanner}
+        {lockPrompt}
         <BartGame
           config={config}
           hazards={hazards}
@@ -142,7 +267,8 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
           condition={condition || null}
           duplicateAcknowledged={duplicateAcknowledged}
           practice={practice}
-          onExit={onExit}
+          onComplete={() => setCompleted(true)}
+          onExit={requestExit}
         />
       </div>
     );
@@ -151,6 +277,7 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
   return (
     <div style={pageStyle}>
       {practiceBanner}
+      {lockPrompt}
       {backBar}
       <div style={centerStyle}>
         {phase === "consent" && (

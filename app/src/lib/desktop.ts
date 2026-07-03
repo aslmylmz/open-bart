@@ -36,3 +36,13 @@ export async function toggleFullscreen(): Promise<boolean> {
   await win.setFullscreen(next);
   return next;
 }
+
+/** Engage or release the kiosk window state (issue 44): fullscreen and
+ * always-on-top together, while a passcode-locked session runs. In-app only —
+ * no global hooks, no OS-level shortcut suppression. Outside Tauri (plain
+ * browser, tests) there is no native window; callers catch the rejection. */
+export async function setKioskLock(locked: boolean): Promise<void> {
+  const win = getCurrentWindow();
+  await win.setFullscreen(locked);
+  await win.setAlwaysOnTop(locked);
+}

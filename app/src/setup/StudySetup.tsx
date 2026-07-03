@@ -7,6 +7,7 @@ import { FAMILY_PARAMS } from "./familyParams";
 import {
   addColor,
   parseConditionList,
+  parseExitPasscode,
   parseNumberList,
   parseStudy,
   removeColor,
@@ -138,6 +139,18 @@ export function StudySetup({ config, onChange }: StudySetupProps) {
               placeholder="Leave empty for a study without conditions"
               onBlur={(e) =>
                 onChange(setStudyField(config, { conditions: parseConditionList(e.target.value) }))
+              }
+            />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db", gridColumn: "1 / -1" }}>
+            Exit passcode (optional — locks mid-session exits behind this code; deterrence, not security)
+            {/* Committed on blur like conditions, so the trim never fights typing. */}
+            <input
+              key={config.exit_passcode ?? ""}
+              defaultValue={config.exit_passcode ?? ""}
+              placeholder="Leave empty for ungated exits"
+              onBlur={(e) =>
+                onChange(setStudyField(config, { exit_passcode: parseExitPasscode(e.target.value) }))
               }
             />
           </label>

@@ -108,6 +108,16 @@ class TaskConfig(BaseModel):
             "anywhere — the v1.0.0 behavior"
         ),
     )
+    exit_passcode: Optional[str] = Field(
+        default=None,
+        description=(
+            "optional in-app kiosk lock (issue 44): while a session runs, "
+            "every exit path asks for this passcode. Stored in study.json as "
+            "deterrence, not security — it stops a curious participant, not "
+            "an attacker with the preset file. Absent means exits are ungated "
+            "— the v1.0.0 behavior"
+        ),
+    )
 
     _curves: dict[str, BalloonCurve] = PrivateAttr(default_factory=dict)
 
@@ -125,6 +135,21 @@ class TaskConfig(BaseModel):
         if any(len(name) > 64 for name in names):
             raise ValueError("condition names must be 64 characters or fewer")
         return names
+
+    @field_validator("exit_passcode")
+    @classmethod
+    def exit_passcode_must_be_usable(cls, v: Optional[str]) -> Optional[str]:
+        """A passcode someone must type at a prompt: surrounding whitespace is
+        stripped; blank or unreasonably long values are configuration errors
+        the researcher must fix in Study Setup."""
+        if v is None:
+            return None
+        passcode = v.strip()
+        if not passcode:
+            raise ValueError("exit passcode must not be blank")
+        if len(passcode) > 64:
+            raise ValueError("exit passcode must be 64 characters or fewer")
+        return passcode
 
     def model_post_init(self, __context: object) -> None:
         self._curves = {c.name: c.curve(self.reward_per_pump) for c in self.colors}

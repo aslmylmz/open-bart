@@ -30,6 +30,13 @@ export interface TaskStrings {
   /** Persistent Test Run banner shown on every screen of a practice session
    * (issue 43) — must read at a glance from across a lab room. */
   practiceBanner: string;
+  // Kiosk in-app lock (issue 44): the passcode prompt every mid-session exit
+  // path opens while the study declares an exit_passcode.
+  lockTitle: string;
+  lockPlaceholder: string;
+  lockConfirm: string;
+  lockCancel: string;
+  lockWrong: string;
   // Idle / instructions
   taskTitle: string;
   instructions: string;
@@ -81,6 +88,11 @@ export const STRINGS: Record<Language, TaskStrings> = {
     idInvalid:
       "This ID cannot be used in file names. Use only letters, numbers, dots, underscores, and dashes.",
     practiceBanner: "TEST RUN — data not recorded",
+    lockTitle: "Researcher exit",
+    lockPlaceholder: "Exit passcode",
+    lockConfirm: "Unlock and exit",
+    lockCancel: "Return to session",
+    lockWrong: "Incorrect passcode — the session continues.",
     taskTitle: "Balloon Analogue Risk Task",
     instructions:
       "Inflate the balloon to earn money. Each pump raises the chance it pops. Collect your money before it pops!",
@@ -125,6 +137,11 @@ export const STRINGS: Record<Language, TaskStrings> = {
     idInvalid:
       "Bu kimlik dosya adlarında kullanılamaz. Yalnızca harf, rakam, nokta, alt çizgi ve tire kullanın.",
     practiceBanner: "DENEME OTURUMU — veriler kaydedilmiyor",
+    lockTitle: "Araştırmacı çıkışı",
+    lockPlaceholder: "Çıkış şifresi",
+    lockConfirm: "Kilidi aç ve çık",
+    lockCancel: "Oturuma dön",
+    lockWrong: "Şifre yanlış — oturum devam ediyor.",
     taskTitle: "Balon Analog Risk Görevi",
     instructions:
       "Balonu şişirerek para kazanın. Her şişirme patlama riskini artırır. Patlamadan önce paranızı toplayın!",

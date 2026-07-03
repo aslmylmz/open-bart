@@ -9,7 +9,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
-import { loadStudy, saveStudy, toggleFullscreen } from "./desktop";
+import { loadStudy, saveStudy, setKioskLock, toggleFullscreen } from "./desktop";
 
 afterEach(() => vi.clearAllMocks());
 
@@ -44,6 +44,22 @@ describe("loadStudy", () => {
     vi.mocked(open).mockResolvedValue(null);
     expect(await loadStudy()).toBeNull();
     expect(invoke).not.toHaveBeenCalled();
+  });
+});
+
+describe("setKioskLock", () => {
+  it("engages fullscreen and always-on-top together, and releases both", async () => {
+    const setFullscreen = vi.fn().mockResolvedValue(undefined);
+    const setAlwaysOnTop = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(getCurrentWindow).mockReturnValue({ setFullscreen, setAlwaysOnTop } as never);
+
+    await setKioskLock(true);
+    expect(setFullscreen).toHaveBeenCalledWith(true);
+    expect(setAlwaysOnTop).toHaveBeenCalledWith(true);
+
+    await setKioskLock(false);
+    expect(setFullscreen).toHaveBeenCalledWith(false);
+    expect(setAlwaysOnTop).toHaveBeenCalledWith(false);
   });
 });
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { DEFAULT_STUDY } from "../lib/config";
@@ -19,6 +19,13 @@ vi.mock("../lib/api", () => ({
   checkId: (...args: unknown[]) => checkId(...args),
   submitSession: (...args: unknown[]) => submitSession(...args),
   persistSession: (...args: unknown[]) => persistSession(...args),
+}));
+
+// The kiosk lock drives the native window (fullscreen + always-on-top) via
+// lib/desktop; stub it — there is no Tauri window under jsdom.
+const setKioskLock = vi.fn().mockResolvedValue(undefined);
+vi.mock("../lib/desktop", () => ({
+  setKioskLock: (...args: unknown[]) => setKioskLock(...args),
 }));
 
 const t = taskStrings("en");
@@ -248,6 +255,114 @@ describe("Test Run / practice mode (issue 43)", () => {
     expect(screen.queryByText(t.practiceBanner)).toBeNull();
     const input = screen.getByPlaceholderText<HTMLInputElement>(t.idPlaceholder);
     expect(input.value).toBe("");
+  });
+});
+
+describe("kiosk in-app lock (issue 44)", () => {
+  const lockedStudy = { ...DEFAULT_STUDY, exit_passcode: "1234" };
+
+  it("gates the back button behind a passcode prompt instead of exiting", async () => {
+    const onExit = vi.fn();
+    render(<RunFlow config={lockedStudy} onExit={onExit} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+
+    expect(onExit).not.toHaveBeenCalled();
+    expect(screen.getByText(t.lockTitle)).toBeTruthy();
+  });
+
+  it("keeps a wrong entry in-session and lets a correct entry exit", async () => {
+    const onExit = vi.fn();
+    render(<RunFlow config={lockedStudy} onExit={onExit} />);
+    await userEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+
+    // Wrong passcode: readable error, still in the session, entry cleared.
+    await userEvent.type(screen.getByPlaceholderText(t.lockPlaceholder), "9999");
+    await userEvent.click(screen.getByRole("button", { name: t.lockConfirm }));
+    expect(onExit).not.toHaveBeenCalled();
+    expect((await screen.findByRole("alert")).textContent).toBe(t.lockWrong);
+    expect(screen.getByPlaceholderText<HTMLInputElement>(t.lockPlaceholder).value).toBe("");
+
+    // Correct passcode: the researcher leaves.
+    await userEvent.type(screen.getByPlaceholderText(t.lockPlaceholder), "1234");
+    await userEvent.click(screen.getByRole("button", { name: t.lockConfirm }));
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns to the session unharmed on cancel", async () => {
+    const onExit = vi.fn();
+    render(<RunFlow config={lockedStudy} onExit={onExit} />);
+    await userEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+
+    await userEvent.click(screen.getByRole("button", { name: t.lockCancel }));
+
+    expect(onExit).not.toHaveBeenCalled();
+    expect(screen.queryByText(t.lockTitle)).toBeNull();
+    // Still on the consent screen where the exit was attempted.
+    expect(screen.getByText(t.consentTitle)).toBeTruthy();
+  });
+
+  it("swallows Escape and F11 into the passcode prompt while locked", async () => {
+    const onExit = vi.fn();
+    render(<RunFlow config={lockedStudy} onExit={onExit} />);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByText(t.lockTitle)).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: t.lockCancel }));
+    expect(screen.queryByText(t.lockTitle)).toBeNull();
+
+    fireEvent.keyDown(window, { key: "F11" });
+    expect(screen.getByText(t.lockTitle)).toBeTruthy();
+    expect(onExit).not.toHaveBeenCalled();
+  });
+
+  it("does not intercept keys when the study has no passcode", () => {
+    render(<RunFlow config={DEFAULT_STUDY} onExit={() => {}} />);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(window, { key: "F11" });
+
+    expect(screen.queryByText(t.lockTitle)).toBeNull();
+  });
+
+  it("holds the window fullscreen and always-on-top only while locked", () => {
+    render(<RunFlow config={lockedStudy} onExit={() => {}} />);
+    expect(setKioskLock).toHaveBeenCalledWith(true);
+
+    cleanup(); // leaving the flow releases the window
+    expect(setKioskLock).toHaveBeenLastCalledWith(false);
+
+    setKioskLock.mockClear();
+    render(<RunFlow config={DEFAULT_STUDY} onExit={() => {}} />);
+    expect(setKioskLock).not.toHaveBeenCalled();
+  });
+
+  it("disengages at debrief: completion never asks for the passcode", async () => {
+    const onExit = vi.fn();
+    const lockedTinyStudy = { ...tinyStudy, exit_passcode: "1234" };
+    preview.mockResolvedValue(tinyPreview);
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({});
+
+    render(<RunFlow config={lockedTinyStudy} onExit={onExit} />);
+    await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
+    await userEvent.type(screen.getByPlaceholderText(t.idPlaceholder), "P001");
+    await userEvent.click(screen.getByRole("button", { name: t.idContinue }));
+    await userEvent.click(await screen.findByRole("button", { name: t.startButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+    await screen.findByText(t.thankYouTitle);
+
+    // Researcher hand-back: the window lock is released at debrief…
+    expect(setKioskLock).toHaveBeenLastCalledWith(false);
+
+    // …and leaving needs no passcode.
+    await userEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+    expect(screen.queryByText(t.lockTitle)).toBeNull();
+    expect(onExit).toHaveBeenCalledTimes(1);
   });
 });
 

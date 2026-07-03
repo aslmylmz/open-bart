@@ -71,6 +71,7 @@ below is configurable in Study Setup.
 
 Researcher quickstart <standalone/quickstart>
 SmartScreen & antivirus <standalone/SMARTSCREEN>
+Kiosk mode & OS lockdown <standalone/KIOSK>
 hazard_families
 data_outputs
 ```

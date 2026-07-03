@@ -400,6 +400,24 @@ def test_validate_config_rejects_bad_payout_blocks(payout):
     assert client.post("/validate-config", json=cfg).json()["ok"] is True
 
 
+@pytest.mark.parametrize("passcode", ["", "   ", "x" * 65])
+def test_validate_config_rejects_unusable_exit_passcodes(passcode):
+    """A blank or absurdly long exit passcode (issue 44) is a config error the
+    researcher must fix in Study Setup; a valid one is accepted, and a preset
+    without the field stays valid (v1.0.0 behavior)."""
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["exit_passcode"] = passcode
+    body = client.post("/validate-config", json=cfg).json()
+    assert body["ok"] is False
+    assert any("exit_passcode" in e for e in body["errors"])
+
+    cfg["exit_passcode"] = "1234"
+    assert client.post("/validate-config", json=cfg).json()["ok"] is True
+
+    cfg.pop("exit_passcode")
+    assert client.post("/validate-config", json=cfg).json()["ok"] is True
+
+
 def test_check_id_fresh_id_has_no_sessions(tmp_path):
     """POST /check-id with an ID the study has never seen reports zero existing
     sessions — the ID screen can start the run with no friction (issue 38)."""

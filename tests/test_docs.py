@@ -143,6 +143,16 @@ def test_practice_mode_is_documented():
     assert "practice/" in page
 
 
+def test_kiosk_page_covers_the_lock_and_the_real_os_kiosk():
+    """The kiosk page (issue 44) documents the in-app lock's honest limits and
+    walks a lab through a true OS kiosk (Windows Assigned Access), and is
+    reachable from the docs index."""
+    page = (DOCS / "standalone" / "KIOSK.md").read_text(encoding="utf-8")
+    for needle in ("exit_passcode", "deterrence", "Assigned Access"):
+        assert needle in page, f"KIOSK.md does not mention {needle}"
+    assert "standalone/KIOSK" in (DOCS / "index.md").read_text(encoding="utf-8")
+
+
 @pytest.mark.skipif(not _docs_deps_available(), reason="docs extras not installed")
 def test_sphinx_build_is_warning_free(tmp_path):
     """The published site builds with zero warnings (the Phase 4 standard):

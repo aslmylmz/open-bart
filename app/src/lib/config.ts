@@ -127,6 +127,11 @@ export interface TaskConfig {
   /** Allowed condition names for between-subject designs (issue 37). Optional:
    * a v1.0.0 `study.json` has no such key, meaning "no conditions". */
   conditions?: string[];
+  /** Optional in-app kiosk lock (issue 44): while a session runs, every exit
+   * path asks for this passcode. Deterrence, not security — it stops a
+   * curious participant, not an attacker with the preset file. Absent or
+   * null means exits are ungated (v1.0.0 behavior). */
+  exit_passcode?: string | null;
 }
 
 /** The validated default study: the original 128/32/8 dynamic hazard, $0.25/pump.

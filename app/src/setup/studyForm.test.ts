@@ -4,6 +4,7 @@ import { DEFAULT_STUDY } from "../lib/config";
 import {
   addColor,
   parseConditionList,
+  parseExitPasscode,
   parseNumberList,
   parseStudy,
   removeColor,
@@ -94,5 +95,16 @@ describe("parseConditionList", () => {
 
   it("returns an empty list for blank input — the study has no conditions", () => {
     expect(parseConditionList("   ")).toEqual([]);
+  });
+});
+
+describe("parseExitPasscode", () => {
+  it("trims the entry to the passcode the researcher will type at the prompt", () => {
+    expect(parseExitPasscode("  1234 ")).toBe("1234");
+  });
+
+  it("returns null for blank input — the study has no kiosk lock", () => {
+    expect(parseExitPasscode("")).toBeNull();
+    expect(parseExitPasscode("   ")).toBeNull();
   });
 });

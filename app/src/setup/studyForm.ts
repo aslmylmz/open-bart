@@ -93,6 +93,14 @@ export function parseConditionList(text: string): string[] {
     .filter((s) => s.length > 0);
 }
 
+/** Parse the exit-passcode field into the config value (issue 44): trimmed,
+ * with blank meaning "no kiosk lock" (null — the v1.0.0 behavior). Length and
+ * other rules stay with `/validate-config`, the sole validation authority. */
+export function parseExitPasscode(text: string): string | null {
+  const passcode = text.trim();
+  return passcode.length > 0 ? passcode : null;
+}
+
 /** Parse loaded `study.json` text into a config. Throws on malformed JSON so the
  * loader can surface an error instead of replacing the active config; structural
  * validity is then checked by the sidecar's `/validate-config`. */
