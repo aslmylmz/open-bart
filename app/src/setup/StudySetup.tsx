@@ -6,6 +6,7 @@ import { loadStudy, saveStudy, selectOutputDir } from "../lib/desktop";
 import { FAMILY_PARAMS } from "./familyParams";
 import {
   addColor,
+  parseConditionList,
   parseNumberList,
   parseStudy,
   removeColor,
@@ -124,6 +125,19 @@ export function StudySetup({ config, onChange }: StudySetupProps) {
                 onChange(
                   setStudyField(config, { seed: e.target.value === "" ? null : Number(e.target.value) }),
                 )
+              }
+            />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db", gridColumn: "1 / -1" }}>
+            Conditions (optional, comma-separated — e.g. control, experimental)
+            {/* Committed on blur like the array hazard params, so typing commas
+                doesn't fight the parsed value. Empty = no conditions. */}
+            <input
+              key={(config.conditions ?? []).join(",")}
+              defaultValue={(config.conditions ?? []).join(", ")}
+              placeholder="Leave empty for a study without conditions"
+              onBlur={(e) =>
+                onChange(setStudyField(config, { conditions: parseConditionList(e.target.value) }))
               }
             />
           </label>

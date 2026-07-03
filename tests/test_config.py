@@ -63,6 +63,20 @@ def test_default_config_reproduces_established_optima():
     assert DEFAULT_TASK_CONFIG.optima == {"purple": 11, "teal": 5, "orange": 2}
 
 
+def test_study_preset_declares_optional_conditions():
+    """A Study Preset may declare the allowed condition names for a
+    between-subject design (issue 37). The field is optional: a v1.0.0
+    `study.json` without it keeps validating, with no conditions."""
+    v1 = DEFAULT_TASK_CONFIG.model_dump()
+    v1.pop("conditions", None)  # exactly what a v1.0.0 file contains
+    from scoring.config import TaskConfig
+
+    assert TaskConfig.model_validate(v1).conditions == []
+
+    conditioned = TaskConfig.model_validate({**v1, "conditions": ["control", "experimental"]})
+    assert conditioned.conditions == ["control", "experimental"]
+
+
 @pytest.mark.parametrize("n", [128, 32, 8, 16, 50, 100])
 def test_linear_curve_agrees_with_existing_engine(n):
     """The config's linear curve matches scoring.bart for both s* and peak EV."""

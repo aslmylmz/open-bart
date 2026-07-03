@@ -17,6 +17,9 @@ export interface TaskStrings {
   idPrompt: string;
   idPlaceholder: string;
   idContinue: string;
+  // Condition assignment (issue 37; shown only when the study declares conditions)
+  conditionLabel: string;
+  conditionPlaceholder: string;
   // Idle / instructions
   taskTitle: string;
   instructions: string;
@@ -57,6 +60,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
     idPrompt: "Participant ID",
     idPlaceholder: "e.g. P001",
     idContinue: "Start task",
+    conditionLabel: "Condition",
+    conditionPlaceholder: "Select a condition…",
     taskTitle: "Balloon Analogue Risk Task",
     instructions:
       "Inflate the balloon to earn money. Each pump raises the chance it pops. Collect your money before it pops!",
@@ -91,6 +96,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
     idPrompt: "Katılımcı Kimliği",
     idPlaceholder: "örn. P001",
     idContinue: "Göreve Başla",
+    conditionLabel: "Koşul",
+    conditionPlaceholder: "Bir koşul seçin…",
     taskTitle: "Balon Analog Risk Görevi",
     instructions:
       "Balonu şişirerek para kazanın. Her şişirme patlama riskini artırır. Patlamadan önce paranızı toplayın!",

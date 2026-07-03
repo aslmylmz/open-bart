@@ -14,13 +14,14 @@ application data directory.
 
 ## Session files
 
-Each completed session writes three files, namespaced by study title,
+Each completed session writes four files, namespaced by study title,
 candidate ID, and a UTC timestamp so nothing is ever overwritten:
 
 ```
 [StudyTitle]_[CandidateID]_[Timestamp]_events.jsonl
 [StudyTitle]_[CandidateID]_[Timestamp]_metrics.json
 [StudyTitle]_[CandidateID]_[Timestamp]_config.json
+[StudyTitle]_[CandidateID]_[Timestamp]_session.json
 ```
 
 ```{list-table}
@@ -38,6 +39,11 @@ candidate ID, and a UTC timestamp so nothing is ever overwritten:
 * - `*_config.json`
   - A snapshot of the exact `TaskConfig` that produced the session, making
     every dataset self-documenting and reproducible.
+* - `*_session.json`
+  - The session envelope: `session_id`, `game_type`, `candidate_id`, and the
+    assigned `condition` (`null` for studies without conditions). Keeps the
+    session's identity in the data itself — not just in filenames — so the
+    Master CSV can always be rebuilt from the per-session files.
 ```
 
 ## The Master CSV
@@ -84,6 +90,7 @@ misaligned:
 | `timestamp_utc` | Session write time (UTC, filename-safe format) |
 | `session_id` | The client-generated session identifier |
 | `candidate_id` | The participant ID entered at the start of the run |
+| `condition` | The condition assigned at the ID screen — **present only for studies whose preset declares `conditions`**; studies without conditions keep their original column set. Sessions written before conditions were added to a running study carry an honest blank (see the migration rules above). |
 
 ### Session-integrity columns
 

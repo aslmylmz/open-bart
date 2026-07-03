@@ -72,5 +72,6 @@ class WriteOutputResponse(BaseModel):
     events: str
     metrics: str
     config: str
+    session: str
     master_csv: str
     warnings: list[str] = Field(default_factory=list)

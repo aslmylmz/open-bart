@@ -82,6 +82,17 @@ export function parseNumberList(text: string): number[] {
     .filter((n) => !Number.isNaN(n));
 }
 
+/** Parse a comma-separated text field into condition names (issue 37). Entries
+ * are trimmed and blanks dropped (tolerating trailing commas while typing);
+ * duplicates and over-long names are left for `/validate-config` — the sidecar
+ * stays the sole validation authority. */
+export function parseConditionList(text: string): string[] {
+  return text
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 /** Parse loaded `study.json` text into a config. Throws on malformed JSON so the
  * loader can surface an error instead of replacing the active config; structural
  * validity is then checked by the sidecar's `/validate-config`. */

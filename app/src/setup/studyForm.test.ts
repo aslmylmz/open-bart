@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_STUDY } from "../lib/config";
 import {
   addColor,
+  parseConditionList,
   parseNumberList,
   parseStudy,
   removeColor,
@@ -68,5 +69,30 @@ describe("parseStudy", () => {
 
   it("throws on malformed JSON so the loader can surface an error", () => {
     expect(() => parseStudy("{not valid json")).toThrow();
+  });
+
+  it("round-trips a study's declared conditions (issue 37)", () => {
+    const study = { ...DEFAULT_STUDY, conditions: ["control", "experimental"] };
+    expect(parseStudy(JSON.stringify(study))).toEqual(study);
+  });
+});
+
+describe("parseConditionList", () => {
+  it("parses comma-separated condition names, trimming whitespace", () => {
+    expect(parseConditionList("control, experimental")).toEqual([
+      "control",
+      "experimental",
+    ]);
+  });
+
+  it("drops blank entries (trailing commas while typing)", () => {
+    expect(parseConditionList("control, , experimental,")).toEqual([
+      "control",
+      "experimental",
+    ]);
+  });
+
+  it("returns an empty list for blank input — the study has no conditions", () => {
+    expect(parseConditionList("   ")).toEqual([]);
   });
 });

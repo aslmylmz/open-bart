@@ -146,6 +146,7 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     events_path = out_dir / f"{stem}_events.jsonl"
     metrics_path = out_dir / f"{stem}_metrics.json"
     config_path = out_dir / f"{stem}_config.json"
+    session_path = out_dir / f"{stem}_session.json"
 
     with events_path.open("w", encoding="utf-8") as fh:
         for event in req.session.events:
@@ -155,12 +156,26 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     metrics_path.write_text(metrics.model_dump_json(indent=2), encoding="utf-8")
     config_path.write_text(config.model_dump_json(indent=2), encoding="utf-8")
 
+    # The session envelope: identity + design assignment in a per-session file,
+    # so the master CSV stays rebuildable from the individual files (ADR 0001)
+    # and the condition survives outside the spreadsheet (issue 37). The raw
+    # telemetry stays in the .jsonl.
+    session_path.write_text(
+        req.session.model_dump_json(exclude={"events"}, indent=2), encoding="utf-8"
+    )
+
+    # The condition column exists only for studies that declare conditions, so
+    # condition-less studies keep their v1.0.0 sheet untouched (issue 37).
+    condition = (
+        {"condition": req.session.condition or ""} if config.conditions else {}
+    )
     master_csv = append_row(
         out_dir / f"{_slug(config.title)}_results.csv",
         {
             "timestamp_utc": ts,
             "session_id": req.session.session_id,
             "candidate_id": req.session.candidate_id,
+            **condition,
             **_flatten_metrics(metrics),
         },
     )
@@ -169,6 +184,7 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
         events=str(events_path),
         metrics=str(metrics_path),
         config=str(config_path),
+        session=str(session_path),
         master_csv=str(master_csv.path),
         warnings=[master_csv.warning] if master_csv.warning else [],
     )

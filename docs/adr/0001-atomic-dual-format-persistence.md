@@ -22,3 +22,18 @@ This was wired in Issue 11. The fallback is silent (logged, not surfaced to the 
 - Individual files prevent a corrupt or locked master CSV from losing session data — the per-session files are always the source of truth.
 - The master CSV prevents the common researcher complaint of "I have 200 JSON files and no idea how to merge them." It is a convenience layer, rebuildable from the individual files.
 - A single atomic `/write-output` call (rather than separate persist + aggregate endpoints) guarantees both succeed or the sidecar reports a single coherent error.
+
+## Amendment (2026-07-02, issues 16/28/37)
+
+The artifact set has grown since this decision was recorded; the atomicity and
+rebuildability rules are unchanged:
+
+- Filenames gained a `[StudyTitle]_` prefix, and a third per-session file was
+  added alongside events + metrics: **`*_config.json`**, the exact `TaskConfig`
+  snapshot that produced the session (issue 16).
+- **`*_session.json`** (issue 37) — the session envelope: `session_id`,
+  `game_type`, `candidate_id`, and the assigned `condition`. Before this file,
+  session identity lived only in filenames and the master CSV row, so the
+  "rebuildable from the individual files" claim above did not actually hold for
+  identity columns. It now does; issue 38's duplicate-ID acknowledgment gets
+  recorded here too.

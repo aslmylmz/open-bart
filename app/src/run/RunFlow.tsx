@@ -28,8 +28,14 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
   const t = taskStrings(config.language);
   const [phase, setPhase] = useState<Phase>("consent");
   const [participantId, setParticipantId] = useState("");
+  const [condition, setCondition] = useState("");
   const [hazards, setHazards] = useState<Record<string, number[]> | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Preset-driven enum (issue 37): a study that declares conditions forces a
+  // dropdown choice — no typing, no typos. No conditions → no condition UI.
+  const conditions = config.conditions ?? [];
+  const needsCondition = conditions.length > 0 && !condition;
 
   useEffect(() => {
     if (phase !== "loading") return;
@@ -69,6 +75,7 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
           config={config}
           hazards={hazards}
           candidateId={participantId || "anonymous"}
+          condition={condition || null}
           onExit={onExit}
         />
       </div>
@@ -111,11 +118,44 @@ export function RunFlow({ config, onExit }: RunFlowProps) {
               placeholder={t.idPlaceholder}
               onChange={(e) => setParticipantId(e.target.value)}
             />
+            {conditions.length > 0 && (
+              <label
+                style={{
+                  display: "block",
+                  textAlign: "left",
+                  fontSize: "0.95rem",
+                  color: "#374151",
+                  marginBottom: 20,
+                }}
+              >
+                {t.conditionLabel}
+                <select
+                  className="input-participant"
+                  style={{
+                    width: "100%",
+                    fontSize: "1.05rem",
+                    padding: "12px 14px",
+                    marginTop: 4,
+                  }}
+                  value={condition}
+                  onChange={(e) => setCondition(e.target.value)}
+                >
+                  <option value="" disabled>
+                    {t.conditionPlaceholder}
+                  </option>
+                  {conditions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <button
               type="button"
               className="btn-primary-participant"
               style={primaryBtnStyle}
-              disabled={!participantId.trim()}
+              disabled={!participantId.trim() || needsCondition}
               onClick={() => setPhase("loading")}
             >
               {t.idContinue}

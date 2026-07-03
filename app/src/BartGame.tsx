@@ -43,13 +43,16 @@ interface BartGameProps {
     config: TaskConfig;
     hazards: Record<string, number[]>;
     candidateId: string;
+    /** Assigned condition for between-subject designs; omitted when the study
+     * declares no conditions (issue 37). */
+    condition?: string | null;
     onComplete?: (data: AssessmentResult) => void;
     /** Escape hatch back to the researcher view. Only offered while no balloon is
      * live (idle / finished / results) so a participant can't exit mid-trial. */
     onExit?: () => void;
 }
 
-export default function BartGame({ config, hazards, candidateId, onComplete, onExit }: BartGameProps) {
+export default function BartGame({ config, hazards, candidateId, condition = null, onComplete, onExit }: BartGameProps) {
     const eventLogRef = useRef<GameEvent[]>([]);
     const sessionIdRef = useRef(crypto.randomUUID());
     const sequenceRef = useRef<Balloon[]>([]);
@@ -123,7 +126,7 @@ export default function BartGame({ config, hazards, candidateId, onComplete, onE
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        const payload = buildSessionPayload(sessionIdRef.current, candidateId, eventLogRef.current);
+        const payload = buildSessionPayload(sessionIdRef.current, candidateId, eventLogRef.current, condition);
         try {
             const data = await submitSession<AssessmentResult>(payload, config);
             setResults(data);

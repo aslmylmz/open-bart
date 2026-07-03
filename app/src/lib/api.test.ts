@@ -66,6 +66,7 @@ describe("persistSession", () => {
       session_id: "s",
       game_type: "BART_RISK",
       candidate_id: "c",
+      condition: null,
       events: [],
     });
 
@@ -74,7 +75,7 @@ describe("persistSession", () => {
     expect(url).toBe("http://127.0.0.1:8000/write-output");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({
-      session: { session_id: "s", game_type: "BART_RISK", candidate_id: "c", events: [] },
+      session: { session_id: "s", game_type: "BART_RISK", candidate_id: "c", condition: null, events: [] },
     });
   });
 });
@@ -160,6 +161,7 @@ describe("submitSession", () => {
     session_id: "s",
     game_type: "BART_RISK",
     candidate_id: "c",
+    condition: null,
     events: [],
   };
 

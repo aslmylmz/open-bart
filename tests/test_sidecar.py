@@ -352,6 +352,28 @@ def test_validate_config_accepts_default_and_rejects_bad():
     assert any("reward_per_pump" in e for e in body["errors"])
 
 
+@pytest.mark.parametrize(
+    "conditions",
+    [
+        ["control", ""],  # blank entry
+        ["control", "   "],  # whitespace-only entry
+        ["control", "control"],  # duplicate
+        ["control", "x" * 65],  # unreasonably long name
+    ],
+)
+def test_validate_config_rejects_bad_conditions(conditions):
+    """Invalid `conditions` lists come back as readable structured errors naming
+    the field — Study Setup shows them like every other config error (issue 37).
+    The sidecar stays the sole validation authority."""
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["conditions"] = conditions
+    resp = client.post("/validate-config", json=cfg)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ok"] is False
+    assert any("conditions" in e for e in body["errors"])
+
+
 def test_write_output_persists_session_files(tmp_path):
     """POST /write-output writes the raw events, scored metrics, and a config
     snapshot under the config's output_dir, and returns their paths (SPEC §13)."""
@@ -413,6 +435,10 @@ def test_write_output_appends_master_csv(tmp_path):
     assert rows[0]["session_id"] == "sess-1"
     assert rows[0]["timestamp_utc"]
 
+    # A study with no declared conditions keeps its v1.0.0 sheet: no
+    # condition column appears (issue 37).
+    assert "condition" not in rows[0]
+
     # Scalar metrics match the engine's scoring of the same session.
     metrics = score_bart(events, DEFAULT_TASK_CONFIG)
     assert float(rows[0]["average_pumps_adjusted"]) == pytest.approx(
@@ -424,6 +450,92 @@ def test_write_output_appends_master_csv(tmp_path):
     purple = next(cm for cm in metrics.color_metrics if cm.color == "purple")
     assert float(rows[0]["purple_average_pumps"]) == pytest.approx(purple.average_pumps)
     assert rows[0]["purple_risk_profile"] == purple.risk_profile
+
+
+def test_write_output_records_condition_in_master_csv(tmp_path):
+    """For a study that declares conditions, the session's assigned condition
+    lands as a `condition` column next to the identity columns (issue 37)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+    cfg["conditions"] = ["control", "experimental"]
+
+    resp = client.post(
+        "/write-output",
+        json={
+            "session": _session_payload(events, condition="experimental"),
+            "config": cfg,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    with Path(resp.json()["master_csv"]).open(newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        header = list(reader.fieldnames or [])
+        rows = list(reader)
+    assert header[:4] == ["timestamp_utc", "session_id", "candidate_id", "condition"]
+    assert rows[0]["condition"] == "experimental"
+
+
+def test_write_output_persists_session_envelope(tmp_path):
+    """Each session also writes a `*_session.json` envelope — the session's
+    identity (id, candidate, condition) in a per-session file, so the master
+    CSV stays rebuildable from the individual files (ADR 0001) and the
+    assigned condition survives outside the spreadsheet (issue 37)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+    cfg["conditions"] = ["control", "experimental"]
+
+    resp = client.post(
+        "/write-output",
+        json={"session": _session_payload(events, condition="control"), "config": cfg},
+    )
+    assert resp.status_code == 200, resp.text
+    paths = resp.json()
+
+    envelope_path = Path(paths["session"])
+    assert envelope_path.parent == tmp_path
+    assert envelope_path.name.endswith("_session.json")
+
+    envelope = json.loads(envelope_path.read_text(encoding="utf-8"))
+    assert envelope["session_id"] == "sess-1"
+    assert envelope["candidate_id"] == "cand-1"
+    assert envelope["condition"] == "control"
+    assert "events" not in envelope  # raw telemetry stays in the .jsonl
+
+
+def test_adding_conditions_mid_study_migrates_master_csv(tmp_path):
+    """A lab adds conditions to a running study: the pre-upgrade master CSV has
+    no `condition` column. The next session migrates the sheet via the
+    header-versioned writer (issue 36) — old rows get an honest blank, the new
+    row carries its assignment, and a backup appears (issue 37)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    first = client.post(
+        "/write-output", json={"session": _session_payload(events), "config": cfg}
+    )
+    assert first.status_code == 200, first.text
+
+    cfg["conditions"] = ["control", "experimental"]
+    second = client.post(
+        "/write-output",
+        json={
+            "session": _session_payload(
+                events, candidate_id="cand-2", condition="control"
+            ),
+            "config": cfg,
+        },
+    )
+    assert second.status_code == 200, second.text
+
+    with Path(second.json()["master_csv"]).open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    assert [r["condition"] for r in rows] == ["", "control"]
+    assert [r["candidate_id"] for r in rows] == ["cand-1", "cand-2"]
+    assert len(list(tmp_path.glob("*_backup_*.csv"))) == 1
 
 
 def test_write_output_migrates_master_csv_with_older_header(tmp_path):

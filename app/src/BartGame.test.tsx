@@ -152,4 +152,35 @@ describe("BartGame gameplay screen", () => {
     expect(screen.getByText("$0.50")).toBeTruthy();
     expect(screen.getByText(`2 ${t.balloonsWord}`)).toBeTruthy();
   });
+
+  it("submits the assigned condition with the session (issue 37)", async () => {
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({});
+    render(
+      <BartGame
+        config={TEST_CONFIG}
+        hazards={SAFE_HAZARDS}
+        candidateId="P001"
+        condition="experimental"
+      />,
+    );
+    await startTask();
+
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(`${t.balloonLabel} 2/2`, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    await waitFor(() => expect(submitSession).toHaveBeenCalledTimes(1));
+    const [payload] = submitSession.mock.calls[0] as [{ condition: string | null }];
+    expect(payload.condition).toBe("experimental");
+    // The persisted session carries the same assignment (one payload, two sinks).
+    await waitFor(() => expect(persistSession).toHaveBeenCalledTimes(1));
+    expect((persistSession.mock.calls[0] as [{ condition: string | null }])[0].condition).toBe(
+      "experimental",
+    );
+  });
 });

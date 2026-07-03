@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
 from scoring.config.curve import BalloonCurve, balloon_curve
 from scoring.config.hazards import HazardSpec, DynamicHazard
@@ -45,8 +45,30 @@ class TaskConfig(BaseModel):
     seed: Optional[int] = Field(default=None, description="RNG seed for reproducible bursts")
     output_dir: str = Field(default=".", description="local folder for session data")
     colors: list[ColorProfile] = Field(min_length=1)
+    conditions: list[str] = Field(
+        default_factory=list,
+        description=(
+            "allowed condition names for between-subject designs; empty means "
+            "this study has no conditions (issue 37)"
+        ),
+    )
 
     _curves: dict[str, BalloonCurve] = PrivateAttr(default_factory=dict)
+
+    @field_validator("conditions")
+    @classmethod
+    def conditions_must_be_usable_names(cls, v: list[str]) -> list[str]:
+        """Condition names feed a dropdown and a CSV column: surrounding
+        whitespace is stripped; blank, duplicate, or unreasonably long names
+        are configuration errors the researcher must fix in Study Setup."""
+        names = [name.strip() for name in v]
+        if any(not name for name in names):
+            raise ValueError("condition names must not be blank")
+        if len(set(names)) != len(names):
+            raise ValueError("condition names must not repeat")
+        if any(len(name) > 64 for name in names):
+            raise ValueError("condition names must be 64 characters or fewer")
+        return names
 
     def model_post_init(self, __context: object) -> None:
         self._curves = {c.name: c.curve(self.reward_per_pump) for c in self.colors}

@@ -124,6 +124,9 @@ export interface TaskConfig {
   seed: number | null;
   output_dir: string;
   colors: ColorProfile[];
+  /** Allowed condition names for between-subject designs (issue 37). Optional:
+   * a v1.0.0 `study.json` has no such key, meaning "no conditions". */
+  conditions?: string[];
 }
 
 /** The validated default study: the original 128/32/8 dynamic hazard, $0.25/pump.

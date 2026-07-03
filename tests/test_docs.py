@@ -52,7 +52,9 @@ def test_every_hazard_family_has_a_reference_section():
 def test_every_master_csv_column_is_documented(tmp_path):
     """Write a real session through the public /write-output endpoint and check
     that every column of the resulting Master CSV appears in the data-outputs
-    page — per-color columns via their `{color}_field` pattern."""
+    page — per-color columns via their `{color}_field` pattern. The study
+    declares conditions so the widest schema (incl. `condition`, issue 37) is
+    the one held to the documentation contract."""
     import csv
 
     from scoring.config import DEFAULT_TASK_CONFIG
@@ -62,9 +64,13 @@ def test_every_master_csv_column_is_documented(tmp_path):
 
     cfg = DEFAULT_TASK_CONFIG.model_dump()
     cfg["output_dir"] = str(tmp_path)
+    cfg["conditions"] = ["control", "experimental"]
     resp = client.post(
         "/write-output",
-        json={"session": _session_payload(_collected_session()), "config": cfg},
+        json={
+            "session": _session_payload(_collected_session(), condition="control"),
+            "config": cfg,
+        },
     )
     assert resp.status_code == 200, resp.text
     with open(resp.json()["master_csv"], newline="", encoding="utf-8") as fh:

@@ -108,6 +108,14 @@ class GameSession(BaseModel):
         default="anonymous",
         description="Identifier for the candidate being assessed",
     )
+    condition: Optional[str] = Field(
+        default=None,
+        description=(
+            "assigned condition for between-subject designs; one of the study "
+            "config's declared `conditions` (issue 37), None when the study "
+            "has none"
+        ),
+    )
     events: list[GameEvent] = Field(
         ...,
         min_length=1,
