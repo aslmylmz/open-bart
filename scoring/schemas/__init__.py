@@ -209,7 +209,7 @@ class TrialRecord(BaseModel):
     """
 
     trial: int = Field(description="1-based trial index within the session")
-    balloon_color: str
+    balloon_color: str = Field(description="the balloon's color name")
     hazard_family: Optional[str] = Field(
         default=None,
         description=(
@@ -217,8 +217,10 @@ class TrialRecord(BaseModel):
             "config); None when the color is not in the config"
         ),
     )
-    pumps: int
-    outcome: Literal["collected", "exploded"]
+    pumps: int = Field(description="pumps on this balloon")
+    outcome: Literal["collected", "exploded"] = Field(
+        description="'collected' (banked) or 'exploded' (popped)"
+    )
     trial_earnings: float = Field(
         description="pumps × reward_per_pump when collected; 0 when popped"
     )

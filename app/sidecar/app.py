@@ -31,6 +31,7 @@ from sidecar.models import (
     WriteOutputRequest,
     WriteOutputResponse,
 )
+from sidecar.provenance import ensure_provenance
 from sidecar.versioned_csv import append_row, append_rows
 
 
@@ -221,11 +222,12 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
         req.session.model_dump_json(exclude={"events"}, indent=2), encoding="utf-8"
     )
 
-    # The two study-wide append files (master CSV, trials CSV) are written
-    # together here — one decision point, so a future practice mode (issue 43)
-    # can skip both in one place. The condition column exists only for studies
-    # that declare conditions, so condition-less studies keep their v1.0.0
-    # sheets untouched (issue 37).
+    # The study-wide files — provenance (issue 42), master CSV, trials CSV —
+    # are written together here: one decision point, so a future practice mode
+    # (issue 43) can skip them all in one place. The condition column exists
+    # only for studies that declare conditions, so condition-less studies keep
+    # their v1.0.0 sheets untouched (issue 37).
+    provenance_warnings = ensure_provenance(out_dir, config, _slug(config.title))
     identity = {
         "timestamp_utc": ts,
         "session_id": req.session.session_id,
@@ -251,5 +253,6 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
         session=str(session_path),
         master_csv=str(master_csv.path),
         trials_csv=str(trials_csv.path),
-        warnings=[r.warning for r in (master_csv, trials_csv) if r.warning],
+        warnings=provenance_warnings
+        + [r.warning for r in (master_csv, trials_csv) if r.warning],
     )

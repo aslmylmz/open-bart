@@ -51,12 +51,14 @@ class QCThresholds(BaseModel):
 class ColorProfile(BaseModel):
     """One balloon color: a hazard family bounded by a per-color pump cap."""
 
-    name: str
-    label: str
-    display_hex: str
+    name: str = Field(description="color key used in metrics and CSV column names")
+    label: str = Field(description="participant-facing display name")
+    display_hex: str = Field(description="balloon fill color (hex)")
     max_pumps: int = Field(gt=0, description="N: hard cap on pumps for this color")
     trials: int = Field(gt=0, description="number of balloons of this color")
-    hazard: HazardSpec
+    hazard: HazardSpec = Field(
+        description="the hazard family and parameters this color runs under"
+    )
 
     def curve(self, reward_per_pump: float) -> BalloonCurve:
         """Precompute this color's survival/EV curve and numeric optimum."""
@@ -70,13 +72,21 @@ class TaskConfig(BaseModel):
     ``reward_per_pump``, so task bursting and scoring read the same vectors.
     """
 
-    schema_version: str = "1.0"
-    title: str
-    language: Literal["tr", "en"] = "en"
+    schema_version: str = Field(
+        default="1.0", description="data format version of study.json"
+    )
+    title: str = Field(
+        description="the study's display title; slugged into every output filename"
+    )
+    language: Literal["tr", "en"] = Field(
+        default="en", description="participant-facing language"
+    )
     reward_per_pump: float = Field(gt=0, description="currency units per banked pump")
     seed: Optional[int] = Field(default=None, description="RNG seed for reproducible bursts")
     output_dir: str = Field(default=".", description="local folder for session data")
-    colors: list[ColorProfile] = Field(min_length=1)
+    colors: list[ColorProfile] = Field(
+        min_length=1, description="the study's color profiles, in display order"
+    )
     conditions: list[str] = Field(
         default_factory=list,
         description=(

@@ -13,6 +13,58 @@ All files are written to the study's configured **output directory**
 or a relative path cannot be resolved, the app falls back to the OS-native
 application data directory.
 
+The directory is **permanently OSF-ready**: everything a methods section or
+an [OSF](https://osf.io) upload needs is written there automatically (see the
+provenance files below). There is no export step — to publish or archive a
+study, compress the output directory as-is and upload it.
+
+## Study-level provenance files
+
+The first session of a study writes three study-level files next to the
+session data, namespaced by study title like everything else. They are
+maintained automatically on every subsequent session; no one has to remember
+to create or update them.
+
+```
+[StudyTitle]_study.json
+[StudyTitle]_provenance.json
+[StudyTitle]_data_dictionary.md
+```
+
+```{list-table}
+:header-rows: 1
+:widths: 28 72
+
+* - File
+  - Contents
+* - `[StudyTitle]_study.json`
+  - A **frozen copy** of the exact study configuration the study started
+    under. It is written once and never replaced. If a *changed* config runs
+    sessions into the same directory (a mid-study design change), the changed
+    config is recorded alongside as a timestamped
+    `[StudyTitle]_study_[Timestamp].json` — one copy per distinct config,
+    however many sessions run under it — so the original design always stays
+    auditable.
+* - `[StudyTitle]_provenance.json`
+  - The provenance record a methods section needs: `app_version`,
+    `engine_version`, `platform`, and the study's RNG `seed`. Refreshed
+    automatically when it no longer matches the running app (e.g. a mid-study
+    upgrade); left untouched otherwise.
+* - `[StudyTitle]_data_dictionary.md`
+  - A data dictionary **generated from the scoring models themselves**: every
+    column of this study's Master CSV and Trials CSV — including the
+    study-specific per-color and conditional columns — plus every field of
+    the four per-session files. Because it is generated, a column added in a
+    future version appears in the dictionary automatically; it is regenerated
+    whenever the schema (or the running config's column set) changes. Do not
+    edit it by hand.
+```
+
+Like the CSV writers, provenance upkeep never blocks a session: if one of
+these files cannot be written (locked, read-only), the session's own data is
+saved exactly as always and the problem is reported in the write response's
+`warnings`.
+
 ## Session files
 
 Each completed session writes four files, namespaced by study title,
