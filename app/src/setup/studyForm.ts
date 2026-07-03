@@ -6,12 +6,44 @@
  * without the DOM; `StudySetup.tsx` is the thin shell that calls them.
  */
 
-import type { ColorProfile, HazardFamily, TaskConfig } from "../lib/config";
+import type { ColorProfile, HazardFamily, PayoutConversion, QCThresholds, TaskConfig } from "../lib/config";
 import { defaultHazard } from "./familyParams";
+
+/** Form seed for the QC block, mirroring the pydantic `QCThresholds` defaults
+ * (issue 40). Shown in the inputs and materialized on first edit; a study that is
+ * never touched keeps `qc` absent, which the engine reads as these same defaults.
+ * A convenience only — `/validate-config` stays the authority on the values. */
+export const DEFAULT_QC: QCThresholds = { fast_response_ms: 100, zero_pump_streak: 5 };
+
+/** Form seed for enabling a payout (issue 41). Pydantic has no payout default
+ * (absent = no payout), so this is a pure UI starting point: a 1:1 conversion
+ * with a placeholder label, valid out of the box (rate > 0, non-blank currency). */
+export const DEFAULT_PAYOUT: PayoutConversion = { rate: 1, currency: "$" };
 
 /** Patch top-level study fields (title, language, reward, seed, output dir). */
 export function setStudyField(config: TaskConfig, patch: Partial<TaskConfig>): TaskConfig {
   return { ...config, ...patch };
+}
+
+/** Patch the study's QC thresholds (issue 40). Materializes the block from
+ * `DEFAULT_QC` when the study has none, so editing one threshold leaves the
+ * sibling at its literature default rather than dropping it. */
+export function setQcField(config: TaskConfig, patch: Partial<QCThresholds>): TaskConfig {
+  return { ...config, qc: { ...(config.qc ?? DEFAULT_QC), ...patch } };
+}
+
+/** Toggle the study's payout conversion (issue 41). Enabling seeds a default
+ * block when there is none (keeping any existing block on re-enable); disabling
+ * sets it to `null` — the no-payout state that serializes as v1.0.0 behavior. */
+export function setPayoutEnabled(config: TaskConfig, enabled: boolean): TaskConfig {
+  return { ...config, payout: enabled ? (config.payout ?? DEFAULT_PAYOUT) : null };
+}
+
+/** Patch the study's payout conversion fields (issue 41). Seeds from
+ * `DEFAULT_PAYOUT` if the block is somehow absent, so a field edit always lands
+ * on a well-formed block; the sidecar stays the authority on the values. */
+export function setPayoutField(config: TaskConfig, patch: Partial<PayoutConversion>): TaskConfig {
+  return { ...config, payout: { ...(config.payout ?? DEFAULT_PAYOUT), ...patch } };
 }
 
 /** Patch one color's non-hazard fields (name, label, hex, max_pumps, trials). */

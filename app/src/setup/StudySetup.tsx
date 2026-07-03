@@ -6,6 +6,7 @@ import { loadStudy, saveStudy, selectOutputDir } from "../lib/desktop";
 import { FAMILY_PARAMS } from "./familyParams";
 import {
   addColor,
+  DEFAULT_QC,
   parseConditionList,
   parseExitPasscode,
   parseNumberList,
@@ -14,6 +15,9 @@ import {
   setColorField,
   setColorHazardFamily,
   setHazardParam,
+  setPayoutEnabled,
+  setPayoutField,
+  setQcField,
   setStudyField,
 } from "./studyForm";
 
@@ -167,6 +171,64 @@ export function StudySetup({ config, onChange }: StudySetupProps) {
               </button>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section style={{ background: "rgba(255, 255, 255, 0.03)", padding: "24px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+        <h2 style={{ fontSize: "1.25rem", margin: "0 0 8px 0" }}>Data Quality &amp; Payout</h2>
+        <p style={{ margin: "0 0 16px 0", fontSize: "0.8rem", color: "#9ca3af" }}>
+          Both are optional. QC thresholds only flag sessions — nothing is ever excluded. Leave payout off to show participants their task earnings unchanged.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
+            Fast response (ms)
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={config.qc?.fast_response_ms ?? DEFAULT_QC.fast_response_ms}
+              onChange={(e) => onChange(setQcField(config, { fast_response_ms: Number(e.target.value) }))}
+            />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
+            Zero-pump streak (trials)
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={config.qc?.zero_pump_streak ?? DEFAULT_QC.zero_pump_streak}
+              onChange={(e) => onChange(setQcField(config, { zero_pump_streak: Number(e.target.value) }))}
+            />
+          </label>
+          <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", fontSize: "0.875rem", color: "#d1d5db", gridColumn: "1 / -1" }}>
+            <input
+              type="checkbox"
+              checked={config.payout != null}
+              onChange={(e) => onChange(setPayoutEnabled(config, e.target.checked))}
+            />
+            Convert task earnings to a real payout
+          </label>
+          {config.payout != null && (
+            <>
+              <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
+                Payout rate (per earnings unit)
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={config.payout.rate}
+                  onChange={(e) => onChange(setPayoutField(config, { rate: Number(e.target.value) }))}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
+                Currency label (e.g. ₺, $, credits)
+                <input
+                  value={config.payout.currency}
+                  onChange={(e) => onChange(setPayoutField(config, { currency: e.target.value }))}
+                />
+              </label>
+            </>
+          )}
         </div>
       </section>
 
