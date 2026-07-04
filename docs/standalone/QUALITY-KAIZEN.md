@@ -90,6 +90,24 @@ Close a row only when its issue's regression guard is green.
 | F6 | `risk_style` / `adaptive_strategy_score` are unnormed heuristics but are exported alongside defensible primitives with no "exploratory" marking. | Composites documented as exploratory (no norming/reliability); deprecated fields removed or flagged. | validity-limitation · Medium | [54](issues/54-label-persona-exploratory.md) | **done** 2026-07-04 |
 | F7 | Debrief hardcodes `$` regardless of currency/language; in-app consent is a single sentence. | Currency-correct debrief; consent copy that doesn't impersonate an IRB form. | usability · Low | [55](issues/55-debrief-currency-consent-copy.md) | **done** 2026-07-04 |
 
+### Cycle 02 · seeded from the 2026-07-04 (fresh full-audit) pass
+
+Re-ran the §3 rubric over the current merged code (issues 36–56 postdate the
+Cycle-01 audit). Theme: issue 56 generalized the persona *metrics* off the literal
+`purple/teal/orange` 3×10 study, but the **validation layer, participant-facing
+copy, seed model, and one export column still assume that default study** — plus
+two measurement-neutrality refinements. Nothing Critical.
+
+| ID | Finding (current state) | Target standard | Class · Severity | Issue | Status |
+|---|---|---|---|---|---|
+| F8 | `validate_bart_session` hardcodes the default shape — color names `["purple","teal","orange"]`, `/10` per color, `/30` total, `<15/<30` completeness (`scoring/bart.py:231-249`). A renamed/re-counted study gets spurious "Too few purple balloons" warnings and misses real per-color under-counts. | Expected colors, per-color trial counts, and total derived from `TaskConfig`; default study byte-identical. | validity-limitation · **Medium** | [57](issues/57-generalize-validation-study-shape.md) | **done** 2026-07-04 |
+| F9 | Top-level `orange_avg_pumps` CSV column keeps its literal name but now holds the highest-risk color (issue 56); `data_outputs.md` also documents `purple_avg_pumps`/`teal_avg_pumps` columns that do not exist. | Data dictionary matches the real columns; the high-risk-average column is role-named (contract-versioned) or its caveat documented. | bug · Low | [58](issues/58-fix-highrisk-avg-column-and-dictionary.md) | open |
+| F10 | Practice debrief shows "Your session has been recorded" under the "TEST RUN — data not recorded" banner (`app/src/lib/i18n.ts:98` vs `:126`). | The practice-mode debrief makes no recording claim. | usability · Low | [59](issues/59-practice-debrief-copy.md) | open |
+| F11 | Kiosk fullscreen/always-on-top + the practice banner have only been checked via Playwright-over-Chrome, never a real Tauri run. | A recorded real-Tauri-run observation (§6 mid-study QA) of the kiosk lock + banner. | verification · Low | [60](issues/60-kiosk-real-run-verification.md) | open |
+| F12 | A fixed `config.seed` seeds every participant identically → identical shuffle + burst sequence study-wide (`app/src/BartGame.tsx:109`). | Per-participant sequences that stay reproducible from `seed` + participant ID; a single shared sequence only when explicitly intended. | design-flaw · **Medium** | [61](issues/61-per-participant-seed.md) | open |
+| F13 | Consent + instruction copy ("Each pump raises the chance it pops", `i18n.ts:85`/`:106`) is hardcoded to the dynamic-hazard framing: wrong for the constant/Lejuez families the instrument supports, and it leaks/primes the rising-hazard structure. | Instruction/consent copy accurate for the configured hazard family (or deliberately classic-BART-vague), not structure-leaking. | validity-limitation · **Medium** | [62](issues/62-hazard-appropriate-instructions.md) | open |
+| F14 | Action buttons carry reward-priming emoji — 🎈 Pump / 💰 Collect (`i18n.ts:117-118`) — arousal/gaming cues the sterile Light Posture (anti-arousal) is designed to avoid. | Neutral action-button labels (glyphs opt-in at most), consistent with the anti-arousal posture. | design-flaw · Low | [63](issues/63-neutral-action-buttons.md) | open |
+
 **Credited as already-good (protect these; don't regress):** neutral
 symmetric Pump/Collect controls, sterile light posture (anti-arousal),
 participant never sees their own metrics, collected-only scoring against

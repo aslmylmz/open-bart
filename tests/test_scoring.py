@@ -202,6 +202,21 @@ def test_out_of_order_timestamps_invalid():
     assert report["is_valid"] is False
 
 
+def test_default_study_validation_warnings_are_byte_identical():
+    """Regression lock for issue 57: deriving the shape from config must not move
+    a single default-study warning. A partial purple/teal/orange session produces
+    exactly the strings the former hardcoded 30/10 literals did."""
+    balloons = [("purple", 11, True)] * 10 + [("teal", 5, True)] * 3  # 13/30
+    report = validate_bart_session(build_events(balloons))
+
+    assert report["is_valid"] is False
+    assert report["warnings"] == [
+        "Critically incomplete session: only 13/30 balloons played",
+        "Too few teal balloons: 3/10 played",
+        "Too few orange balloons: 0/10 played",
+    ]
+
+
 def test_score_bart_records_validity():
     metrics = score_bart(optimal_session())
     assert metrics.session_valid is True

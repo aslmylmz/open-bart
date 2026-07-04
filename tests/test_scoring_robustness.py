@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from scoring.bart import score_bart
+from scoring.bart import score_bart, validate_bart_session
 from scoring.config import (
     ColorProfile,
     ConstantHazard,
@@ -95,6 +95,55 @@ def test_custom_color_explosions_feed_penalty():
     metrics = score_bart(build_events(balloons), config=_custom_color_config())
 
     assert metrics.explosion_penalty > 0.0
+
+
+# ── Validation follows the configured study shape, not the default (issue 57) ──
+
+
+def test_validation_warns_on_the_studys_own_colors():
+    """Per-color completeness warnings name the study's actual colors and counts
+    — a renamed study is told which of *its* colors are under-filled, not warned
+    about purple/teal/orange it never had."""
+    balloons = (
+        [("crimson", 11, True)] * 3  # under-filled (< half of 10)
+        + [("azure", 5, True)] * 10
+        + [("jade", 2, True)] * 10
+    )
+    metrics = score_bart(build_events(balloons), config=_custom_color_config())
+
+    assert any("crimson" in w for w in metrics.session_warnings)
+    assert not any(
+        default in w
+        for w in metrics.session_warnings
+        for default in ("purple", "teal", "orange")
+    )
+
+
+def test_validation_thresholds_scale_with_configured_trials():
+    """Completeness and per-color thresholds derive from the study's configured
+    trial counts, not the default 10-per-color / 30-total — a 20-per-color study
+    is judged against /20 and /60."""
+    config = TaskConfig(
+        title="high trial count",
+        reward_per_pump=0.25,
+        colors=[
+            ColorProfile(name="crimson", label="C", display_hex="#dc2626",
+                         max_pumps=128, trials=20, hazard=DynamicHazard()),
+            ColorProfile(name="azure", label="A", display_hex="#2563eb",
+                         max_pumps=32, trials=20, hazard=DynamicHazard()),
+            ColorProfile(name="jade", label="J", display_hex="#059669",
+                         max_pumps=8, trials=20, hazard=DynamicHazard()),
+        ],
+    )
+    balloons = (
+        [("crimson", 11, True)] * 8  # under-filled: 8 < 20/2
+        + [("azure", 5, True)] * 20
+        + [("jade", 2, True)] * 20
+    )
+    report = validate_bart_session(build_events(balloons), config)
+
+    assert "Too few crimson balloons: 8/20 played" in report["warnings"]
+    assert "Incomplete session: 48/60 balloons played" in report["warnings"]
 
 
 # ── Rename-invariance: name-keyed persona metrics follow risk role (issue 56) ──

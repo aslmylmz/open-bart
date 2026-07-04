@@ -203,9 +203,17 @@ def _prefer_collected(
     return all_data, True
 
 
-def validate_bart_session(events: list[GameEvent]) -> dict[str, Any]:
+def validate_bart_session(
+    events: list[GameEvent],
+    config: TaskConfig = DEFAULT_TASK_CONFIG,
+) -> dict[str, Any]:
     """
     Validate session validity and integrity before scoring.
+
+    Completeness and per-color balance are judged against ``config`` (the study's
+    own colors and per-color trial counts), so a renamed or re-counted study is
+    validated against its own shape rather than the default purple/teal/orange
+    3x10 study (issue 57).
 
     Checks performed:
     1. Minimum balloon count
@@ -228,25 +236,31 @@ def validate_bart_session(events: list[GameEvent]) -> dict[str, Any]:
     balloons = _segment_balloons(events)
     balloon_count = len(balloons)
 
-    if balloon_count < 15:
+    # The study's own shape (issue 57): total balloons expected across all colors,
+    # and "critically incomplete" at fewer than half. For the default 3x10 study
+    # this is 30 and 15 — byte-identical to the former hardcoded literals.
+    total_expected = sum(c.trials for c in config.colors)
+    if balloon_count < total_expected // 2:
         warnings.append(
-            f"Critically incomplete session: only {balloon_count}/30 balloons played"
+            f"Critically incomplete session: only {balloon_count}/{total_expected} balloons played"
         )
         is_valid = False
-    elif balloon_count < 30:
-        warnings.append(f"Incomplete session: {balloon_count}/30 balloons played")
+    elif balloon_count < total_expected:
+        warnings.append(f"Incomplete session: {balloon_count}/{total_expected} balloons played")
 
     color_counts: dict[str, int] = defaultdict(int)
     for b in balloons:
         color = _extract_balloon_color(b)
         color_counts[color] += 1
 
-    for color in ["purple", "teal", "orange"]:
+    for color_profile in config.colors:
+        color = color_profile.name
+        expected = color_profile.trials
         count = color_counts.get(color, 0)
-        if count < 5:
-            warnings.append(f"Too few {color} balloons: {count}/10 played")
-        elif count < 10:
-            warnings.append(f"Partial {color} balloons: {count}/10 played")
+        if count < expected // 2:
+            warnings.append(f"Too few {color} balloons: {count}/{expected} played")
+        elif count < expected:
+            warnings.append(f"Partial {color} balloons: {count}/{expected} played")
 
     for i in range(1, len(events)):
         if events[i].timestamp < events[i - 1].timestamp:
@@ -1132,7 +1146,7 @@ def score_bart(
     curves = config.curves
     ranking = _risk_ranking(curves)
 
-    validation = validate_bart_session(events)
+    validation = validate_bart_session(events, config)
     session_valid = validation["is_valid"]
     session_warnings = list(validation["warnings"])
 

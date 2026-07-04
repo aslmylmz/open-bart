@@ -18,10 +18,10 @@ curve, valid for any color names, counts, caps, and hazard families. The
 literal color name: the study's colors are ranked by EV-optimal stop (safest =
 highest optimum, riskiest = lowest), and the two-color contrasts run between that
 safest and riskiest color, excluding the mid-risk ones. A renamed, re-counted, or
-re-ordered study therefore has all of these metrics computed coherently.
-`orange_avg_pumps` keeps its legacy field name but reports the study's
-highest-risk color. (The `session_warnings` validity checks still assume the
-default 3×10 study shape — a separate limitation.) See ADR 0004
+re-ordered study therefore has all of these metrics computed coherently, and the
+`session_warnings` completeness/balance checks are judged against the study's own
+colors and trial counts (issue 57). `orange_avg_pumps` keeps its legacy field name
+but reports the study's highest-risk color. See ADR 0004
 (`docs/adr/0004-persona-metrics-default-color-triad.md`; issue 56).
 ```
 

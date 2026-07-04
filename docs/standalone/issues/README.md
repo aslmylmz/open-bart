@@ -305,3 +305,38 @@ slice ships with a regression guard, and `pytest` / `vitest` / `tsc` /
 - The master CSV is scalar-only; nested data stays in the metrics JSON.
 - Analysis-ready primitives are documented as distinct from exploratory composites.
 - Every v1.0.0 `study.json` still validates; the four gates stay green throughout.
+
+## Cycle 02 — config-generalization + neutrality hardening (2026-07-04)
+
+Second kaizen cycle, seeded from a fresh full D1–D6 audit of the merged code
+(`../QUALITY-KAIZEN.md`, register rows F8–F14). Theme: issue 56 generalized the
+persona *metrics* off the literal purple/teal/orange 3×10 study, but the validation
+layer, participant-facing copy, seed model, and one export column still assume it —
+plus two measurement-neutrality refinements. Nothing Critical. Recommended order
+runs the config-generalization + Medium-severity items first (57, 61, 62), then the
+Low polish/verification (58, 59, 63, 60). Standing constraints carry over: new
+`study.json` fields stay optional, each slice ships a regression guard, the four
+gates stay green, and the default study stays byte-identical where it applies.
+
+| # | Issue | Dim · Class · Sev | Depends on | Touches |
+|---|---|---|---|---|
+| [57](57-generalize-validation-study-shape.md) | Generalize `validate_bart_session` off the default study shape | D5/D1 · validity · **Medium** | — | `scoring/bart.py`, `tests/` |
+| [58](58-fix-highrisk-avg-column-and-dictionary.md) | Fix the high-risk-average CSV column name + data dictionary | D6 · bug · Low | — | `docs/data_outputs.md`, `app/sidecar/app.py`, `scoring/schemas/` (if renamed), `tests/` |
+| [59](59-practice-debrief-copy.md) | Practice debrief must not claim the session was recorded | D1 · usability · Low | — | `app/src/lib/i18n.ts`, `app/src/run/Debrief.tsx`, `tests/` |
+| [60](60-kiosk-real-run-verification.md) | Verify kiosk lock + practice banner in a real Tauri run | Check · verification · Low | — | `docs/standalone/VERIFY-WINDOWS.md` (observation) |
+| [61](61-per-participant-seed.md) | Per-participant sequences from a reproducible study seed | D3 · design-flaw · **Medium** | — | `app/src/BartGame.tsx`, `app/src/run/sequence.ts`, `tests/` |
+| [62](62-hazard-appropriate-instructions.md) | Hazard-appropriate participant instructions (stop assuming dynamic) | D1/D2 · validity · **Medium** | — | `app/src/lib/i18n.ts`, `tests/` |
+| [63](63-neutral-action-buttons.md) | Neutral action buttons (drop the reward-priming emoji) | D2 · design-flaw · Low | — | `app/src/lib/i18n.ts`, `tests/` |
+
+### Cycle 02 acceptance (rolls up 57–63)
+
+- A renamed or re-counted study is validated against its own colors and trial
+  counts; the default study's validation is byte-identical.
+- A fixed study `seed` reproduces each participant from `seed` + ID without giving
+  every participant the same sequence.
+- Participant instructions are correct for any hazard family and don't leak the
+  rising-hazard structure; practice runs never claim data was recorded.
+- The Master CSV data dictionary matches the real columns; action controls stay
+  measurement-neutral.
+- Kiosk lock + practice banner are observed in a real Tauri run.
+- Every v1.0.0 `study.json` still validates; the four gates stay green throughout.
