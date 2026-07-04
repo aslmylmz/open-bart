@@ -109,6 +109,41 @@ def test_flat_strategy_detected_for_custom_color_names():
     assert metrics.flat_strategy_detected is True
 
 
+def test_non_default_color_names_flag_persona_validity():
+    """A study whose colors fall outside the default purple/teal/orange set gets
+    an explicit warning that the name-keyed persona metrics (learning rate, color
+    discrimination, risk style) are validated only for the default study — rather
+    than letting them silently read 0/None (issue 51 / kaizen F3)."""
+    balloons = []
+    for color, stop in (("crimson", 11), ("azure", 5), ("jade", 2)):
+        balloons.extend([(color, stop, True)] * 10)
+
+    metrics = score_bart(build_events(balloons), config=_custom_color_config())
+
+    assert any("persona" in w.lower() for w in metrics.session_warnings)
+
+
+def test_recognized_color_subset_has_no_persona_validity_warning():
+    """A study using a subset of the recognized names (purple + orange) still
+    resolves the name-keyed metrics, so it must NOT carry the persona caveat —
+    the guard keys on unrecognized names, not on the exact default triad."""
+    config = TaskConfig(
+        title="two recognized colors",
+        reward_per_pump=0.25,
+        colors=[
+            ColorProfile(name="purple", label="P", display_hex="#7c3aed",
+                         max_pumps=128, trials=10, hazard=DynamicHazard()),
+            ColorProfile(name="orange", label="O", display_hex="#f97316",
+                         max_pumps=8, trials=10, hazard=DynamicHazard()),
+        ],
+    )
+    balloons = [("purple", 11, True)] * 10 + [("orange", 2, True)] * 10
+
+    metrics = score_bart(build_events(balloons), config=config)
+
+    assert not any("persona" in w.lower() for w in metrics.session_warnings)
+
+
 def test_color_metrics_follow_configured_color_order():
     """The per-color breakdown lists colors in the study's configured order
     (the Master CSV derives its column order from it), not event order."""

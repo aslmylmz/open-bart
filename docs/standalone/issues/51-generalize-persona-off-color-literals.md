@@ -57,3 +57,16 @@ a tracked follow-up.
 Source: 2026-07-04 research audit, register row F3 (Critical). Related work:
 issue 03 (engine generalization). Marked `ready-for-human` for the A/B scoping
 decision; once decided, the implementation is agent-workable.
+
+**2026-07-04 — decision + implemented (TDD).** Scoping resolved to **B now + A
+follow-up**: this issue ships the guard-and-document slice; full generalization
+is now issue 56. Decision recorded in ADR 0004
+(`docs/adr/0004-persona-metrics-default-color-triad.md`). Implementation:
+`score_bart` appends a `session_warnings` entry (via `_persona_validity_warning`)
+naming the unrecognized color(s) and which name-keyed metrics are unreliable —
+so a renamed-color study is never silently trusted. Scoring math is unchanged;
+the default study is byte-identical (existing suite, incl.
+`test_score_bart_records_validity`'s `session_warnings == []`, still green).
+Two tests: a custom-color study raises the caveat; a recognized-name subset
+(purple + orange) does not. `docs/metrics_reference.md` gains a "color-name
+dependence" note. Gates: pytest 163 ✅, vitest 132 ✅, tsc ✅, vite build ✅.

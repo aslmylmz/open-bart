@@ -5,6 +5,23 @@ This is the exhaustive list of fields on the
 {py:func}`~scoring.bart.score_bart`. Ranges are the engine's documented output
 ranges; conceptual explanations live in [The scoring engine](scoring_engine.md).
 
+```{note}
+**Color-name dependence.** Two classes of metric behave differently for custom
+studies. The **EV-based metrics** — `risk_calibration_score`,
+`ev_ratio_score`, `ev_efficiency_uniformity`, `explosion_penalty`,
+`risk_adjustment_score`, and the per-color breakdown — are config-agnostic and
+valid for any color names, counts, caps, and hazard families. The **name-keyed
+persona metrics** — the learning-rate family (`learning_rate`,
+`half_split_learning_rate`, `tercile_learning_rate`),
+`color_discrimination_index`, `color_discrimination_trajectory`,
+`patience_index`, `orange_avg_pumps`, and several `risk_style` classifications —
+resolve behavior by the literal color names `purple`/`teal`/`orange` and are
+**validated only for the default study**. A study using other names has those
+fields silently read `0`/`None`; the engine flags this in `session_warnings`.
+See ADR 0004 (`docs/adr/0004-persona-metrics-default-color-triad.md`); full
+generalization is tracked as issue 56.
+```
+
 ## Volume & outcome
 
 ```{list-table}

@@ -41,6 +41,34 @@ MIN_COLLECTED_FALLBACK = 2
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
+def _persona_validity_warning(config: TaskConfig) -> str | None:
+    """Flag studies whose colors fall outside the default purple/teal/orange set.
+
+    The name-keyed persona metrics (learning-rate family, color discrimination,
+    patience/orange indices, and several ``risk_style`` branches) resolve
+    behavior by literal color name, so a study using other names gets those
+    fields silently degraded to 0/None. Rather than let a renamed-color study
+    publish meaningless persona metrics, say so explicitly (issue 51 / kaizen
+    F3). The EV-based metrics (calibration, uniformity, penalty, adjustment) and
+    the per-color breakdown are config-driven and stay valid; deriving the
+    name-keyed metrics from config risk-ordering is the deeper follow-up
+    (issue 56).
+    """
+    unknown = [c.name for c in config.colors if c.name not in _RISK_BY_COLOR]
+    if not unknown:
+        return None
+    return (
+        f"This study uses color name(s) {', '.join(unknown)} outside the default "
+        "purple/teal/orange set. Name-keyed persona metrics (learning_rate, "
+        "half/tercile learning, color_discrimination_index, "
+        "color_discrimination_trajectory, patience_index, orange_avg_pumps, and "
+        "some risk_style classifications) are validated only for the default "
+        "study and may read 0/None or misclassify here; the EV-based metrics "
+        "(risk_calibration_score, ev_efficiency_uniformity, explosion_penalty, "
+        "risk_adjustment_score) and the per-color breakdown remain valid."
+    )
+
+
 def _segment_balloons(events: list[GameEvent]) -> list[list[GameEvent]]:
     """
     Segment flat event list into lists of events per balloon.
@@ -1055,6 +1083,13 @@ def score_bart(
     validation = validate_bart_session(events)
     session_valid = validation["is_valid"]
     session_warnings = list(validation["warnings"])
+
+    # Honesty guard (issue 51): the name-keyed persona metrics are validated only
+    # for the default purple/teal/orange study, so a renamed-color study is told
+    # its persona fields may be unreliable rather than silently trusting them.
+    persona_warning = _persona_validity_warning(config)
+    if persona_warning:
+        session_warnings.append(persona_warning)
 
     balloons = _segment_balloons(events)
 
