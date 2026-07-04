@@ -281,10 +281,13 @@ study: `purple_…`, `teal_…`, `orange_…`):
 | `{color}_risk_profile` | The color's risk tier label |
 | `{color}_used_fallback` | Whether all-balloon data substituted for collected-only |
 
-In addition, the default study's colors carry three legacy convenience
-columns mirrored from the top-level metrics: `purple_avg_pumps`,
-`teal_avg_pumps`, and `orange_avg_pumps` (i.e. `{color}_avg_pumps`; present
-for the default color names only).
+In addition, `orange_avg_pumps` is a single top-level column: the mean collected
+pumps on the study's **highest-risk** color (the color with the lowest EV-optimal
+stop). It keeps its historical name from the default study — for a renamed study
+it still holds the riskiest color's average, not a color literally named orange.
+Per-color averages for every color are the `{color}_average_pumps` and
+`{color}_behavioral_avg_pumps` columns above; there is no separate low- or
+mid-risk top-level average column.
 
 ### What is *not* in the CSV
 

@@ -104,6 +104,22 @@ def test_dictionary_names_every_master_csv_column(tmp_path):
     assert all(desc.strip() for _, desc in rows)
 
 
+def test_data_outputs_only_names_real_avg_pumps_columns(tmp_path):
+    """The human data dictionary (``docs/data_outputs.md``) must not invent
+    columns: every literal ``*_avg_pumps`` column it names has to exist in a real
+    master CSV. Guards against the phantom ``purple_avg_pumps`` / ``teal_avg_pumps``
+    claim — only ``orange_avg_pumps`` (the highest-risk color's average) is a real
+    top-level column (issue 58 / kaizen F9)."""
+    doc = (Path(__file__).resolve().parents[1] / "docs" / "data_outputs.md").read_text("utf-8")
+    named = set(re.findall(r"`([a-z][a-z_]*_avg_pumps)`", doc))
+    assert named, "expected the docs to name at least one *_avg_pumps column"
+
+    header = set(_csv_header(_write_session(tmp_path)["master_csv"]))
+
+    missing = named - header
+    assert not missing, f"data_outputs.md names non-existent columns: {sorted(missing)}"
+
+
 def test_dictionary_names_every_trials_csv_column(tmp_path):
     """The dictionary's Trials CSV section lists exactly the columns of the
     study's real long-format trials CSV (issue 39), with a description for

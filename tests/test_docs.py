@@ -83,8 +83,11 @@ def test_every_master_csv_column_is_documented(tmp_path):
     undocumented = []
     for column in header:
         color = next((c for c in colors if column.startswith(c + "_")), None)
+        # Per-color columns are documented once via their `{color}_field` pattern;
+        # a top-level column whose name merely starts with a color prefix (e.g.
+        # `orange_avg_pumps`, issue 58) is documented under its literal name.
         needle = f"{{color}}_{column[len(color) + 1:]}" if color else column
-        if needle not in page:
+        if column not in page and needle not in page:
             undocumented.append(column)
     assert undocumented == []
 
