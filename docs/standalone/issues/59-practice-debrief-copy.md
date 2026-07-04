@@ -2,7 +2,7 @@
 
 **Usability · depends on: none**
 
-Status: ready-for-agent
+Status: done
 
 ## Context
 
@@ -33,3 +33,19 @@ the `practice/` output subfolder), so the debrief has the signal it needs.
 
 Source: 2026-07-04 fresh full-audit, register row F10. Evidence: `i18n.ts:98` vs `:126`;
 issue 43 `## Comments`. Webview-only; no sidecar/schema change.
+
+**Done 2026-07-04.** Added `thankYouBodyPractice` (en + tr) to `TaskStrings` — a
+thank-you that drops the "recorded" claim ("This was a test run — no data was
+recorded. …" / "Bu bir deneme oturumuydu — hiçbir veri kaydedilmedi. …"), keeping the
+existing researcher-hand-back tail. `Debrief` gained a `practice?: boolean` prop that
+selects the practice body; `BartGame` threads its own `practice` flag into it (the
+signal already flows RunFlow → BartGame). No `/score` or schema change, so no
+re-freeze.
+
+Guards: `Debrief.test.tsx` — practice run shows the no-recording copy and not the
+"recorded" copy (the red→green case), a real run is unchanged, and the Turkish
+practice copy is localized. `RunFlow.test.tsx` — the existing practice full-flow test
+now asserts the debrief shows the no-recording copy under the still-present banner, so
+no path from the Test Run control reaches the contradictory debrief. Key-parity
+(`i18n.test.ts`) covers en/tr. Four gates green (`vitest` 137, `tsc --noEmit`, `vite
+build`, `pytest` 182).

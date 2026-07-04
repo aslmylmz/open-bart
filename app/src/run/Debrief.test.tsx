@@ -69,4 +69,29 @@ describe("Debrief (participant thank-you screen)", () => {
 
     expect(screen.queryByText(t.payoutLabel)).toBeNull();
   });
+
+  // Issue 59 (F10): a practice/test run banners "data not recorded" on every
+  // screen, so the thank-you must not contradict it by claiming the session was
+  // recorded.
+  it("makes no recording claim in a practice run", () => {
+    render(<Debrief language="en" earnings={12.5} balloonsCompleted={30} practice />);
+
+    expect(screen.getByText(t.thankYouBodyPractice)).toBeTruthy();
+    expect(screen.queryByText(t.thankYouBody)).toBeNull();
+  });
+
+  it("keeps the recorded copy for a real (non-practice) run", () => {
+    render(<Debrief language="en" earnings={12.5} balloonsCompleted={30} />);
+
+    expect(screen.getByText(t.thankYouBody)).toBeTruthy();
+    expect(screen.queryByText(t.thankYouBodyPractice)).toBeNull();
+  });
+
+  it("localizes the practice copy for Turkish studies", () => {
+    const tr = taskStrings("tr");
+    render(<Debrief language="tr" earnings={12.5} balloonsCompleted={30} practice />);
+
+    expect(screen.getByText(tr.thankYouBodyPractice)).toBeTruthy();
+    expect(screen.queryByText(tr.thankYouBody)).toBeNull();
+  });
 });

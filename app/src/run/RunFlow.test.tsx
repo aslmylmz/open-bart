@@ -241,8 +241,11 @@ describe("Test Run / practice mode (issue 43)", () => {
     const [persisted] = persistSession.mock.calls[0] as [{ practice: boolean }];
     expect(persisted.practice).toBe(true);
 
-    // Debrief: still bannered.
+    // Debrief: still bannered, and the thank-you no longer contradicts it —
+    // no "recorded" claim over the "data not recorded" banner (issue 59).
     expect(screen.getByText(t.practiceBanner)).toBeTruthy();
+    expect(screen.getByText(t.thankYouBodyPractice)).toBeTruthy();
+    expect(screen.queryByText(t.thankYouBody)).toBeNull();
   });
 
   it("shows no banner and keeps the ID empty in an official run", async () => {

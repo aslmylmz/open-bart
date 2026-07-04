@@ -563,6 +563,7 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
                         earnings={totalScore}
                         currency={currency}
                         balloonsCompleted={completedBalloons.length}
+                        practice={practice}
                         payout={
                             results.raw_metrics?.payout_amount != null &&
                             results.raw_metrics?.payout_currency

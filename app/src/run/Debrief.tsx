@@ -58,20 +58,23 @@ interface DebriefProps {
   /** The converted amount actually owed, computed once by the engine (issue 41).
    * Omitted for studies without a payout block — no payout line renders. */
   payout?: { amount: number; currency: string } | null;
+  /** Practice/test run (issue 59): the thank-you drops the "recorded" claim so
+   * it never contradicts the "data not recorded" banner on the same screen. */
+  practice?: boolean;
 }
 
 /** The participant debrief — a clean thank-you screen with only the high-level
  * summary, in the Light Posture (ADR 0003). The clinical metrics never render
  * here (participant UX convention, Issue 28): researchers read them from the
  * per-session metrics JSON and the master CSV in the output directory. */
-export function Debrief({ language, earnings, currency = "$", balloonsCompleted, payout }: DebriefProps) {
+export function Debrief({ language, earnings, currency = "$", balloonsCompleted, payout, practice = false }: DebriefProps) {
   const t = taskStrings(language);
   return (
     <div style={cardStyle}>
       <div style={{ fontSize: "3rem", marginBottom: 8 }}>🎈</div>
       <h1 style={headingStyle}>{t.thankYouTitle}</h1>
       <p style={{ fontSize: "1.05rem", lineHeight: 1.6, color: "#374151", margin: "0 0 28px" }}>
-        {t.thankYouBody}
+        {practice ? t.thankYouBodyPractice : t.thankYouBody}
       </p>
       <div
         style={{
