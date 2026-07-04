@@ -70,6 +70,9 @@ exclude_patterns = [
     # researcher-facing, and they use filesystem-path links that are not valid
     # cross-references once rendered.
     "standalone/issues/**",
+    # Internal quality-improvement process doc (kaizen framework): maintainer-
+    # facing, and it links into the excluded issue tracker above.
+    "standalone/QUALITY-KAIZEN.md",
 ]
 
 intersphinx_mapping = {
