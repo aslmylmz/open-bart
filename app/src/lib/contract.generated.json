@@ -76,6 +76,7 @@
   "TaskConfig": [
     "colors",
     "conditions",
+    "currency",
     "exit_passcode",
     "language",
     "output_dir",

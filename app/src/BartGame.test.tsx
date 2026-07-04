@@ -247,6 +247,48 @@ describe("BartGame gameplay screen", () => {
     expect(screen.queryByText(t.saveWarningTitle)).toBeNull();
   });
 
+  it("shows debrief earnings in the study's configured currency (issue 55)", async () => {
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({ warnings: [] });
+    render(
+      <BartGame
+        config={{ ...TEST_CONFIG, currency: "€" }}
+        hazards={SAFE_HAZARDS}
+        candidateId="P001"
+      />,
+    );
+    await startTask();
+
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(`${t.balloonLabel} 2/2`, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    // The debrief earnings figure uses the study's currency, not a hardcoded $.
+    expect(await screen.findByText(t.thankYouTitle)).toBeTruthy();
+    expect(screen.getByText("€0.50")).toBeTruthy();
+    expect(screen.queryByText("$0.50")).toBeNull();
+  });
+
+  it("shows in-task earnings in the study's configured currency (issue 55)", async () => {
+    render(
+      <BartGame
+        config={{ ...TEST_CONFIG, currency: "₺" }}
+        hazards={SAFE_HAZARDS}
+        candidateId="P001"
+      />,
+    );
+    await startTask();
+
+    // Running total and per-pump current earnings both use the study's currency.
+    expect(screen.getByText(`${t.totalLabel} ₺0.00`)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    expect(screen.getByText(`${t.currentLabel}: ₺0.25`)).toBeTruthy();
+  });
+
   it("shows the engine-computed payout on the debrief (issue 41)", async () => {
     submitSession.mockResolvedValue({
       session_id: "s-1",

@@ -135,6 +135,10 @@ export interface TaskConfig {
   title: string;
   language: Language;
   reward_per_pump: number;
+  /** Freeform label/symbol for the task-earnings units (issue 55). Optional:
+   * absent means the default "$" — shown with in-task money and the debrief
+   * earnings. Distinct from `payout.currency` (the converted payout label). */
+  currency?: string;
   seed: number | null;
   output_dir: string;
   colors: ColorProfile[];
@@ -162,6 +166,7 @@ export const DEFAULT_STUDY: TaskConfig = {
   title: "Dynamic Hazard Rate BART (default dynamic study)",
   language: "en",
   reward_per_pump: 0.25,
+  currency: "$",
   seed: null,
   output_dir: ".",
   colors: [

@@ -46,6 +46,7 @@ const TASK_CONFIG: Record<keyof TaskConfig, true> = {
   title: true,
   language: true,
   reward_per_pump: true,
+  currency: true,
   seed: true,
   output_dir: true,
   colors: true,

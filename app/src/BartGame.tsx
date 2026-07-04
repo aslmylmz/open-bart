@@ -67,6 +67,9 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
     const containerRef = useRef<HTMLDivElement>(null);
 
     const t = taskStrings(config.language);
+    // Label for the task-earnings units (issue 55); defaults to "$" so v1.0.0
+    // studies are unchanged. The payout line keeps its own payout.currency.
+    const currency = config.currency ?? "$";
     const totalBalloons = config.colors.reduce((n, c) => n + c.trials, 0);
 
     const [engine, setEngine] = useState<GameState>(initialState);
@@ -131,7 +134,7 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
         const { state, events } = advance(engine, { type: "collect" }, ctx());
         logEvents(events);
         setEngine(state);
-        setFeedbackMessage(`${t.collected} $${money.toFixed(2)}`);
+        setFeedbackMessage(`${t.collected} ${currency}${money.toFixed(2)}`);
         scheduleNext(1000);
     };
 
@@ -282,7 +285,7 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
                             {t.balloonLabel} {Math.min(balloonCount, totalBalloons)}/{totalBalloons}
                         </span>
                         <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>
-                            {t.totalLabel} ${totalScore.toFixed(2)}
+                            {t.totalLabel} {currency}{totalScore.toFixed(2)}
                         </span>
                     </div>
 
@@ -360,7 +363,7 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
 
                         {/* Static earnings counter — outside the balloon (Issue 27). */}
                         <div style={{ fontSize: "2rem", fontWeight: 700, color: "#111827" }}>
-                            {t.currentLabel}: ${(currentBalloon.pumps * config.reward_per_pump).toFixed(2)}
+                            {t.currentLabel}: {currency}{(currentBalloon.pumps * config.reward_per_pump).toFixed(2)}
                         </div>
 
                         <div
@@ -457,7 +460,7 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
                     <p style={{ color: "#4b5563" }}>
                         {t.totalEarnings}:{" "}
                         <span style={{ color: "#16a34a", fontWeight: 700 }}>
-                            ${totalScore.toFixed(2)}
+                            {currency}{totalScore.toFixed(2)}
                         </span>{" "}
                         / {totalBalloons} {t.balloonsWord}
                     </p>
@@ -558,6 +561,7 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
                     <Debrief
                         language={config.language}
                         earnings={totalScore}
+                        currency={currency}
                         balloonsCompleted={completedBalloons.length}
                         payout={
                             results.raw_metrics?.payout_amount != null &&

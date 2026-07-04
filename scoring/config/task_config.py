@@ -82,6 +82,16 @@ class TaskConfig(BaseModel):
         default="en", description="participant-facing language"
     )
     reward_per_pump: float = Field(gt=0, description="currency units per banked pump")
+    currency: str = Field(
+        default="$",
+        min_length=1,
+        max_length=16,
+        description=(
+            "Freeform label/symbol for the task-earnings units (reward_per_pump), "
+            "shown with in-task money and the debrief earnings. Distinct from a "
+            "payout block's currency, which labels the converted payout amount."
+        ),
+    )
     seed: Optional[int] = Field(default=None, description="RNG seed for reproducible bursts")
     output_dir: str = Field(default=".", description="local folder for session data")
     colors: list[ColorProfile] = Field(

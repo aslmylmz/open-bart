@@ -82,8 +82,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
   en: {
     consentTitle: "Before you begin",
     consentBody:
-      "You will inflate balloons to earn money. Each pump raises the chance of a pop. Cash out before it pops. Your responses are recorded for research.",
-    consentAgree: "I agree — continue",
+      "In this task you will inflate balloons to earn money. Each pump raises the chance of a pop. Cash out before it pops. Your responses are recorded for research. (This screen is task instructions, not a consent form — your study's consent is handled separately.)",
+    consentAgree: "Continue",
     idPrompt: "Participant ID",
     idPlaceholder: "e.g. P001",
     idContinue: "Start task",
@@ -133,8 +133,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
   tr: {
     consentTitle: "Başlamadan önce",
     consentBody:
-      "Para kazanmak için balonları şişireceksiniz. Her şişirme patlama olasılığını artırır. Patlamadan önce paranızı toplayın. Yanıtlarınız araştırma için kaydedilir.",
-    consentAgree: "Kabul ediyorum — devam et",
+      "Bu görevde para kazanmak için balonları şişireceksiniz. Her şişirme patlama olasılığını artırır. Patlamadan önce paranızı toplayın. Yanıtlarınız araştırma için kaydedilir. (Bu ekran onam formu değil, görev yönergesidir — çalışmanızın onamı ayrıca alınır.)",
+    consentAgree: "Devam et",
     idPrompt: "Katılımcı Kimliği",
     idPlaceholder: "örn. P001",
     idContinue: "Göreve Başla",

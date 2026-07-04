@@ -51,6 +51,9 @@ interface DebriefProps {
   language: Language;
   /** The session's cumulative collected amount (the task engine's running score). */
   earnings: number;
+  /** Label/symbol for the task-earnings units (issue 55); defaults to "$".
+   * Distinct from `payout.currency`, which labels the converted payout. */
+  currency?: string;
   balloonsCompleted: number;
   /** The converted amount actually owed, computed once by the engine (issue 41).
    * Omitted for studies without a payout block — no payout line renders. */
@@ -61,7 +64,7 @@ interface DebriefProps {
  * summary, in the Light Posture (ADR 0003). The clinical metrics never render
  * here (participant UX convention, Issue 28): researchers read them from the
  * per-session metrics JSON and the master CSV in the output directory. */
-export function Debrief({ language, earnings, balloonsCompleted, payout }: DebriefProps) {
+export function Debrief({ language, earnings, currency = "$", balloonsCompleted, payout }: DebriefProps) {
   const t = taskStrings(language);
   return (
     <div style={cardStyle}>
@@ -81,7 +84,8 @@ export function Debrief({ language, earnings, balloonsCompleted, payout }: Debri
       >
         <div style={{ color: "#6b7280", fontSize: "0.85rem" }}>{t.totalEarnings}</div>
         <div style={{ fontSize: "2.2rem", fontWeight: 700, color: "#16a34a" }}>
-          ${earnings.toFixed(2)}
+          {currency}
+          {earnings.toFixed(2)}
         </div>
         <div style={{ color: "#6b7280" }}>
           {balloonsCompleted} {t.balloonsWord}

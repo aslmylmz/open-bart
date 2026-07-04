@@ -39,3 +39,19 @@ polish items from the audit:
 
 Source: 2026-07-04 research audit, register row F7 (Low). Copy changes may
 warrant a quick researcher review of the exact consent wording.
+
+**2026-07-04 — implemented (TDD).** Currency: added an optional
+`TaskConfig.currency` field (default `"$"`, freeform label for the task-earnings
+units — chosen over reusing `payout.currency`, which is the *converted* payout
+and would mislabel task units when `rate ≠ 1`). Threaded through the pydantic
+model, the TS mirror + contract sentinel (contract regenerated), the gameplay
+Current/Total/collect displays, and the debrief earnings; `payout.currency`
+still labels the payout line. Round-trips through Study Setup (all `studyForm`
+patches spread the config) and defaults to `"$"`, so every v1.0.0 study is
+unchanged. Consent: relabeled the affirmation button "I agree — continue" →
+"Continue" (en) / "Devam et" (tr) and added a line clarifying the screen is task
+instructions, not a consent form (both locales) — it no longer presents as an
+IRB consent instrument. Two behavior tests: the debrief and the in-task
+Current/Total show the configured currency (not `$`). Sidecar re-frozen for the
+new config field (gitignored). Closes kaizen row F7 — all F1–F7 done. Gates:
+pytest 170 ✅, vitest 134 ✅, tsc ✅, vite build ✅.
