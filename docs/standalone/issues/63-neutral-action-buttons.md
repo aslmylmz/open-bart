@@ -2,7 +2,7 @@
 
 **Design-flaw · depends on: none**
 
-Status: ready-for-agent
+Status: done
 
 ## Context
 
@@ -35,3 +35,16 @@ off-white instrument, not a game. The controls should stay measurement-neutral.
 Source: 2026-07-04 fresh full-audit, register row F14. Evidence: `i18n.ts:117-118`,
 `:168-169`. Lowest-stakes item in the cycle and partly a judgment call — confirm the
 neutrality reading is wanted before removing (some labs like the affordance). Webview-only.
+
+**Done 2026-07-05. Decision (confirmed with the user): remove — neutral default,**
+no opt-in flag. Dropped the emoji from the action-button labels: `🎈 Pump (Space)` →
+`Pump (Space)`, `💰 Collect (Enter)` → `Collect (Enter)` (and the tr `Şişir (Boşluk)` /
+`Topla (Enter)`), keeping the keyboard hints. No config surface, no schema change, no
+re-freeze. Scope of the change was only the two button labels — the decorative balloon
+🎈 stimulus (`BartGame.tsx`) and the debrief 🎈 are canonical BART surface (CONTEXT.md)
+and were deliberately left.
+
+Guards (`i18n.test.ts`, red before the change): en and tr `pumpButton`/`collectButton`
+carry no emoji (`/\p{Extended_Pictographic}/u` — matches emoji but not ş/ı/ğ), plus a
+positive lock that the Space→pump / Enter→collect keyboard-hint mapping is unchanged.
+Four gates green (`vitest` 147, `tsc --noEmit`, `vite build`, `pytest` 182).

@@ -44,3 +44,30 @@ describe("participant copy is hazard-family-neutral (issue 62)", () => {
     expect(tr.instructions).toMatch(/parasını kaybeders/i);
   });
 });
+
+describe("action buttons stay measurement-neutral (issue 63)", () => {
+  // The 💰/🎈 on Collect/Pump are reward-priming / arousal cues that work against
+  // the sterile Light Posture (CONTEXT.md). The button labels must be plain text;
+  // \p{Extended_Pictographic} matches emoji but not the Turkish letters (ş/ı/ğ).
+  const emoji = /\p{Extended_Pictographic}/u;
+
+  it("en Pump/Collect labels carry no emoji", () => {
+    const s = taskStrings("en");
+    expect(s.pumpButton).not.toMatch(emoji);
+    expect(s.collectButton).not.toMatch(emoji);
+  });
+
+  it("tr Pump/Collect labels carry no emoji", () => {
+    const s = taskStrings("tr");
+    expect(s.pumpButton).not.toMatch(emoji);
+    expect(s.collectButton).not.toMatch(emoji);
+  });
+
+  it("keeps the keyboard-hint mapping (Space→pump, Enter→collect) in both languages", () => {
+    for (const lang of ["en", "tr"] as const) {
+      const s = taskStrings(lang);
+      expect(s.pumpButton).toMatch(/\((Space|Boşluk)\)/);
+      expect(s.collectButton).toMatch(/\(Enter\)/);
+    }
+  });
+});
