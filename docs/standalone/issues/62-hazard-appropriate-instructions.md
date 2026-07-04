@@ -2,7 +2,7 @@
 
 **Validity-limitation · depends on: none**
 
-Status: ready-for-agent
+Status: done
 
 ## Context
 
@@ -49,3 +49,21 @@ Source: 2026-07-04 fresh full-audit, register row F13. Evidence: `i18n.ts:85`, `
 Ties to CONTEXT.md's "Familiarity on the Outside" rule and the dynamic-hazard paradigm
 being the *hidden* innovation. Webview-only unless family-aware copy is chosen (then a
 config field + contract update).
+
+**Done 2026-07-05. Decision: the single neutral rewrite** (the smaller, reversible
+slice), not family-aware configurable copy. CONTEXT.md's "Familiarity on the Outside"
+rule keeps the hazard structure *invisible to the participant*, so exposing the family
+in the copy would be the wrong direction, not just the bigger one. No config surface,
+no schema change, no re-freeze.
+
+Rewrote `consentBody` + `instructions` (en + tr) from the dynamic-specific "each pump
+raises the chance it pops" to the classic-BART framing "the more you pump, the more you
+earn — but if the balloon pops, you lose that balloon's money." Correct for every
+family (constant/Lejuez included), and it no longer primes/leaks the rising-hazard
+structure, while still warning that a pop costs that balloon's money.
+
+Guards (`i18n.test.ts`, red before the change): en and tr consent + instructions no
+longer match a rising-hazard claim (`/raises the chance|more likely to pop|olasılığını
+artır|riskini artır/i`), and a positive lock keeps the neutral loss-on-pop warning so
+the copy isn't vacuous. Four gates green (`vitest` 144, `tsc --noEmit`, `vite build`,
+`pytest` 182).

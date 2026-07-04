@@ -85,7 +85,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
   en: {
     consentTitle: "Before you begin",
     consentBody:
-      "In this task you will inflate balloons to earn money. Each pump raises the chance of a pop. Cash out before it pops. Your responses are recorded for research. (This screen is task instructions, not a consent form — your study's consent is handled separately.)",
+      "In this task you will inflate balloons to earn money. The more you pump, the more you earn — but if a balloon pops, you lose that balloon's money. Cash out before it pops. Your responses are recorded for research. (This screen is task instructions, not a consent form — your study's consent is handled separately.)",
     consentAgree: "Continue",
     idPrompt: "Participant ID",
     idPlaceholder: "e.g. P001",
@@ -106,7 +106,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     lockWrong: "Incorrect passcode — the session continues.",
     taskTitle: "Balloon Analogue Risk Task",
     instructions:
-      "Inflate the balloon to earn money. Each pump raises the chance it pops. Collect your money before it pops!",
+      "Inflate the balloon to earn money. The more you pump, the more you earn — but if the balloon pops, you lose that balloon's money. Collect before it pops!",
     controlsHint: "Space: pump · Enter: collect",
     startButton: "Start task",
     balloonsWord: "balloons",
@@ -137,7 +137,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
   tr: {
     consentTitle: "Başlamadan önce",
     consentBody:
-      "Bu görevde para kazanmak için balonları şişireceksiniz. Her şişirme patlama olasılığını artırır. Patlamadan önce paranızı toplayın. Yanıtlarınız araştırma için kaydedilir. (Bu ekran onam formu değil, görev yönergesidir — çalışmanızın onamı ayrıca alınır.)",
+      "Bu görevde para kazanmak için balonları şişireceksiniz. Ne kadar çok şişirirseniz o kadar çok kazanırsınız — ancak bir balon patlarsa o balonun parasını kaybedersiniz. Patlamadan önce paranızı toplayın. Yanıtlarınız araştırma için kaydedilir. (Bu ekran onam formu değil, görev yönergesidir — çalışmanızın onamı ayrıca alınır.)",
     consentAgree: "Devam et",
     idPrompt: "Katılımcı Kimliği",
     idPlaceholder: "örn. P001",
@@ -158,7 +158,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     lockWrong: "Şifre yanlış — oturum devam ediyor.",
     taskTitle: "Balon Analog Risk Görevi",
     instructions:
-      "Balonu şişirerek para kazanın. Her şişirme patlama riskini artırır. Patlamadan önce paranızı toplayın!",
+      "Balonu şişirerek para kazanın. Ne kadar çok şişirirseniz o kadar çok kazanırsınız — ancak balon patlarsa o balonun parasını kaybedersiniz. Patlamadan önce paranızı toplayın!",
     controlsHint: "Boşluk: şişir · Enter: topla",
     startButton: "Göreve Başla",
     balloonsWord: "balon",

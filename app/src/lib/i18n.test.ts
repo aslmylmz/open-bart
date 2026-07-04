@@ -13,3 +13,34 @@ describe("task strings", () => {
     expect(taskStrings("en").startButton).not.toBe(taskStrings("tr").startButton);
   });
 });
+
+describe("participant copy is hazard-family-neutral (issue 62)", () => {
+  // The instrument ships constant/Lejuez families where the per-pump burst
+  // probability does NOT rise, and CONTEXT.md keeps the hazard structure hidden
+  // from participants. So the consent + instruction copy must not claim the pop
+  // chance rises per pump (factually wrong for those families, and a priming leak).
+  const risingHazardClaim = /raises? the chance|more likely to pop|olasılığını artır|riskini artır/i;
+
+  it("en consent + instructions make no per-pump rising-hazard claim", () => {
+    const s = taskStrings("en");
+    expect(s.consentBody).not.toMatch(risingHazardClaim);
+    expect(s.instructions).not.toMatch(risingHazardClaim);
+  });
+
+  it("tr consent + instructions make no per-pump rising-hazard claim", () => {
+    const s = taskStrings("tr");
+    expect(s.consentBody).not.toMatch(risingHazardClaim);
+    expect(s.instructions).not.toMatch(risingHazardClaim);
+  });
+
+  it("still warns the pop costs that balloon's money (neutral, not vacuous)", () => {
+    // Neutrality must not drop the risk warning: consent and instructions still
+    // tell the participant a pop loses that balloon's money — the classic-BART cue.
+    const en = taskStrings("en");
+    expect(en.consentBody).toMatch(/lose .*money/i);
+    expect(en.instructions).toMatch(/lose .*money/i);
+    const tr = taskStrings("tr");
+    expect(tr.consentBody).toMatch(/parasını kaybeders/i);
+    expect(tr.instructions).toMatch(/parasını kaybeders/i);
+  });
+});
