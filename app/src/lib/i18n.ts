@@ -68,6 +68,10 @@ export interface TaskStrings {
   playAgain: string;
   // Error recovery
   retry: string;
+  /** Shown on the finished screen when persisting the session to disk failed
+   * (issue 49). The participant must never see the "recorded" debrief until the
+   * write is confirmed; this keeps them on the finished screen to retry. */
+  saveError: string;
 }
 
 export const STRINGS: Record<Language, TaskStrings> = {
@@ -119,6 +123,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     payoutLabel: "Your payout",
     playAgain: "Play again",
     retry: "Retry",
+    saveError: "Could not save this session. Check the output folder and try again.",
   },
   tr: {
     consentTitle: "Başlamadan önce",
@@ -168,6 +173,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     payoutLabel: "Ödemeniz",
     playAgain: "Tekrar Oyna",
     retry: "Tekrar Dene",
+    saveError: "Bu oturum kaydedilemedi. Çıktı klasörünü kontrol edip tekrar deneyin.",
   },
 };
 

@@ -153,6 +153,53 @@ describe("BartGame gameplay screen", () => {
     expect(screen.getByText(`2 ${t.balloonsWord}`)).toBeTruthy();
   });
 
+  it("keeps the participant off the thank-you screen when the save fails (issue 49)", async () => {
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockRejectedValue(new Error("output directory is not writable"));
+    renderGame();
+    await startTask();
+
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(`${t.balloonLabel} 2/2`, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    // The write failed, so the session was NOT recorded: the participant must
+    // never see the "recorded" confirmation. A retryable error keeps them on the
+    // finished screen instead (issue 49 / kaizen F1).
+    expect(await screen.findByText(t.saveError)).toBeTruthy();
+    expect(screen.queryByText(t.thankYouTitle)).toBeNull();
+    expect(screen.getByRole("button", { name: t.seeResults })).toBeTruthy();
+  });
+
+  it("reaches the thank-you once a failed save is retried and succeeds (issue 49)", async () => {
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockRejectedValueOnce(new Error("output directory is not writable"));
+    persistSession.mockResolvedValue({});
+    renderGame();
+    await startTask();
+
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(`${t.balloonLabel} 2/2`, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+
+    // First attempt: the write fails, so no confirmation and the button stays.
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+    expect(await screen.findByText(t.saveError)).toBeTruthy();
+    expect(screen.queryByText(t.thankYouTitle)).toBeNull();
+
+    // Retry: the write lands this time, so the session is recorded and only now
+    // does the debrief appear.
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+    expect(await screen.findByText(t.thankYouTitle)).toBeTruthy();
+  });
+
   it("shows the engine-computed payout on the debrief (issue 41)", async () => {
     submitSession.mockResolvedValue({
       session_id: "s-1",

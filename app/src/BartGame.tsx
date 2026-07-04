@@ -135,18 +135,19 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
         const payload = buildSessionPayload(sessionIdRef.current, candidateId, eventLogRef.current, condition, duplicateAcknowledged, practice);
         try {
             const data = await submitSession<AssessmentResult>(payload, config);
+
+            // Persist before confirming (issue 49): the engine owns file writing
+            // (SPEC §13), and the participant must never see the "recorded"
+            // debrief unless the write actually landed. A failed write throws to
+            // the catch below, keeping us on the finished screen with a
+            // retryable error rather than a false confirmation of a lost session.
+            await persistSession(payload, config);
+
             setResults(data);
-
-            // Persist the session locally via the sidecar (best-effort; the engine
-            // owns file writing, SPEC §13). A write failure must not block results.
-            void persistSession(payload, config).catch((persistErr) =>
-                console.error("Failed to persist session:", persistErr),
-            );
-
             if (onComplete) onComplete(data);
         } catch (err) {
-            console.error("Submission error:", err);
-            setFeedbackMessage(err instanceof Error ? err.message : "Failed to submit");
+            console.error("Session submit/persist error:", err);
+            setFeedbackMessage(t.saveError);
         } finally {
             setIsSubmitting(false);
         }
