@@ -6,20 +6,23 @@ This is the exhaustive list of fields on the
 ranges; conceptual explanations live in [The scoring engine](scoring_engine.md).
 
 ```{note}
-**Color-name dependence.** Two classes of metric behave differently for custom
-studies. The **EV-based metrics** — `risk_calibration_score`,
-`ev_ratio_score`, `ev_efficiency_uniformity`, `explosion_penalty`,
-`risk_adjustment_score`, and the per-color breakdown — are config-agnostic and
-valid for any color names, counts, caps, and hazard families. The **name-keyed
-persona metrics** — the learning-rate family (`learning_rate`,
-`half_split_learning_rate`, `tercile_learning_rate`),
-`color_discrimination_index`, `color_discrimination_trajectory`,
-`patience_index`, `orange_avg_pumps`, and several `risk_style` classifications —
-resolve behavior by the literal color names `purple`/`teal`/`orange` and are
-**validated only for the default study**. A study using other names has those
-fields silently read `0`/`None`; the engine flags this in `session_warnings`.
-See ADR 0004 (`docs/adr/0004-persona-metrics-default-color-triad.md`); full
-generalization is tracked as issue 56.
+**Color-name independence.** Every metric is now config-agnostic. The **EV-based
+metrics** — `risk_calibration_score`, `ev_ratio_score`,
+`ev_efficiency_uniformity`, `explosion_penalty`, `risk_adjustment_score`, and the
+per-color breakdown — are computed from each color's precomputed survival/EV
+curve, valid for any color names, counts, caps, and hazard families. The
+**persona metrics** — the learning-rate family (`learning_rate`,
+`half_split_learning_rate`, `tercile_learning_rate`), `color_discrimination_index`,
+`color_discrimination_trajectory`, `patience_index`, `orange_avg_pumps`, and the
+`risk_style` classifications — resolve behavior by **risk role** rather than by
+literal color name: the study's colors are ranked by EV-optimal stop (safest =
+highest optimum, riskiest = lowest), and the two-color contrasts run between that
+safest and riskiest color, excluding the mid-risk ones. A renamed, re-counted, or
+re-ordered study therefore has all of these metrics computed coherently.
+`orange_avg_pumps` keeps its legacy field name but reports the study's
+highest-risk color. (The `session_warnings` validity checks still assume the
+default 3×10 study shape — a separate limitation.) See ADR 0004
+(`docs/adr/0004-persona-metrics-default-color-triad.md`; issue 56).
 ```
 
 ## Volume & outcome
@@ -86,7 +89,7 @@ generalization is tracked as issue 56.
   - `money_collected` ÷ the study's expected EV-optimal earnings (Σ trials × EV-optimal per color, config-derived; ≈27.03 for the default study).
 * - `patience_index_normalized`
   - 0–1
-  - Purple (low-risk) EV efficiency: distinguishes patience from reckless over-pumping.
+  - Lowest-risk color's EV efficiency: distinguishes patience from reckless over-pumping.
 * - `ev_optimal_stops`
   - dict
   - EV-optimal stop per color, plus per-color efficiency entries (`_purple_efficiency`, etc.).
@@ -103,7 +106,7 @@ generalization is tracked as issue 56.
   - Description
 * - `learning_rate`
   - −1…1
-  - $R^2$-weighted regression slope of pumps on trial number, sign-adjusted per profile (teal excluded).
+  - $R^2$-weighted regression slope of pumps on trial number, sign-adjusted by risk role (mid-risk colors excluded).
 * - `half_split_learning_rate`
   - −1…1
   - First-half vs. second-half mean-pump change per color. Robust at low trial counts.
@@ -112,7 +115,7 @@ generalization is tracked as issue 56.
   - First-third vs. last-third change, dropping the middle third.
 * - `color_discrimination_trajectory`
   - ≈−1…1 / None
-  - Change in purple-minus-orange separation from first to last third, normalized by the study's EV-optimal spread (`purple_opt − orange_opt`; 9 for the default study).
+  - Change in safest-minus-riskiest separation from first to last third, normalized by the study's EV-optimal spread (`low_opt − high_opt`; 9 for the default study).
 * - `post_explosion_sensitivity`
   - ≈−2…2 / None
   - Mean pump reduction on the next same-color balloon after a burst, normalized by $s^*$. Positive = adaptive.
@@ -124,7 +127,7 @@ generalization is tracked as issue 56.
   - Pearson correlation between balloon capacity and pumps.
 * - `color_discrimination_index`
   - 0–1 / None
-  - **Deprecated** (Cohen's *d* purple-vs-orange). Kept for backward compatibility; use `ev_efficiency_uniformity`.
+  - **Deprecated** (Cohen's *d*, safest vs. riskiest color). Kept for backward compatibility; use `ev_efficiency_uniformity`.
 ```
 
 ## Behavioral indices
@@ -141,7 +144,7 @@ generalization is tracked as issue 56.
   - $1 - \mathrm{clip}(\text{mean latency}/800\text{ ms})$. Higher = faster, more reflexive pumping.
 * - `patience_index`
   - ≥0
-  - Mean pumps on low-risk (purple) balloons (raw, behavioral).
+  - Mean pumps on the lowest-risk color (raw, behavioral).
 * - `within_balloon_consistency`
   - ≥0
   - Mean CV of inter-pump latencies *within* balloons.
@@ -210,10 +213,10 @@ Each entry of `color_metrics` is a {py:class}`~scoring.schemas.ColorMetrics`:
   - Description
 * - `color`
   - str
-  - `purple` / `teal` / `orange`.
+  - The study's color name (default `purple` / `teal` / `orange`).
 * - `risk_profile`
   - str
-  - `low` / `medium` / `high`.
+  - `low` / `medium` / `high`, assigned by EV-optimal risk rank (safest = `low`).
 * - `average_pumps`
   - ≥0
   - Mean pumps over **all** balloons of this color.

@@ -1,5 +1,15 @@
 # Persona metrics are validated only for the default color triad
 
+> **Status update — resolved by issue 56 (done).** The generalization deferred in
+> step 2 below has landed: the name-keyed persona metrics now resolve behavior by
+> *risk role* — the study's colors ranked by EV-optimal stop (safest = highest
+> optimum, riskiest = lowest), with the two-color contrasts run between the safest
+> and riskiest color — instead of by the literal names `purple`/`teal`/`orange`.
+> Any color set now scores coherently, so the guard-and-document `session_warnings`
+> entry (step 1) was removed. The default purple/teal/orange study is byte-identical,
+> pinned by a golden-snapshot regression test. The record below is preserved for the
+> history of the decision.
+
 The scoring engine draws two kinds of output from a session. **EV-based metrics**
 (risk calibration, EV-efficiency uniformity, explosion penalty, risk adjustment,
 per-color breakdown) are computed from each color's precomputed survival/EV curve

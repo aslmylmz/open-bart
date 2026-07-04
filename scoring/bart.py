@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 from collections import defaultdict
+from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -38,35 +39,59 @@ _DEFAULT_CURVES: dict[str, BalloonCurve] = DEFAULT_TASK_CONFIG.curves
 MIN_COLLECTED_FALLBACK = 2
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# ── Risk ranking ─────────────────────────────────────────────────────────────
 
 
-def _persona_validity_warning(config: TaskConfig) -> str | None:
-    """Flag studies whose colors fall outside the default purple/teal/orange set.
+@dataclass(frozen=True)
+class _RiskRanking:
+    """A study's colors ordered by risk, so the name-keyed persona metrics resolve
+    behavior by *risk role* rather than by literal color name (issue 56).
 
-    The name-keyed persona metrics (learning-rate family, color discrimination,
-    patience/orange indices, and several ``risk_style`` branches) resolve
-    behavior by literal color name, so a study using other names gets those
-    fields silently degraded to 0/None. Rather than let a renamed-color study
-    publish meaningless persona metrics, say so explicitly (issue 51 / kaizen
-    F3). The EV-based metrics (calibration, uniformity, penalty, adjustment) and
-    the per-color breakdown are config-driven and stay valid; deriving the
-    name-keyed metrics from config risk-ordering is the deeper follow-up
-    (issue 56).
+    ``low_color`` is the lowest-risk color (highest EV-optimal stop) — the role
+    the default study's ``purple`` plays; ``high_color`` is the highest-risk color
+    (lowest EV-optimal stop) — the ``orange`` role; every color between is
+    excluded from the two-color contrasts (the ``teal`` role). ``risk_label`` maps
+    each color to ``low``/``medium``/``high``. A single-color study has no risk
+    contrast: ``low_color`` names that color, ``high_color`` is ``None`` (so the
+    discrimination metrics stay degenerate), and the label is ``medium``.
     """
-    unknown = [c.name for c in config.colors if c.name not in _RISK_BY_COLOR]
-    if not unknown:
-        return None
-    return (
-        f"This study uses color name(s) {', '.join(unknown)} outside the default "
-        "purple/teal/orange set. Name-keyed persona metrics (learning_rate, "
-        "half/tercile learning, color_discrimination_index, "
-        "color_discrimination_trajectory, patience_index, orange_avg_pumps, and "
-        "some risk_style classifications) are validated only for the default "
-        "study and may read 0/None or misclassify here; the EV-based metrics "
-        "(risk_calibration_score, ev_efficiency_uniformity, explosion_penalty, "
-        "risk_adjustment_score) and the per-color breakdown remain valid."
-    )
+
+    low_color: str | None
+    high_color: str | None
+    risk_label: dict[str, str]
+
+
+def _risk_ranking(curves: dict[str, BalloonCurve]) -> _RiskRanking:
+    """Rank a study's colors by risk — lowest risk = highest EV-optimal stop.
+
+    The EV-optimal stop (``curve.optimum``) is the behaviorally-meaningful risk
+    measure: a color you can safely pump further is lower-risk. Config/insertion
+    order breaks ties, keeping the ranking deterministic. For the default 128/32/8
+    study this yields purple (low) / teal (medium) / orange (high), so every
+    name-keyed metric stays byte-identical to the old literal-name resolution.
+    """
+    names = list(curves)
+    if not names:
+        return _RiskRanking(low_color=None, high_color=None, risk_label={})
+    if len(names) == 1:
+        only = names[0]
+        return _RiskRanking(low_color=only, high_color=None, risk_label={only: "medium"})
+
+    # Descending EV-optimal; Python's stable sort preserves config order on ties.
+    ordered = sorted(names, key=lambda n: curves[n].optimum, reverse=True)
+    low_color, high_color = ordered[0], ordered[-1]
+    risk_label = {n: "medium" for n in names}
+    risk_label[low_color] = "low"
+    risk_label[high_color] = "high"
+    return _RiskRanking(low_color=low_color, high_color=high_color, risk_label=risk_label)
+
+
+# The ranking for the default study; the fallback when a helper is called without
+# an explicit ranking (direct unit calls), mirroring ``_DEFAULT_CURVES``.
+_DEFAULT_RANKING = _risk_ranking(_DEFAULT_CURVES)
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 
 def _segment_balloons(events: list[GameEvent]) -> list[list[GameEvent]]:
@@ -255,12 +280,14 @@ def validate_bart_session(events: list[GameEvent]) -> dict[str, Any]:
 
 def _calculate_learning_rate(
     balloon_data: list[tuple[int, str, int, bool]],
+    ranking: _RiskRanking = _DEFAULT_RANKING,
 ) -> float:
     """
     Calculate learning rate using linear regression on pump counts over time.
 
-    Uses non-exploded trials only. Teal is excluded because its 
-    learning/adaptation direction relative to the EV optimum is ambiguous.
+    Uses non-exploded trials only. Only the lowest- and highest-risk colors count;
+    mid-risk colors are excluded because their learning/adaptation direction
+    relative to the EV optimum is ambiguous.
     """
     if len(balloon_data) < 3:
         return 0.0
@@ -301,10 +328,11 @@ def _calculate_learning_rate(
             r_value = 0.0 if syy == 0.0 else max(-1.0, min(1.0, sxy / math.sqrt(sxx * syy)))
             weighted_slope = slope * (r_value**2)
 
-            # Adjust sign based on adaptive behavior per risk profile
-            if color == "orange":
+            # Adjust sign based on adaptive behavior per risk role: on the
+            # highest-risk color, learning means pumping *less* over time.
+            if color == ranking.high_color:
                 learning_slopes.append(-weighted_slope)
-            elif color == "purple":
+            elif color == ranking.low_color:
                 learning_slopes.append(weighted_slope)
 
     if not learning_slopes:
@@ -318,12 +346,13 @@ def _calculate_learning_rate(
 
 def _calculate_half_split_learning_rate(
     balloon_data: list[tuple[int, str, int, bool]],
+    ranking: _RiskRanking = _DEFAULT_RANKING,
 ) -> float:
     """
     Compare average pumps between first-half and second-half trials per color.
 
     Uses collected trials only (with a fallback if collected < 4) to bypass
-    RNG truncation bias. Teal is excluded from the calculation.
+    RNG truncation bias. Only the lowest- and highest-risk colors count.
     """
     if len(balloon_data) < 4:
         return 0.0
@@ -358,9 +387,9 @@ def _calculate_half_split_learning_rate(
 
         delta = (second_half_mean - first_half_mean) / overall_mean
 
-        if color == "orange":
+        if color == ranking.high_color:
             learning_scores.append(-delta)
-        elif color == "purple":
+        elif color == ranking.low_color:
             learning_scores.append(delta)
 
     if not learning_scores:
@@ -374,11 +403,13 @@ def _calculate_half_split_learning_rate(
 
 def _calculate_tercile_learning_rate(
     balloon_data: list[tuple[int, str, int, bool]],
+    ranking: _RiskRanking = _DEFAULT_RANKING,
 ) -> float:
     """
     Compare average pumps between the first and last third of trials per color.
 
-    Drops the middle third to capture late-stage adaptation trends.
+    Drops the middle third to capture late-stage adaptation trends. Only the
+    lowest- and highest-risk colors count.
     """
     if len(balloon_data) < 6:
         return 0.0
@@ -416,9 +447,9 @@ def _calculate_tercile_learning_rate(
 
         delta = (last_mean - first_mean) / overall_mean
 
-        if color == "orange":
+        if color == ranking.high_color:
             learning_scores.append(-delta)
-        elif color == "purple":
+        elif color == ranking.low_color:
             learning_scores.append(delta)
 
     if not learning_scores:
@@ -431,16 +462,19 @@ def _calculate_tercile_learning_rate(
 def _calculate_color_discrimination_trajectory(
     balloon_data: list[tuple[int, str, int, bool]],
     curves: dict[str, BalloonCurve] = _DEFAULT_CURVES,
+    ranking: _RiskRanking = _DEFAULT_RANKING,
 ) -> float | None:
     """
-    Track the change in purple-vs-orange pump discrimination across session thirds.
+    Track the change in safest-vs-riskiest pump discrimination across session thirds.
 
-    Calculates discrimination = mean(purple) - mean(orange) per third. Returns
-    change normalized by this study's EV-optimal purple-orange spread
-    (purple_opt - orange_opt) — 9 for the default 128/8 study (issue 52).
+    Calculates discrimination = mean(low-risk) - mean(high-risk) per third.
+    Returns the change normalized by this study's EV-optimal spread between those
+    two colors (low_opt - high_opt) — 9 for the default 128/8 study (issue 52).
     """
     if len(balloon_data) < 6:
         return None
+
+    low_color, high_color = ranking.low_color, ranking.high_color
 
     sorted_data = sorted(balloon_data, key=lambda x: x[0])
     n = len(sorted_data)
@@ -454,18 +488,18 @@ def _calculate_color_discrimination_trajectory(
 
     block_disc = []
     for block in blocks:
-        purple_collected = [pumps for _, color, pumps, exploded in block
-                           if color == "purple" and not exploded]
-        orange_collected = [pumps for _, color, pumps, exploded in block
-                           if color == "orange" and not exploded]
-        
-        if not purple_collected:
-            purple_collected = [pumps for _, color, pumps, _ in block if color == "purple"]
-        if not orange_collected:
-            orange_collected = [pumps for _, color, pumps, _ in block if color == "orange"]
-            
-        if purple_collected and orange_collected:
-            block_disc.append(float(np.mean(purple_collected)) - float(np.mean(orange_collected)))
+        low_collected = [pumps for _, color, pumps, exploded in block
+                         if color == low_color and not exploded]
+        high_collected = [pumps for _, color, pumps, exploded in block
+                          if color == high_color and not exploded]
+
+        if not low_collected:
+            low_collected = [pumps for _, color, pumps, _ in block if color == low_color]
+        if not high_collected:
+            high_collected = [pumps for _, color, pumps, _ in block if color == high_color]
+
+        if low_collected and high_collected:
+            block_disc.append(float(np.mean(low_collected)) - float(np.mean(high_collected)))
         else:
             block_disc.append(None)
 
@@ -477,13 +511,13 @@ def _calculate_color_discrimination_trajectory(
     last_block_disc = valid[-1][1]
     change = last_block_disc - first_block_disc
 
-    # Normalize by the study's own EV-optimal purple-orange spread (was a
-    # hardcoded 9.0 = 11 - 2 for the default study), so the metric scales with
-    # the configured caps (issue 52). A missing color or non-positive spread
-    # can't normalize a purple-vs-orange trajectory.
-    if "purple" not in curves or "orange" not in curves:
+    # Normalize by the study's own EV-optimal spread between the safest and
+    # riskiest color (was a hardcoded 9.0 = 11 - 2 for the default study), so the
+    # metric scales with the configured caps (issue 52). A missing color (e.g. a
+    # single-risk-context study) or non-positive spread can't be normalized.
+    if low_color not in curves or high_color not in curves:
         return None
-    optimal_spread = curves["purple"].optimum - curves["orange"].optimum
+    optimal_spread = curves[low_color].optimum - curves[high_color].optimum
     if optimal_spread <= 0:
         return None
     return float(change / optimal_spread)
@@ -525,20 +559,22 @@ def _calculate_post_explosion_sensitivity(
 
 def _calculate_color_discrimination(
     color_pumps: dict[str, list[int]],
+    ranking: _RiskRanking = _DEFAULT_RANKING,
 ) -> float:
     """
-    Calculate purple-vs-orange discrimination using Cohen's d effect size.
+    Discriminate the lowest- vs. highest-risk color using Cohen's d effect size.
 
-    Normalized to [0, 1] where d >= 2.0 maps to 1.0.
+    Normalized to [0, 1] where d >= 2.0 maps to 1.0. A single-risk-context study
+    (no distinct high-risk color) can't discriminate and scores 0.0.
     """
-    purple_pumps = color_pumps.get("purple", [])
-    orange_pumps = color_pumps.get("orange", [])
+    low_pumps = color_pumps.get(ranking.low_color, [])
+    high_pumps = color_pumps.get(ranking.high_color, [])
 
-    if len(purple_pumps) < 2 or len(orange_pumps) < 2:
+    if len(low_pumps) < 2 or len(high_pumps) < 2:
         return 0.0
 
-    purple_arr = np.array(purple_pumps)
-    orange_arr = np.array(orange_pumps)
+    purple_arr = np.array(low_pumps)
+    orange_arr = np.array(high_pumps)
 
     mean_diff = np.mean(purple_arr) - np.mean(orange_arr)
     pooled_std = np.sqrt(
@@ -762,6 +798,7 @@ def _detect_flat_strategy(
     cdt: float | None = None,
     pes: float | None = None,
     between_cv: float = 0.0,
+    ranking: _RiskRanking = _DEFAULT_RANKING,
 ) -> bool:
     """
     Detect if the user utilized an undifferentiated flat strategy across profiles.
@@ -793,8 +830,8 @@ def _detect_flat_strategy(
     if mean_val <= 0:
         return False
 
-    purple_mean = raw_means.get("purple", 0)
-    orange_mean = raw_means.get("orange", 0)
+    purple_mean = raw_means.get(ranking.low_color, 0)
+    orange_mean = raw_means.get(ranking.high_color, 0)
 
     is_variable = (
         tercile_lr > 0.15
@@ -821,8 +858,8 @@ def _detect_flat_strategy(
             if total > 0:
                 explosion_rates[color] = color_explosions.get(color, 0) / total
 
-        orange_exp = explosion_rates.get("orange", 0)
-        purple_exp = explosion_rates.get("purple", 0)
+        orange_exp = explosion_rates.get(ranking.high_color, 0)
+        purple_exp = explosion_rates.get(ranking.low_color, 0)
         
         if orange_exp > 0.8 and purple_exp < 0.5:
             return True
@@ -901,14 +938,18 @@ def _calculate_consistency_breakdown(
 
 def _generate_behavioral_profile(
     metrics: BARTMetrics,
+    ranking: _RiskRanking = _DEFAULT_RANKING,
 ) -> dict[str, Any]:
     """
     Generate a narrative behavioral profile mapped to performance markers.
+
+    Selective-strength and patience markers read per-color EV efficiency by risk
+    role (safest / riskiest color) rather than by literal color name.
     """
     profile: dict[str, Any] = {}
 
-    purple_eff = metrics.ev_optimal_stops.get("_purple_efficiency", 0.0)
-    orange_eff = metrics.ev_optimal_stops.get("_orange_efficiency", 0.0)
+    purple_eff = metrics.ev_optimal_stops.get(f"_{ranking.low_color}_efficiency", 0.0)
+    orange_eff = metrics.ev_optimal_stops.get(f"_{ranking.high_color}_efficiency", 0.0)
     has_selective_strength = purple_eff >= 0.70 and orange_eff < 0.30
 
     _tercile_lr = metrics.tercile_learning_rate
@@ -1043,7 +1084,7 @@ def _generate_behavioral_profile(
     if metrics.orange_avg_pumps is not None and metrics.orange_avg_pumps > 4.0:
         traits.append("Impulsive on High-Risk")
 
-    _pe = metrics.ev_optimal_stops.get("_purple_efficiency")
+    _pe = metrics.ev_optimal_stops.get(f"_{ranking.low_color}_efficiency")
     if _pe is not None and _pe > 0.90:
         traits.append("Near-Optimal on Safe Balloons")
     elif metrics.patience_index > 20:
@@ -1089,17 +1130,11 @@ def score_bart(
         raise ValueError("Empty event log")
 
     curves = config.curves
+    ranking = _risk_ranking(curves)
 
     validation = validate_bart_session(events)
     session_valid = validation["is_valid"]
     session_warnings = list(validation["warnings"])
-
-    # Honesty guard (issue 51): the name-keyed persona metrics are validated only
-    # for the default purple/teal/orange study, so a renamed-color study is told
-    # its persona fields may be unreliable rather than silently trusting them.
-    persona_warning = _persona_validity_warning(config)
-    if persona_warning:
-        session_warnings.append(persona_warning)
 
     balloons = _segment_balloons(events)
 
@@ -1285,7 +1320,7 @@ def score_bart(
                 explosion_rate=round(color_exp_rate, 4),
                 total_balloons=balloons_of_color,
                 collected_count=len(collected_of_color),
-                risk_profile=_RISK_BY_COLOR.get(color, "medium"),
+                risk_profile=ranking.risk_label.get(color, "medium"),
                 used_fallback=used_fb,
                 ev_efficiency=round(color_ev_eff, 4) if color_ev_eff is not None else None,
                 ev_optimal_stop=color_ev_optimal,
@@ -1293,12 +1328,12 @@ def score_bart(
             ),
         )
 
-    learning_rate = _calculate_learning_rate(balloon_data)
-    half_split_lr = _calculate_half_split_learning_rate(balloon_data)
-    tercile_lr = _calculate_tercile_learning_rate(balloon_data)
-    cdt = _calculate_color_discrimination_trajectory(balloon_data, curves=curves)
+    learning_rate = _calculate_learning_rate(balloon_data, ranking)
+    half_split_lr = _calculate_half_split_learning_rate(balloon_data, ranking)
+    tercile_lr = _calculate_tercile_learning_rate(balloon_data, ranking)
+    cdt = _calculate_color_discrimination_trajectory(balloon_data, curves=curves, ranking=ranking)
     pes = _calculate_post_explosion_sensitivity(balloon_data, curves=curves)
-    color_discrimination = _calculate_color_discrimination(color_pumps_behavioral)
+    color_discrimination = _calculate_color_discrimination(color_pumps_behavioral, ranking)
     risk_adjustment = _calculate_risk_adjustment_score(color_pumps_behavioral, curves=curves)
     risk_sensitivity = _calculate_risk_sensitivity(color_pumps_behavioral, curves=curves)
     risk_calibration_score = float(np.clip(ev_ratio_score, 0.0, 100.0))
@@ -1315,12 +1350,15 @@ def score_bart(
         cdt=cdt,
         pes=pes,
         between_cv=between_balloon_cv,
+        ranking=ranking,
     )
 
-    orange_collected_real = color_pumps_collected.get("orange", [])
-    has_orange_data = len(orange_collected_real) >= MIN_COLLECTED_FALLBACK
+    # ``orange_avg_pumps`` keeps its legacy field name (schema / Master CSV
+    # contract) but reads the study's highest-risk color, whatever it is called.
+    high_collected_real = color_pumps_collected.get(ranking.high_color, [])
+    has_high_data = len(high_collected_real) >= MIN_COLLECTED_FALLBACK
     orange_avg_pumps: float | None = (
-        float(np.mean(orange_collected_real)) if has_orange_data else None
+        float(np.mean(high_collected_real)) if has_high_data else None
     )
 
     if intra_balloon_latencies.size > 1:
@@ -1334,11 +1372,13 @@ def score_bart(
     else:
         impulsivity_index = 0.0
 
-    purple_behavioral = color_pumps_behavioral.get("purple", [])
-    patience_index = float(np.mean(purple_behavioral)) if purple_behavioral else 0.0
+    # Patience is the mean pumps on the safest (lowest-risk) color: how far the
+    # participant is willing to push where pushing is cheap.
+    low_behavioral = color_pumps_behavioral.get(ranking.low_color, [])
+    patience_index = float(np.mean(low_behavioral)) if low_behavioral else 0.0
 
-    purple_ev_efficiency = per_color_efficiency.get("purple", 0.0)
-    patience_index_normalized = float(np.clip(purple_ev_efficiency, 0.0, 1.0))
+    low_ev_efficiency = per_color_efficiency.get(ranking.low_color, 0.0)
+    patience_index_normalized = float(np.clip(low_ev_efficiency, 0.0, 1.0))
 
     safe_hslr = 0.0 if np.isnan(half_split_lr) else half_split_lr
     safe_ev_uniformity = ev_efficiency_uniformity if ev_efficiency_uniformity is not None else 0.0
@@ -1466,7 +1506,7 @@ def score_bart(
         behavioral_profile={},
     )
 
-    profile = _generate_behavioral_profile(metrics_obj)
+    profile = _generate_behavioral_profile(metrics_obj, ranking)
     metrics_obj.behavioral_profile = profile
 
     return metrics_obj

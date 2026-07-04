@@ -25,7 +25,7 @@ from scoring.config import (
     TaskConfig,
     WeibullHazard,
 )
-from tests.test_scoring import build_events, optimal_session
+from tests.test_scoring import build_events, optimal_session, rich_session
 
 
 def test_single_color_session_scores_with_coherent_style():
@@ -97,6 +97,138 @@ def test_custom_color_explosions_feed_penalty():
     assert metrics.explosion_penalty > 0.0
 
 
+# ── Rename-invariance: name-keyed persona metrics follow risk role (issue 56) ──
+#
+# The same behavior, scored under the default triad vs. renamed colors with the
+# same caps and risk ordering, must produce identical name-keyed persona metrics —
+# and they must be the genuine non-degenerate values, not 0/None. These pin the
+# generalization from literal purple/teal/orange onto the config's risk ranking.
+
+
+def test_learning_family_is_rename_invariant():
+    """The learning-rate family keys on risk role, not color name: renamed
+    colors reproduce the default study's non-zero learning values."""
+    default = score_bart(rich_session())
+    renamed = score_bart(
+        rich_session("crimson", "azure", "jade"), config=_custom_color_config()
+    )
+
+    assert renamed.learning_rate == default.learning_rate != 0.0
+    assert renamed.half_split_learning_rate == default.half_split_learning_rate != 0.0
+    assert renamed.tercile_learning_rate == default.tercile_learning_rate != 0.0
+
+
+def test_color_discrimination_index_is_rename_invariant():
+    """color_discrimination_index (Cohen's d, safest vs. riskiest color) keys on
+    risk role: renamed colors reproduce the default's non-degenerate value."""
+    default = score_bart(rich_session())
+    renamed = score_bart(
+        rich_session("crimson", "azure", "jade"), config=_custom_color_config()
+    )
+
+    assert default.color_discrimination_index not in (None, 0.0)
+    assert renamed.color_discrimination_index == default.color_discrimination_index
+
+
+def test_color_discrimination_trajectory_is_rename_invariant():
+    """The discrimination trajectory (safest-minus-riskiest separation across
+    thirds, normalized by the EV-optimal spread) keys on risk role: renamed
+    colors reproduce the default's non-degenerate value instead of reading None."""
+    default = score_bart(rich_session())
+    renamed = score_bart(
+        rich_session("crimson", "azure", "jade"), config=_custom_color_config()
+    )
+
+    assert default.color_discrimination_trajectory not in (None, 0.0)
+    assert renamed.color_discrimination_trajectory == default.color_discrimination_trajectory
+
+
+def test_patience_and_high_risk_average_are_rename_invariant():
+    """patience_index / patience_index_normalized (safest color) and
+    orange_avg_pumps (riskiest color, keeping its legacy field name) key on risk
+    role: renamed colors reproduce the default's non-degenerate values instead of
+    reading 0/None."""
+    default = score_bart(rich_session())
+    renamed = score_bart(
+        rich_session("crimson", "azure", "jade"), config=_custom_color_config()
+    )
+
+    assert default.patience_index not in (None, 0.0)
+    assert renamed.patience_index == default.patience_index
+    assert renamed.patience_index_normalized == default.patience_index_normalized
+
+    assert default.orange_avg_pumps is not None
+    assert renamed.orange_avg_pumps == default.orange_avg_pumps
+
+
+def test_flat_strategy_detection_is_rename_invariant():
+    """Flat-strategy detection keys on risk role: a low-but-discriminating session
+    (safe color pumped well above the riskiest) is exempted from the
+    'undifferentiated' flag under any color names, not just the default triad."""
+    def sess(low, mid, high):
+        b = []
+        for _ in range(10):
+            b.append((low, 3, True))
+            b.append((mid, 2, True))
+            b.append((high, 1, True))
+        return build_events(b)
+
+    default = score_bart(sess("purple", "teal", "orange"))
+    renamed = score_bart(sess("crimson", "azure", "jade"), config=_custom_color_config())
+
+    assert default.flat_strategy_detected is False
+    assert renamed.flat_strategy_detected == default.flat_strategy_detected
+    assert renamed.behavioral_profile["risk_style"] == default.behavioral_profile["risk_style"]
+
+
+def test_behavioral_profile_selective_strength_is_rename_invariant():
+    """The profile's selective-strength branches (Emerging/Selective Optimizer,
+    the 'Near-Optimal on Safe Balloons' trait) read per-color EV efficiency by
+    risk role: a near-optimal-on-safe / over-pumping-risky session classifies the
+    same and carries the same traits under renamed colors."""
+    def selective(low, mid, high):
+        b = []
+        for _ in range(10):
+            b.append((low, 11, True))
+            b.append((mid, 5, True))
+            b.append((high, 6, False))
+        return build_events(b)
+
+    default = score_bart(selective("purple", "teal", "orange"))
+    renamed = score_bart(selective("crimson", "azure", "jade"), config=_custom_color_config())
+
+    assert default.behavioral_profile["risk_style"] == "Emerging Optimizer"
+    assert renamed.behavioral_profile["risk_style"] == default.behavioral_profile["risk_style"]
+    assert renamed.behavioral_profile["dominant_traits"] == default.behavioral_profile["dominant_traits"]
+
+
+def test_risk_profile_labels_follow_ranking_not_config_position():
+    """risk_profile is derived from the EV-optimal risk ranking, so a study that
+    declares its colors riskiest-first still labels the safest color 'low' and the
+    riskiest 'high', and the persona metrics resolve by that ranking rather than
+    by config position."""
+    config = TaskConfig(  # declared high-risk (N=8) first, low-risk (N=128) last
+        title="reversed order",
+        reward_per_pump=0.25,
+        colors=[
+            ColorProfile(name="jade", label="J", display_hex="#059669",
+                         max_pumps=8, trials=10, hazard=DynamicHazard()),
+            ColorProfile(name="azure", label="A", display_hex="#2563eb",
+                         max_pumps=32, trials=10, hazard=DynamicHazard()),
+            ColorProfile(name="crimson", label="C", display_hex="#dc2626",
+                         max_pumps=128, trials=10, hazard=DynamicHazard()),
+        ],
+    )
+    metrics = score_bart(
+        rich_session(low="crimson", mid="azure", high="jade"), config=config
+    )
+    labels = {cm.color: cm.risk_profile for cm in metrics.color_metrics}
+
+    assert labels == {"crimson": "low", "azure": "medium", "jade": "high"}
+    # Persona metrics resolve by risk role, so they match the default triad's.
+    assert metrics.patience_index == score_bart(rich_session()).patience_index
+
+
 def test_flat_strategy_detected_for_custom_color_names():
     """Undifferentiated pumping is flagged regardless of what the study's
     colors are called."""
@@ -109,38 +241,40 @@ def test_flat_strategy_detected_for_custom_color_names():
     assert metrics.flat_strategy_detected is True
 
 
-def test_non_default_color_names_flag_persona_validity():
-    """A study whose colors fall outside the default purple/teal/orange set gets
-    an explicit warning that the name-keyed persona metrics (learning rate, color
-    discrimination, risk style) are validated only for the default study — rather
-    than letting them silently read 0/None (issue 51 / kaizen F3)."""
-    balloons = []
-    for color, stop in (("crimson", 11), ("azure", 5), ("jade", 2)):
-        balloons.extend([(color, stop, True)] * 10)
+def test_non_default_color_names_carry_no_persona_caveat():
+    """The name-keyed persona metrics now resolve by risk role, so a renamed-color
+    study scores them for real and carries no 'validated only for the default
+    study' caveat (issue 56 completes the deferred half of issue 51 / kaizen F3)."""
+    metrics = score_bart(
+        rich_session("crimson", "azure", "jade"), config=_custom_color_config()
+    )
 
-    metrics = score_bart(build_events(balloons), config=_custom_color_config())
+    assert not any("persona" in w.lower() for w in metrics.session_warnings)
+    # And the metrics are genuinely computed, not degraded to 0/None.
+    assert metrics.learning_rate != 0.0
+    assert metrics.color_discrimination_index not in (None, 0.0)
+    assert metrics.patience_index > 0.0
 
-    assert any("persona" in w.lower() for w in metrics.session_warnings)
 
-
-def test_recognized_color_subset_has_no_persona_validity_warning():
-    """A study using a subset of the recognized names (purple + orange) still
-    resolves the name-keyed metrics, so it must NOT carry the persona caveat —
-    the guard keys on unrecognized names, not on the exact default triad."""
+def test_two_color_custom_study_discriminates():
+    """A two-color custom study (safest + riskiest, no mid) resolves the
+    safest-vs-riskiest discrimination by ranking — the metric is non-degenerate
+    for any names, not just a purple/orange pair."""
     config = TaskConfig(
-        title="two recognized colors",
+        title="two custom colors",
         reward_per_pump=0.25,
         colors=[
-            ColorProfile(name="purple", label="P", display_hex="#7c3aed",
+            ColorProfile(name="crimson", label="C", display_hex="#dc2626",
                          max_pumps=128, trials=10, hazard=DynamicHazard()),
-            ColorProfile(name="orange", label="O", display_hex="#f97316",
+            ColorProfile(name="jade", label="J", display_hex="#059669",
                          max_pumps=8, trials=10, hazard=DynamicHazard()),
         ],
     )
-    balloons = [("purple", 11, True)] * 10 + [("orange", 2, True)] * 10
+    balloons = [("crimson", 11, True)] * 10 + [("jade", 2, True)] * 10
 
     metrics = score_bart(build_events(balloons), config=config)
 
+    assert metrics.color_discrimination_index not in (None, 0.0)
     assert not any("persona" in w.lower() for w in metrics.session_warnings)
 
 

@@ -5,7 +5,9 @@ Run with ``pytest`` from the repository root.
 
 from __future__ import annotations
 
+import json
 import math
+from pathlib import Path
 
 import pytest
 
@@ -44,6 +46,33 @@ def optimal_session():
     balloons = []
     for color in ("purple", "teal", "orange"):
         balloons.extend([(color, OPTIMA[color], True)] * 10)
+    return build_events(balloons)
+
+
+# A discriminating, learning session spec keyed by risk role (low/mid/high). The
+# low-risk color is pumped near its high optimum and improves over the run; the
+# high-risk color starts reckless (early explosions) then calms — so every
+# name-keyed persona metric (learning, discrimination, patience, high-risk
+# average) lands non-trivially. Reused under renamed colors to prove that
+# scoring is invariant to color names once risk ordering is preserved.
+_RICH_LOW = [(8, True), (9, True), (7, True), (10, True), (9, True),
+             (11, True), (12, True), (11, True), (13, True), (12, True)]
+_RICH_MID = [(4, True), (5, True), (3, True), (6, True), (5, True),
+             (5, True), (4, True), (6, True), (5, True), (5, True)]
+_RICH_HIGH = [(5, False), (4, False), (6, False), (3, True), (3, True),
+              (2, True), (2, True), (2, True), (2, True), (2, True)]
+
+
+def rich_session(low="purple", mid="teal", high="orange"):
+    """A full 30-balloon session interleaving low/mid/high-risk colors, with
+    genuine discrimination, learning, and patience signal. ``low``/``mid``/``high``
+    name the colors by risk role so the same behavior can be scored under the
+    default triad or any renamed/re-ordered study."""
+    balloons = []
+    for i in range(10):
+        balloons.append((low, _RICH_LOW[i][0], _RICH_LOW[i][1]))
+        balloons.append((mid, _RICH_MID[i][0], _RICH_MID[i][1]))
+        balloons.append((high, _RICH_HIGH[i][0], _RICH_HIGH[i][1]))
     return build_events(balloons)
 
 
@@ -99,6 +128,18 @@ def test_optimal_session_is_calibrated_optimizer():
     metrics = score_bart(optimal_session())
     assert metrics.behavioral_profile["risk_style"] == "Calibrated Risk Optimizer"
     assert isinstance(metrics.behavioral_profile["dominant_traits"], list)
+
+
+def test_default_session_metrics_are_byte_identical_to_golden():
+    """Regression lock for the risk-ranking generalization (issue 56): a full
+    default purple/teal/orange session with genuine learning, discrimination,
+    and patience signal must serialize *exactly* as the committed golden. This
+    is the byte-identical guarantee — routing name-keyed metrics through the
+    risk ranking must not move a single default-study number."""
+    golden = json.loads(
+        (Path(__file__).parent / "fixtures" / "default_session_metrics_golden.json").read_text()
+    )
+    assert score_bart(rich_session()).model_dump() == golden
 
 
 def test_money_collected_matches_reward_rule():
