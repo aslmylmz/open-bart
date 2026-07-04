@@ -2,7 +2,7 @@
 
 **Feature · depends on: —**
 
-Status: ready-for-agent
+Status: done
 
 ## Context
 

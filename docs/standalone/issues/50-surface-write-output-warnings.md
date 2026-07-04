@@ -2,7 +2,7 @@
 
 **Bugfix · depends on: 49**
 
-Status: ready-for-agent
+Status: done
 
 ## Context
 

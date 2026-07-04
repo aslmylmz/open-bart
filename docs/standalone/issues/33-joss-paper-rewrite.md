@@ -2,7 +2,7 @@
 
 **Paper · depends on: 30, 31, 32**
 
-Status: ready-for-agent
+Status: done
 
 ## Context
 
