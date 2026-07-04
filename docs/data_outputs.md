@@ -199,7 +199,7 @@ misaligned:
 | `ev_efficiency_uniformity` | 1 − CV of per-color EV efficiencies (empty when fewer than two risk contexts) |
 | `risk_adjustment_score` | Alignment with the per-color optimal stops |
 | `risk_sensitivity` | Pump differentiation across hazard levels |
-| `color_discrimination_index` | Purple-vs-orange pump differentiation |
+| `color_discrimination_index` | Safest-vs-riskiest color pump differentiation |
 | `patience_index` | Distance above/below optimal stopping |
 | `patience_index_normalized` | Normalized patience index |
 | `impulsivity_index` | Latency-based impulsivity (fast pumping) |

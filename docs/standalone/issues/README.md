@@ -203,6 +203,69 @@ facing prose (31–33) describes software that holds up, then archive (34).
   Zenodo; the version DOI is cited consistently. Submission itself stays manual.
 - `pytest`, `npm test`, `tsc --noEmit`, and `vite build` stay green throughout.
 
+## Phase 7 — Instrument hardening (post-1.0, client brief pillars 2 + 3 + 4B)
+
+The JOSS-safe polish cycle grilled out of `docs/client-brief.md` (2026-07-02):
+data provenance (trial-level export, QC flags, OSF-ready output dirs) and
+RA-proof guardrails (mandatory ID, condition enum, practice mode, in-app kiosk
+lock), plus the payout conversion. Sequenced **prefactor-first**: the
+header-versioned master-file writer (36) makes the three column-adding slices
+(37, 40, 41) and the trials CSV (39) safe for labs that upgrade mid-study;
+the ID-screen chain is 38 → 43. 36, 38, 42, and 44 have no blockers and can be
+worked in parallel. Standing constraints for every slice: **all new
+`study.json` fields are optional** (every v1.0.0 preset keeps validating),
+and each slice updates `docs/data_outputs.md` + the contract tests alongside
+the code.
+
+| # | Issue | Depends on | Touches |
+|---|---|---|---|
+| [36](36-master-file-writer-migration.md) | Master-file writer: header-versioned append + auto-migrate | — | `app/sidecar/app.py`, `tests/`, `docs/data_outputs.md` |
+| [37](37-condition-preset-enum.md) | Condition as a preset-driven enum (dropdown → CSV) | 36 | `scoring/config/task_config.py`, `app/src/setup/`, `app/src/run/RunFlow.tsx`, `app/sidecar/`, `tests/` |
+| [38](38-mandatory-id-duplicate-guard.md) | Mandatory participant ID + duplicate-ID warn-confirm | — | `app/src/run/RunFlow.tsx`, `app/sidecar/app.py`, `app/src/lib/i18n.ts`, `tests/` |
+| [39](39-trials-csv-long-format.md) | Study-wide trials CSV (long-format trial-level export) | 36 | `scoring/bart.py`, `app/sidecar/app.py`, `docs/data_outputs.md`, `tests/` |
+| [40](40-qc-flags.md) | QC flags: engine-computed, preset thresholds | 36 | `scoring/bart.py`, `scoring/config/task_config.py`, `docs/data_outputs.md`, `tests/` |
+| [41](41-payout-conversion.md) | Real-world payout conversion | 36 | `scoring/config/task_config.py`, `app/sidecar/`, `app/src/run/Debrief.tsx`, `tests/` |
+| [42](42-provenance-by-default.md) | Provenance by default: OSF-ready output directory | — | `app/sidecar/app.py`, `scoring/`, `docs/data_outputs.md`, `tests/` |
+| [43](43-test-run-practice-mode.md) | Test Run: practice mode + "data not recorded" banner | 38 | `app/src/App.tsx`, `app/src/run/`, `app/sidecar/app.py`, `tests/` |
+| [44](44-kiosk-inapp-lock.md) | Kiosk in-app lock: passcode-gated exit + Assigned Access docs | — | `scoring/config/task_config.py`, `app/src/run/`, `app/src/lib/desktop.ts`, `docs/standalone/` |
+
+### Phase 7 acceptance (rolls up 36–44)
+
+- A lab upgrading mid-study keeps one coherent Master CSV (migrated, backed
+  up, blanks for pre-upgrade sessions); a locked file never loses a session.
+- A configured study forces ID (+ condition, when declared) at the ID screen,
+  warns on duplicate IDs, and records the acknowledgment.
+- Analysts get a study-wide long-format trials CSV and QC columns whose
+  thresholds live in the preset; flags annotate, never exclude.
+- The output directory is OSF-ready by default (frozen preset, provenance,
+  generated data dictionary).
+- A practice run exercises the full pipeline without touching the official
+  dataset and is visibly labeled a test at all times.
+- With a passcode set, a participant cannot exit a running session; the docs
+  are honest about in-app limits and point to Windows Assigned Access.
+- Every v1.0.0 `study.json` still validates; `pytest`, `npm test`, `tsc`,
+  `vite build` stay green throughout.
+
+> Out of scope for Phase 7 (deferred until after JOSS review, per the
+> 2026-07-02 roadmap grill): the `metubart://` URI scheme (brief 1A), TTL
+> hardware triggers (1B — also declared out of scope in CONTEXT.md), visual
+> asset swapping (4A — conflicts with the "Familiarity on the Outside" rule),
+> and a zip-export button (2C's provenance-by-default covers the need).
+
+## Refactors & tooling
+
+Standalone hardening that isn't a client-brief pillar: dead-code removal, the
+pydantic↔TypeScript contract parity guard, the Study-Setup controls that surface
+the new QC-threshold / payout fields (issues 40, 41), and a single combined CI
+gate. 46 lands the contract guard first; 47 and 48 build on it.
+
+| # | Issue | Depends on | Touches |
+|---|---|---|---|
+| [45](45-delete-dead-ev-engine.md) | Delete the dead family-blind EV engine | — | `scoring/`, `tests/` |
+| [46](46-pydantic-ts-contract-parity-guard.md) | Guard the pydantic↔TypeScript contract with a parity test | — | `tests/test_ts_contract.py`, `app/src/lib/contract.test.ts` |
+| [47](47-study-setup-qc-payout-controls.md) | Study Setup: form controls for QC thresholds + payout conversion | 46 | `app/src/setup/StudySetup.tsx`, `app/src/lib/config.ts` |
+| [48](48-combined-ci-pytest-vitest-tsc.md) | Combined CI: run pytest + vitest + tsc together | 46 | `.github/workflows/ci.yml` |
+
 ## Bugfixes
 
 Cross-cutting fixes discovered during end-to-end testing.
@@ -212,3 +275,33 @@ Cross-cutting fixes discovered during end-to-end testing.
 | [22](22-sidecar-cors-localhost-fix.md) | Sidecar CORS middleware + `localhost` → `127.0.0.1` fix | 08, 15, 16 | `app/sidecar/app.py`, `app/src/lib/api.ts`, `tests/` |
 | [23](23-runflow-error-retry.md) | RunFlow error recovery: retry instead of re-enter ID | 16, 22 | `app/src/run/RunFlow.tsx`, `app/src/lib/i18n.ts` |
 | [35](35-stale-sidecar-bundle-guard.md) | Stale-bundle guard: version handshake + readable 422s | — | `app/src/VersionGuard.tsx`, `app/src/lib/api.ts`, `app/src/App.tsx`, `app/vite.config.ts` |
+
+## Cycle 01 — post-audit hardening (2026-07-04)
+
+Seeded from the 2026-07-04 research audit and tracked as Quality Kaizen cycle 01
+(`../QUALITY-KAIZEN.md`, register rows F1–F7). Sequenced **integrity-first**: the
+two Critical data-loss fixes (49 → 50) land before the validity and export work.
+Standing constraints carry over: all new `study.json` fields stay optional, each
+slice ships with a regression guard, and `pytest` / `vitest` / `tsc` /
+`vite build` stay green.
+
+| # | Issue | Class · Sev | Depends on | Touches |
+|---|---|---|---|---|
+| [49](49-confirm-write-before-recorded.md) | Confirm the save before the "recorded" debrief | bug · **Critical** | — | `app/src/BartGame.tsx`, `app/src/lib/api.ts`, `app/src/lib/i18n.ts` |
+| [50](50-surface-write-output-warnings.md) | Surface `/write-output` warnings in the UI | bug · **Critical** | 49 | `app/src/lib/api.ts`, `app/src/BartGame.tsx`, `app/src/lib/i18n.ts` |
+| [51](51-generalize-persona-off-color-literals.md) | Persona layer: guard + document the color-name dependence | validity · **Critical** | — | `scoring/bart.py`, `tests/`, `docs/metrics_reference.md` |
+| [52](52-config-derive-benchmarks.md) | Config-derive the money/discrimination benchmarks | validity · Medium | (∥ 51) | `scoring/bart.py`, `scoring/config/`, `tests/` |
+| [53](53-drop-nonscalar-csv-columns.md) | Drop non-scalar columns from the flat master CSV | bug · Medium | — | `app/sidecar/app.py`, `tests/`, `docs/data_outputs.md` |
+| [54](54-label-persona-exploratory.md) | Mark the persona / composite scores as exploratory | validity · Medium | — | `scoring/schemas/`, `docs/metrics_reference.md` |
+| [55](55-debrief-currency-consent-copy.md) | Debrief currency + consent-screen copy | usability · Low | — | `app/src/run/Debrief.tsx`, `app/src/lib/i18n.ts` |
+| [56](56-generalize-persona-by-risk-ranking.md) | Generalize name-keyed persona metrics onto config risk-ranking | validity · Medium | 51 | `scoring/bart.py`, `tests/`, `docs/metrics_reference.md`, `docs/adr/` |
+
+### Cycle 01 acceptance (rolls up 49–56)
+
+- No completed session ever shows "recorded" unless its write is confirmed; write
+  warnings (Excel-lock sibling forks, migrations) are researcher-visible.
+- A non-default color config is never silently zeroed: the persona metrics resolve
+  by risk role (safest / riskiest color) and the benchmarks scale with the config.
+- The master CSV is scalar-only; nested data stays in the metrics JSON.
+- Analysis-ready primitives are documented as distinct from exploratory composites.
+- Every v1.0.0 `study.json` still validates; the four gates stay green throughout.

@@ -102,15 +102,18 @@ median is the fairer reference point.
 
 ## Learning and adaptation
 
-Because the three profiles reward different responses, the *directional* meaning
-of a learning slope is profile-dependent. Orange rewards *fewer* pumps over time,
-purple rewards *more*; teal is excluded because its direction is ambiguous. The
-engine offers three complementary learning estimators, all computed on collected
-balloons:
+Because colors at different risk levels reward different responses, the
+*directional* meaning of a learning slope depends on a color's risk role. The
+engine ranks the study's colors by EV-optimal stop (issue 56): the highest-risk
+color rewards *fewer* pumps over time, the lowest-risk color rewards *more*, and
+the mid-risk colors are excluded because their direction is ambiguous. This
+resolves by risk role rather than by literal color name, so a renamed or
+re-ordered study is scored the same. The engine offers three complementary
+learning estimators, all computed on collected balloons:
 
 - **`learning_rate`** ({py:func}`~scoring.bart._calculate_learning_rate`) —
   per-color linear regression of pumps on trial number, each slope weighted by
-  its $R^2$ to suppress noise, sign-adjusted per profile, then averaged.
+  its $R^2$ to suppress noise, sign-adjusted by risk role, then averaged.
 - **`half_split_learning_rate`** — first-half vs. second-half mean pumps per
   color (more robust than regression at ~10 trials per color, since no single
   outlier dominates).
@@ -119,9 +122,9 @@ balloons:
 
 Two further adaptation metrics capture within-session dynamics:
 
-- **`color_discrimination_trajectory`** — the change in purple-minus-orange pump
-  separation from the first to the last third of the session, normalized by the
-  EV-optimal spread (~9 pumps).
+- **`color_discrimination_trajectory`** — the change in safest-minus-riskiest
+  pump separation from the first to the last third of the session, normalized by
+  the EV-optimal spread between those two colors (~9 pumps for the default study).
 - **`post_explosion_sensitivity`** — the mean pump reduction on the next
   same-color balloon following a burst, normalized by that color's $s^*$.
   Positive values indicate adaptive risk reduction.
@@ -159,7 +162,7 @@ weighting.
 ## Flat-strategy detection
 
 `flat_strategy_detected` ({py:func}`~scoring.bart._detect_flat_strategy`) flags
-participants who pump nearly identically across all three colors — forgoing
+participants who pump nearly identically across colors — forgoing
 reward on safe balloons and over-exploding on risky ones. The detector exempts
 participants who show genuine adaptation (positive tercile learning, color
 discrimination growth, post-explosion sensitivity, or high between-balloon
@@ -182,7 +185,7 @@ narrative `risk_style` from the computed metrics, evaluated in priority order
 * - **Calibrated Risk Optimizer**
   - `risk_calibration_score ≥ 80`, `explosion_penalty < 0.25`, uniformity > 0.60.
 * - **Selective Over-Optimizer**
-  - Strong on purple (eff ≥ 0.70) but weak on orange (eff < 0.30); low uniformity; penalty > 0.25.
+  - Strong on the safest color (eff ≥ 0.70) but weak on the riskiest (eff < 0.30); low uniformity; penalty > 0.25.
 * - **Persistent Risk Taker**
   - `rng_normalized_pumps ≥ 1.0` across the board with penalty > 0.20.
 * - **Context-Insensitive Risk Taker**
