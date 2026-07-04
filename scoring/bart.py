@@ -430,12 +430,14 @@ def _calculate_tercile_learning_rate(
 
 def _calculate_color_discrimination_trajectory(
     balloon_data: list[tuple[int, str, int, bool]],
+    curves: dict[str, BalloonCurve] = _DEFAULT_CURVES,
 ) -> float | None:
     """
     Track the change in purple-vs-orange pump discrimination across session thirds.
 
-    Calculates discrimination = mean(purple) - mean(orange) per third.
-    Returns change normalized by the expected EV-optimal spread (~9.0).
+    Calculates discrimination = mean(purple) - mean(orange) per third. Returns
+    change normalized by this study's EV-optimal purple-orange spread
+    (purple_opt - orange_opt) — 9 for the default 128/8 study (issue 52).
     """
     if len(balloon_data) < 6:
         return None
@@ -475,7 +477,15 @@ def _calculate_color_discrimination_trajectory(
     last_block_disc = valid[-1][1]
     change = last_block_disc - first_block_disc
 
-    optimal_spread = 9.0
+    # Normalize by the study's own EV-optimal purple-orange spread (was a
+    # hardcoded 9.0 = 11 - 2 for the default study), so the metric scales with
+    # the configured caps (issue 52). A missing color or non-positive spread
+    # can't normalize a purple-vs-orange trajectory.
+    if "purple" not in curves or "orange" not in curves:
+        return None
+    optimal_spread = curves["purple"].optimum - curves["orange"].optimum
+    if optimal_spread <= 0:
+        return None
     return float(change / optimal_spread)
 
 
@@ -1178,10 +1188,17 @@ def score_bart(
         elif evt.type == "explode":
             _money_pumps = 0
 
-    # Benchmark median earnings at optimal play
-    _OPTIMAL_MEDIAN_EARNINGS = 27.25
+    # Benchmark: the study's expected earnings under EV-optimal play, derived
+    # from the config (sum of trials x EV-optimal per color) rather than the old
+    # hardcoded 27.25, which only held for the default 3x10 study at $0.25/pump
+    # (issue 52). Config-driven, so any reward/cap/trial-count scores coherently.
+    optimal_earnings = sum(
+        col.trials * curves[col.name].optimal_ev
+        for col in config.colors
+        if col.name in curves
+    )
 
-    money_efficiency = money_collected / _OPTIMAL_MEDIAN_EARNINGS if _OPTIMAL_MEDIAN_EARNINGS > 0 else 0.0
+    money_efficiency = money_collected / optimal_earnings if optimal_earnings > 0 else 0.0
     money_efficiency = float(np.clip(money_efficiency, 0.0, 2.0))
 
     color_pumps_behavioral: dict[str, list[int]] = {}
@@ -1279,7 +1296,7 @@ def score_bart(
     learning_rate = _calculate_learning_rate(balloon_data)
     half_split_lr = _calculate_half_split_learning_rate(balloon_data)
     tercile_lr = _calculate_tercile_learning_rate(balloon_data)
-    cdt = _calculate_color_discrimination_trajectory(balloon_data)
+    cdt = _calculate_color_discrimination_trajectory(balloon_data, curves=curves)
     pes = _calculate_post_explosion_sensitivity(balloon_data, curves=curves)
     color_discrimination = _calculate_color_discrimination(color_pumps_behavioral)
     risk_adjustment = _calculate_risk_adjustment_score(color_pumps_behavioral, curves=curves)

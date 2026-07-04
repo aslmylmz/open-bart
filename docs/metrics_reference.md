@@ -83,7 +83,7 @@ generalization is tracked as issue 56.
   - `1 − CV` of per-color EV efficiencies (consistency across hazard levels). `None` if <2 colors have usable data.
 * - `money_efficiency`
   - 0–2
-  - `money_collected` ÷ simulated median optimal earnings (27.25).
+  - `money_collected` ÷ the study's expected EV-optimal earnings (Σ trials × EV-optimal per color, config-derived; ≈27.03 for the default study).
 * - `patience_index_normalized`
   - 0–1
   - Purple (low-risk) EV efficiency: distinguishes patience from reckless over-pumping.
@@ -112,7 +112,7 @@ generalization is tracked as issue 56.
   - First-third vs. last-third change, dropping the middle third.
 * - `color_discrimination_trajectory`
   - ≈−1…1 / None
-  - Change in purple-minus-orange separation from first to last third, normalized by the ~9-pump optimal spread.
+  - Change in purple-minus-orange separation from first to last third, normalized by the study's EV-optimal spread (`purple_opt − orange_opt`; 9 for the default study).
 * - `post_explosion_sensitivity`
   - ≈−2…2 / None
   - Mean pump reduction on the next same-color balloon after a burst, normalized by $s^*$. Positive = adaptive.

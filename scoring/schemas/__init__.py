@@ -451,9 +451,10 @@ class BARTMetrics(BaseModel):
         ge=0.0,
         le=2.0,
         description=(
-            "Money collected / median earnings at EV-optimal play (from Monte Carlo simulation). "
-            "1.0 = earned what a median optimal session earns. >1.0 = lucky or better than optimal. "
-            "Uses simulated median instead of EV because ~50% of optimal sessions earn below EV."
+            "Money collected / the study's expected earnings under EV-optimal play "
+            "(sum of trials x EV-optimal per color, derived from the config's curves). "
+            "1.0 = earned what an EV-optimal session expects; >1.0 = better than expected "
+            "(e.g. lucky survival past the optimum). Clipped to [0, 2]."
         ),
     )
     flat_strategy_detected: bool = Field(

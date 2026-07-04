@@ -47,3 +47,21 @@ rather than assume them.
 Source: 2026-07-04 research audit, register row F4. Touches `scoring/bart.py`
 alongside issue 51 — coordinate to avoid overlapping edits; the two are
 otherwise independent and can be worked in parallel.
+
+**2026-07-04 — implemented (TDD).** Both hardcoded benchmarks are now
+config-derived. `money_efficiency` divides by the study's expected EV-optimal
+earnings (Σ `trials × optimal_ev` per color, straight off `TaskConfig.curves`)
+instead of the literal `27.25`; `color_discrimination_trajectory` normalizes by
+`curves["purple"].optimum − curves["orange"].optimum` (guarded for a missing
+color / non-positive spread) instead of the literal `9.0`. Tests:
+`money_efficiency` is now invariant to reward scaling (identical optimal play
+scores the same at $0.25 and $1.00/pump — the old fixed total pinned the richer
+study to the `[0, 2]` clip); the trajectory scales with a compressed optima
+spread (`2/9` → `2/3`). **Intentional default-study shift:** the analytic
+EV-optimal total is `27.034` vs the old Monte-Carlo estimate `27.25`, so a
+default-study `money_efficiency` moves ~0.8% (a principled correction, not
+silent — the two were always within noise; the "median" rationale barely held).
+No published data depends on it (pre-1.0). The stale frozen sidecar was
+re-frozen (PyInstaller 6.18.0) so `/score` parity holds; docs (schema +
+metrics reference) updated. Closes kaizen row F4. Gates: pytest 165 ✅,
+vitest 132 ✅, tsc ✅, vite build ✅.
