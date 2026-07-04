@@ -2,7 +2,7 @@
 
 **Design-flaw · depends on: none**
 
-Status: ready-for-agent
+Status: done
 
 ## Context
 
@@ -48,3 +48,27 @@ Source: 2026-07-04 fresh full-audit, register row F12. Evidence: `app/src/BartGa
 the cycle — it touches burst determinism and the seeded-replay guarantee (SPEC §7.2),
 so confirm the reproducibility contract is re-stated, not lost. Webview-only unless the
 seed model is pushed into the sidecar.
+
+**Done 2026-07-05.** Added a pure `deriveRunSeed(studySeed, candidateId)` to
+`app/src/run/sequence.ts`: it folds the participant ID into the run seed (xmur3
+string hash XORed with the study seed, then a splitmix32 avalanche) so a fixed study
+`seed` reproduces each participant from `(seed, id)` while participants diverge; a
+`null` seed → a fresh random seed per run (v1.0.0 default, unchanged). `BartGame`'s
+`startGame` now seeds `mulberry32(deriveRunSeed(config.seed, candidateId))` instead of
+the study seed alone. `buildSequence`/`mulberry32` are untouched, preserving their
+contracts.
+
+**Escape hatch (decision: no new field).** The reproducible/shared-sequence hatch is
+by construction, documented in the SPEC §7.2 note and the `seed` field docs: re-run a
+`seed` with the same participant ID to replay a run byte-identically, and a fixed-ID
+demo (practice mode's `TEST` id) shares one sequence. A one-flag "identical order for
+all participants" was deliberately not added — that is the D3 order confound this
+issue removes — avoiding a `TaskConfig` schema change and a re-freeze.
+
+Guards (`sequence.test.ts`, red before the change): two participants under the same
+fixed seed get different run seeds **and** different sequence orders; the same
+`(seed, id)` replays byte-identically; a `null` seed yields a fresh seed per run. Docs
+re-stated in `SPEC.md` §7.2 + the config-block seed line, the TS `TaskConfig.seed`
+doc, and the pydantic `seed` field description. Webview-only: no `/score` or schema
+change, so no re-freeze (the pydantic edit is description-only). Four gates green
+(`vitest` 141, `tsc --noEmit`, `vite build`, `pytest` 182).

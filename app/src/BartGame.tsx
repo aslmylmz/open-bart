@@ -13,7 +13,7 @@ import {
   initialState,
 } from "./lib/taskEngine";
 import { type AssessmentResult, Debrief } from "./run/Debrief";
-import { type Balloon, buildSequence, mulberry32 } from "./run/sequence";
+import { type Balloon, buildSequence, deriveRunSeed, mulberry32 } from "./run/sequence";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -104,10 +104,11 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
     const startGame = () => {
         eventLogRef.current = [];
         sessionIdRef.current = crypto.randomUUID();
-        // One seeded rng drives both the shuffle and the per-pump burst draws, so a
-        // fixed seed reproduces the whole run (SPEC §7.2); null seed → fresh run.
-        const seed = config.seed ?? ((Math.random() * 2 ** 32) >>> 0);
-        const rng = mulberry32(seed);
+        // One seeded rng drives both the shuffle and the per-pump burst draws (SPEC
+        // §7.2). The seed mixes the study seed with the participant ID (issue 61), so
+        // a fixed study seed reproduces each participant from (seed, id) while
+        // participants diverge; a null study seed → a fresh run.
+        const rng = mulberry32(deriveRunSeed(config.seed, candidateId));
         rngRef.current = rng;
         sequenceRef.current = buildSequence(config, hazards, rng);
         setEngine(initialState());

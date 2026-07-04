@@ -145,7 +145,7 @@ TaskConfig
   title: str                      # study label, embedded in every data file
   language: "tr" | "en"           # participant-facing i18n
   reward_per_pump: float          # currency units per banked pump (does NOT affect optimum)
-  seed: int | null                # RNG seed → reproducible burst sequences
+  seed: int | null                # RNG seed; mixed with participant ID → per-participant reproducible bursts (§7.2)
   output_dir: str                 # local folder for session data
   colors: list[ColorProfile]      # typically 3, but allow 1..K
 
@@ -220,7 +220,11 @@ Implementation notes for each family:
   `max_pumps`, where `S` collapses to 0 before the optimum is meaningful, or where
   params are out of domain. Surface clear error messages (the UI shows them).
 - **Reproducible bursting:** the task draws `u ~ Uniform(0,1)` per pump (seeded RNG)
-  and bursts when `u < h(k)`. Same RNG, same seed ⇒ same sequence (for replay/QA).
+  and bursts when `u < h(k)`. The run seed mixes the study `seed` with the
+  participant ID (issue 61), so a study is reproducible from `(seed, id)` while each
+  participant gets an **independent** sequence — a fixed `seed` no longer collapses
+  every participant onto one order. Re-running `seed` with the same ID replays that
+  run byte-identically (replay/QA); a `null` seed is a fresh run each time.
 - `reward_per_pump` scales EV uniformly and therefore does **not** move the
   optimum; keep that explicit in code and docs.
 

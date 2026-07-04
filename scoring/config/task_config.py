@@ -92,7 +92,15 @@ class TaskConfig(BaseModel):
             "payout block's currency, which labels the converted payout amount."
         ),
     )
-    seed: Optional[int] = Field(default=None, description="RNG seed for reproducible bursts")
+    seed: Optional[int] = Field(
+        default=None,
+        description=(
+            "RNG seed for the client burst sequence (SPEC §7.2). The webview mixes "
+            "it with the participant ID (issue 61), so a fixed seed reproduces each "
+            "participant from (seed, id) while participants diverge; null means a "
+            "fresh run each time. Read only by the task webview, not the scorer."
+        ),
+    )
     output_dir: str = Field(default=".", description="local folder for session data")
     colors: list[ColorProfile] = Field(
         min_length=1, description="the study's color profiles, in display order"

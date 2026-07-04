@@ -139,6 +139,10 @@ export interface TaskConfig {
    * absent means the default "$" — shown with in-task money and the debrief
    * earnings. Distinct from `payout.currency` (the converted payout label). */
   currency?: string;
+  /** RNG seed for the client burst sequence (SPEC §7.2). Mixed with the
+   * participant ID at run start (issue 61), so a fixed seed reproduces each
+   * participant from `(seed, id)` while participants diverge; `null` → a fresh
+   * run each time. Webview-only — the scoring engine never reads it. */
   seed: number | null;
   output_dir: string;
   colors: ColorProfile[];

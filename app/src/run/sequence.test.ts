@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_STUDY } from "../lib/config";
-import { buildSequence, mulberry32 } from "./sequence";
+import { buildSequence, deriveRunSeed, mulberry32 } from "./sequence";
 
 const threeColor = (trials: [number, number, number]) => ({
   ...DEFAULT_STUDY,
@@ -40,5 +40,30 @@ describe("buildSequence", () => {
     const orderA = buildSequence(cfg, hazards, mulberry32(7)).map((b) => b.colorName);
     const orderB = buildSequence(cfg, hazards, mulberry32(7)).map((b) => b.colorName);
     expect(orderA).toEqual(orderB);
+  });
+});
+
+describe("deriveRunSeed (per-participant reproducibility, issue 61)", () => {
+  const hazards = { purple: [0.1, 0.2], teal: [0.3], orange: [0.5] };
+  const runOrder = (studySeed: number | null, id: string) =>
+    buildSequence(threeColor([10, 10, 10]), hazards, mulberry32(deriveRunSeed(studySeed, id))).map(
+      (b) => b.colorName,
+    );
+
+  it("gives two participants different run seeds under the same fixed study seed", () => {
+    // The D3 fix: a fixed study seed must not collapse every participant onto one
+    // sequence. Different IDs → different run seeds → divergent shuffle + bursts.
+    expect(deriveRunSeed(7, "P001")).not.toBe(deriveRunSeed(7, "P002"));
+    expect(runOrder(7, "P001")).not.toEqual(runOrder(7, "P002"));
+  });
+
+  it("replays byte-identically for the same (seed, participant) — the SPEC §7.2 contract", () => {
+    expect(deriveRunSeed(7, "P001")).toBe(deriveRunSeed(7, "P001"));
+    expect(runOrder(7, "P001")).toEqual(runOrder(7, "P001"));
+  });
+
+  it("yields a fresh seed per run when the study seed is null (v1.0.0 default)", () => {
+    // No fixed seed → each run is fresh and independent, even for the same ID.
+    expect(deriveRunSeed(null, "P001")).not.toBe(deriveRunSeed(null, "P001"));
   });
 });
