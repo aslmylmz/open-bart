@@ -158,6 +158,18 @@ generalization is tracked as issue 56.
 
 ## Composite, profile & validity
 
+```{note}
+**Analysis-ready primitives vs. exploratory composites.** `adaptive_strategy_score`
+and `behavioral_profile` (`risk_style`) are **unnormed heuristics**, not validated
+psychometric constructs: the score is an arbitrarily fixed-weighted composite and
+the risk style is a hand-tuned decision tree — neither has a norming sample or a
+reliability estimate. Use the analysis-ready primitives as dependent variables —
+`average_pumps_adjusted`, `explosion_rate`, `ev_ratio_score`, and the per-color
+`{color}_ev_efficiency` — and treat these two composites as descriptive summaries
+only, validating independently before reporting them. `color_discrimination_index`
+is deprecated (see below); prefer `ev_efficiency_uniformity`.
+```
+
 ```{list-table}
 :header-rows: 1
 :widths: 32 14 54
@@ -167,13 +179,13 @@ generalization is tracked as issue 56.
   - Description
 * - `adaptive_strategy_score`
   - 0–100
-  - Weighted blend: calibration 35%, learning 25%, uniformity 25%, money 15%.
+  - **Exploratory** (unnormed composite). Weighted blend: calibration 35%, learning 25%, uniformity 25%, money 15%.
 * - `flat_strategy_detected`
   - bool
   - True if pumping is undifferentiated across colors (active learners exempted).
 * - `behavioral_profile`
   - dict
-  - `risk_style`, `description`, `dominant_traits` — see [Behavioral profiles](scoring_engine.md#behavioral-profiles).
+  - **Exploratory** (unnormed heuristic). `risk_style`, `description`, `dominant_traits` — see [Behavioral profiles](scoring_engine.md#behavioral-profiles).
 * - `session_valid`
   - bool
   - True if the session passes all validity checks.

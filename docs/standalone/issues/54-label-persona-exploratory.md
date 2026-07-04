@@ -44,3 +44,17 @@ outputs are used correctly.
 
 Source: 2026-07-04 research audit, register row F6. No scoring math changes —
 scope is provenance and honest labeling of already-computed fields.
+
+**2026-07-04 — implemented (TDD).** The `adaptive_strategy_score` and
+`behavioral_profile` schema descriptions now carry an explicit "Exploratory:
+unnormed heuristic — not a validated dependent variable" caveat, which flows into
+the auto-generated data dictionary and the API schema. `docs/metrics_reference.md`
+gains a note separating analysis-ready primitives (`average_pumps_adjusted`,
+`explosion_rate`, `ev_ratio_score`, per-color `ev_efficiency`) from the two
+exploratory composites, and marks both rows. `color_discrimination_index` was
+**kept** (the issue's "flagged, not removed" option — removing it would churn the
+pydantic↔TS contract for a pre-1.0 field) with its existing `DEPRECATED` marker
+in schema and docs. New `tests/test_metric_documentation.py`: the two composites
+carry the exploratory marker; the deprecated field always carries its marker (no
+silent export). Closes kaizen row F6. Gates: pytest 170 ✅, vitest 132 ✅,
+tsc ✅, vite build ✅.

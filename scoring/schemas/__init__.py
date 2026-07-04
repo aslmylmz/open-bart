@@ -328,7 +328,9 @@ class BARTMetrics(BaseModel):
         le=100.0,
         description=(
             "Composite score (0-100). Fixed weights: calibration 35%, learning 25%, "
-            "uniformity 25%, money efficiency 15%."
+            "uniformity 25%, money efficiency 15%. Exploratory: an unnormed, "
+            "arbitrarily-weighted index — not a validated dependent variable; do "
+            "not report without independent validation."
         ),
     )
     risk_sensitivity: float = Field(
@@ -337,7 +339,12 @@ class BARTMetrics(BaseModel):
     )
     behavioral_profile: dict[str, Any] = Field(
         default_factory=dict,
-        description="Narrative behavioral insights (risk style, adaptability, etc.)",
+        description=(
+            "Narrative behavioral insights (risk style, adaptability, etc.). "
+            "Exploratory: risk_style is a hand-tuned heuristic decision tree, not "
+            "a validated or normed classifier — treat as a descriptive summary, "
+            "not a dependent variable."
+        ),
     )
 
     # ── Behavioral indices ───────────────────────────────────────────────────
