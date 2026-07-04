@@ -169,9 +169,16 @@ def _identity_columns(config: TaskConfig) -> list[tuple[str, str | None]]:
 
 def _unflattened_fields(config: TaskConfig) -> set[str]:
     """The ``BARTMetrics`` fields ``_flatten_metrics`` keeps out of the master
-    CSV: the nested narrative/per-color structures, plus the payout pair for
-    studies that declare no payout (the conditional-column rule, issue 41)."""
-    skip = {"behavioral_profile", "color_metrics"}
+    CSV: the nested narrative/per-color structures and the JSON-only dict/list
+    fields (``ev_optimal_stops``, ``session_warnings`` — issue 53), plus the
+    payout pair for studies that declare no payout (the conditional-column
+    rule, issue 41). These stay documented in the scored-metrics JSON section."""
+    skip = {
+        "behavioral_profile",
+        "color_metrics",
+        "ev_optimal_stops",
+        "session_warnings",
+    }
     if config.payout is None:
         skip |= {"payout_amount", "payout_currency"}
     return skip

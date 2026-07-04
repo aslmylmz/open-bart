@@ -546,6 +546,51 @@ def test_write_output_appends_master_csv(tmp_path):
     assert rows[0]["purple_risk_profile"] == purple.risk_profile
 
 
+def test_master_csv_omits_non_scalar_metric_columns(tmp_path):
+    """The flat master CSV carries only scalar cells: the dict/list metric fields
+    (`ev_optimal_stops`, `session_warnings`) are kept in the per-session metrics
+    JSON and never stringified into the sheet as Python-repr blobs (issue 53)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    resp = client.post(
+        "/write-output", json={"session": _session_payload(events), "config": cfg}
+    )
+    assert resp.status_code == 200, resp.text
+
+    with Path(resp.json()["master_csv"]).open(newline="", encoding="utf-8") as fh:
+        header = next(csv.reader(fh))
+
+    assert "ev_optimal_stops" not in header
+    assert "session_warnings" not in header
+
+    # The data isn't lost — it stays in the per-session metrics JSON.
+    metrics = json.loads(Path(resp.json()["metrics"]).read_text(encoding="utf-8"))
+    assert "ev_optimal_stops" in metrics
+    assert "session_warnings" in metrics
+
+
+def test_master_csv_has_no_dict_or_list_cells(tmp_path):
+    """Durable contract: no master-CSV cell is a stringified dict/list, so the
+    sheet loads cleanly in R/SPSS. Guards against any future non-scalar metric
+    field leaking into the flat sheet (issue 53)."""
+    events = _collected_session()
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+
+    resp = client.post(
+        "/write-output", json={"session": _session_payload(events), "config": cfg}
+    )
+    assert resp.status_code == 200, resp.text
+
+    with Path(resp.json()["master_csv"]).open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+
+    for key, value in rows[0].items():
+        assert not value.startswith(("{", "[")), f"non-scalar cell in {key!r}: {value!r}"
+
+
 def test_write_output_records_condition_in_master_csv(tmp_path):
     """For a study that declares conditions, the session's assigned condition
     lands as a `condition` column next to the identity columns (issue 37)."""

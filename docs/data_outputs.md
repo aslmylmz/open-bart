@@ -138,8 +138,11 @@ session** to a single shared spreadsheet in the output directory:
 - The file is created **with a header row** on the first write.
 - Per-color metrics are flattened to `{color}_{field}` columns so they load
   as plain variables in SPSS or R.
-- The nested `behavioral_profile` narrative is **deliberately excluded** —
-  it is not meaningful as spreadsheet cells; read it from `*_metrics.json`.
+- Non-scalar fields are **deliberately excluded** so every cell is scalar and
+  loads cleanly in SPSS/R: the nested `behavioral_profile` narrative, the
+  `session_warnings` list, and the `ev_optimal_stops` mapping. Read them from
+  `*_metrics.json`. (The per-color EV-optimal stops are also available as the
+  scalar `{color}_ev_optimal_stop` columns.)
 
 ### Upgrading mid-study: migration and backups
 
@@ -176,8 +179,7 @@ misaligned:
 
 | Column | Meaning |
 |--------|---------|
-| `session_valid` | Overall validation verdict for the session |
-| `session_warnings` | Validation warnings (JSON-encoded list in one cell) |
+| `session_valid` | Overall validation verdict for the session (the `session_warnings` list itself is JSON-only — see `*_metrics.json`) |
 | `total_balloons` | Balloons played |
 | `total_pumps` | Total pumps across the session |
 | `total_explosions` | Balloons lost to bursts |
@@ -195,7 +197,6 @@ misaligned:
 | `explosion_penalty` | Excess explosion rate vs expected at optimal play |
 | `explosion_rate` | Observed explosion rate |
 | `ev_efficiency_uniformity` | 1 − CV of per-color EV efficiencies (empty when fewer than two risk contexts) |
-| `ev_optimal_stops` | Per-color EV-optimal stops (JSON-encoded mapping in one cell) |
 | `risk_adjustment_score` | Alignment with the per-color optimal stops |
 | `risk_sensitivity` | Pump differentiation across hazard levels |
 | `color_discrimination_index` | Purple-vs-orange pump differentiation |

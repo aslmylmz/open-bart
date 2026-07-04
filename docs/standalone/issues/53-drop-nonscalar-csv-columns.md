@@ -43,3 +43,18 @@ these two were missed.
 
 Source: 2026-07-04 research audit, register row F5. Same rationale and mechanism
 as the existing `behavioral_profile`/`color_metrics` pops in the flattener.
+
+**2026-07-04 — implemented (TDD).** `_flatten_metrics` now also pops
+`ev_optimal_stops` and `session_warnings`, so the flat master CSV is scalar-only;
+both stay in the per-session `*_metrics.json`. Two tests: the two columns are
+absent from the master-CSV header (and still present in the metrics JSON), and a
+durable guard that **no** master-CSV cell is a stringified dict/list. The
+provenance data-dictionary generator mirrors the flattener via
+`_unflattened_fields`, so its "Master CSV columns" section drifted — caught by
+`test_dictionary_names_every_master_csv_column` — and was kept in sync by adding
+the two fields there too (they move to the dictionary's scored-metrics-JSON
+section, where they belong). `docs/data_outputs.md` updated (the two rows
+removed; the exclusion note expanded). The mirror stays a test-guarded pair, per
+this codebase's established pattern, rather than DRY'd across modules. Sidecar
+re-frozen for local-app coherence (gitignored). Closes kaizen row F5. Gates:
+pytest 167 ✅, vitest 132 ✅, tsc ✅, vite build ✅.

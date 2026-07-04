@@ -49,6 +49,11 @@ def _flatten_metrics(metrics: BARTMetrics) -> dict[str, Any]:
     """
     row = metrics.model_dump(mode="json")
     row.pop("behavioral_profile", None)
+    # Non-scalar fields stay JSON-only (issue 53): in a flat sheet they land as
+    # Python-repr dict/list blobs (invalid JSON, embedded commas) and are
+    # redundant with the scalar {color}_ev_optimal_stop / _efficiency columns.
+    row.pop("ev_optimal_stops", None)
+    row.pop("session_warnings", None)
     # Payout columns exist only for studies that declare a payout block —
     # the same present-only-when-configured rule as `condition` (issues 37/41).
     if row.get("payout_amount") is None:
