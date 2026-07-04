@@ -74,6 +74,10 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
     const [feedbackMessage, setFeedbackMessage] = useState("");
     const [results, setResults] = useState<AssessmentResult | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Recoverable write warnings the sidecar returned (issue 50): a locked master
+    // CSV diverted to a sibling, a schema migration. Surfaced on the debrief for
+    // the researcher rather than silently dropped; cleared on a new run.
+    const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
 
     const ctx = (): EngineCtx => ({ sequence: sequenceRef.current, reward: config.reward_per_pump });
 
@@ -105,6 +109,7 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
         sequenceRef.current = buildSequence(config, hazards, rng);
         setEngine(initialState());
         setResults(null);
+        setSaveWarnings([]);
         setFeedbackMessage("");
         setStarted(true);
     };
@@ -141,9 +146,13 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
             // debrief unless the write actually landed. A failed write throws to
             // the catch below, keeping us on the finished screen with a
             // retryable error rather than a false confirmation of a lost session.
-            await persistSession(payload, config);
+            const writeResult = await persistSession(payload, config);
 
             setResults(data);
+            // Surface any recoverable write warnings to the researcher (issue 50)
+            // instead of dropping the sidecar's response — the write landed, but
+            // e.g. a locked master CSV was diverted to a sibling to merge by hand.
+            setSaveWarnings(writeResult?.warnings ?? []);
             if (onComplete) onComplete(data);
         } catch (err) {
             console.error("Session submit/persist error:", err);
@@ -511,6 +520,41 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
             {/* ── Debrief (participant thank-you) ──────────────────────────────── */}
             {gamePhase === "results" && results && (
                 <div className="flex flex-col items-center gap-6" style={centeredScreenStyle}>
+                    {/* Recoverable write warnings for the researcher (issue 50):
+                      * shown above the thank-you so a diverted/sibling save is
+                      * never missed. Absent on a clean write. */}
+                    {saveWarnings.length > 0 && (
+                        <div
+                            role="alert"
+                            style={{
+                                width: "100%",
+                                maxWidth: 520,
+                                background: "#fffbeb",
+                                border: "1px solid #f59e0b",
+                                borderLeft: "4px solid #d97706",
+                                borderRadius: 10,
+                                padding: "16px 20px",
+                                textAlign: "left",
+                            }}
+                        >
+                            <div style={{ fontWeight: 700, color: "#92400e", marginBottom: 8 }}>
+                                {t.saveWarningTitle}
+                            </div>
+                            <ul
+                                style={{
+                                    margin: 0,
+                                    paddingLeft: 20,
+                                    color: "#374151",
+                                    fontSize: "0.9rem",
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                {saveWarnings.map((w, i) => (
+                                    <li key={i}>{w}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                     <Debrief
                         language={config.language}
                         earnings={totalScore}

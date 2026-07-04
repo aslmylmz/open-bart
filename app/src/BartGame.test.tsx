@@ -200,6 +200,53 @@ describe("BartGame gameplay screen", () => {
     expect(await screen.findByText(t.thankYouTitle)).toBeTruthy();
   });
 
+  it("surfaces a write warning to the researcher on the debrief (issue 50)", async () => {
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({
+      warnings: [
+        "Could not update study_results.csv (Permission denied) — the file may be " +
+          "open in another program (e.g. Excel) or damaged. The session's rows were " +
+          "saved to study_results_unmerged_20260704T000000000000Z.csv; merge them " +
+          "into the main file by hand.",
+      ],
+    });
+    renderGame();
+    await startTask();
+
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(`${t.balloonLabel} 2/2`, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    // The write succeeded (to a sibling file), so the debrief still shows — but
+    // the researcher is now told the master CSV was locked and where the rows
+    // landed, instead of the warning being silently dropped (issue 50 / F2).
+    expect(await screen.findByText(t.thankYouTitle)).toBeTruthy();
+    expect(screen.getByText(/study_results_unmerged_.*\.csv/)).toBeTruthy();
+  });
+
+  it("shows no save-warning notice when the write is clean (issue 50)", async () => {
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({ warnings: [] });
+    renderGame();
+    await startTask();
+
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(`${t.balloonLabel} 2/2`, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    // A clean write must not raise a notice — the debrief stays uncluttered.
+    expect(await screen.findByText(t.thankYouTitle)).toBeTruthy();
+    expect(screen.queryByText(t.saveWarningTitle)).toBeNull();
+  });
+
   it("shows the engine-computed payout on the debrief (issue 41)", async () => {
     submitSession.mockResolvedValue({
       session_id: "s-1",

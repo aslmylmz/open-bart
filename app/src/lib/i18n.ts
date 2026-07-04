@@ -72,6 +72,10 @@ export interface TaskStrings {
    * (issue 49). The participant must never see the "recorded" debrief until the
    * write is confirmed; this keeps them on the finished screen to retry. */
   saveError: string;
+  /** Heading of the debrief notice listing recoverable write warnings the
+   * sidecar returned (issue 50) — e.g. the master CSV was locked and the rows
+   * landed in a sibling file the researcher must merge by hand. */
+  saveWarningTitle: string;
 }
 
 export const STRINGS: Record<Language, TaskStrings> = {
@@ -124,6 +128,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     playAgain: "Play again",
     retry: "Retry",
     saveError: "Could not save this session. Check the output folder and try again.",
+    saveWarningTitle: "Saved with warnings — please tell the researcher",
   },
   tr: {
     consentTitle: "Başlamadan önce",
@@ -174,6 +179,7 @@ export const STRINGS: Record<Language, TaskStrings> = {
     playAgain: "Tekrar Oyna",
     retry: "Tekrar Dene",
     saveError: "Bu oturum kaydedilemedi. Çıktı klasörünü kontrol edip tekrar deneyin.",
+    saveWarningTitle: "Uyarılarla kaydedildi — lütfen araştırmacıya bildirin",
   },
 };
 

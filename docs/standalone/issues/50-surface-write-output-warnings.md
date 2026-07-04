@@ -40,3 +40,14 @@ visible.
 Source: 2026-07-04 research audit, register row F2. Blocked by 49 because both
 rewrite the same completion path (`handleSubmit` + `persistSession`); doing them
 in sequence avoids a merge conflict on the same lines.
+
+**2026-07-04 — implemented (TDD).** `persistSession` now returns the parsed
+`/write-output` result (`WriteOutputResult`, mirroring the sidecar's
+`WriteOutputResponse`) instead of `void`, so its `warnings[]` reach the caller.
+`handleSubmit` captures them into state after the confirmed write (issue 49) and
+the debrief renders a `role="alert"` amber notice (heading = new `saveWarningTitle`
+i18n key, en + tr) listing each warning above the thank-you — a locked master CSV
+diverted to a `*_unmerged_*` sibling is now hard to miss. No warnings → no notice;
+the notice clears on a new run. Two behavior tests: a warning-bearing write
+surfaces the sibling-file message; a clean write raises nothing. Gates: pytest
+161 ✅, vitest 132 ✅, tsc ✅, vite build ✅.

@@ -147,10 +147,27 @@ export async function submitSession<T>(payload: SessionPayload, config?: TaskCon
   return postJson<T>(scoringEndpoint(), body);
 }
 
+/** The sidecar's /write-output result (mirrors WriteOutputResponse). `warnings`
+ * carries recoverable data-integrity notices — a locked master CSV diverted to a
+ * timestamped sibling, a schema migration — that the UI must surface (issue 50). */
+export interface WriteOutputResult {
+  events: string;
+  metrics: string;
+  config: string;
+  session: string;
+  master_csv?: string | null;
+  trials_csv?: string | null;
+  warnings: string[];
+}
+
 /** Persist a finished session locally via the sidecar's /write-output (SPEC §13).
- * The engine (not JS) owns file writing; the study config is sent so the metrics
- * and config snapshot reflect the study that was run (omitted → default study). */
-export async function persistSession(payload: SessionPayload, config?: TaskConfig): Promise<void> {
+ * Returns the write result so the caller can surface its `warnings` (issue 50);
+ * the engine (not JS) owns file writing, and the study config is sent so the
+ * metrics and config snapshot reflect the study that was run (omitted → default). */
+export async function persistSession(
+  payload: SessionPayload,
+  config?: TaskConfig,
+): Promise<WriteOutputResult> {
   const body = config ? { session: payload, config } : { session: payload };
-  await postJson<unknown>(`${resolveApiUrl()}/write-output`, body);
+  return postJson<WriteOutputResult>(`${resolveApiUrl()}/write-output`, body);
 }
