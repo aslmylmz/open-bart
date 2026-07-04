@@ -309,14 +309,17 @@ slice ships with a regression guard, and `pytest` / `vitest` / `tsc` /
 ## Cycle 02 — config-generalization + neutrality hardening (2026-07-04)
 
 Second kaizen cycle, seeded from a fresh full D1–D6 audit of the merged code
-(`../QUALITY-KAIZEN.md`, register rows F8–F14). Theme: issue 56 generalized the
+(`../QUALITY-KAIZEN.md`, register rows F8–F15). Theme: issue 56 generalized the
 persona *metrics* off the literal purple/teal/orange 3×10 study, but the validation
 layer, participant-facing copy, seed model, and one export column still assume it —
 plus two measurement-neutrality refinements. Nothing Critical. Recommended order
 runs the config-generalization + Medium-severity items first (57, 61, 62), then the
-Low polish/verification (58, 59, 63, 60). Standing constraints carry over: new
-`study.json` fields stay optional, each slice ships a regression guard, the four
-gates stay green, and the default study stays byte-identical where it applies.
+Low polish/verification (58, 59, 63, 60). Issue 64 (F15) was spun off mid-cycle:
+issue 60's verification surfaced that the Tauri capability set never grants the
+window setters, so the kiosk lock silently no-ops in a real build. Standing
+constraints carry over: new `study.json` fields stay optional, each slice ships a
+regression guard, the four gates stay green, and the default study stays
+byte-identical where it applies.
 
 | # | Issue | Dim · Class · Sev | Depends on | Touches |
 |---|---|---|---|---|
@@ -327,8 +330,9 @@ gates stay green, and the default study stays byte-identical where it applies.
 | [61](61-per-participant-seed.md) | Per-participant sequences from a reproducible study seed | D3 · design-flaw · **Medium** | — | `app/src/BartGame.tsx`, `app/src/run/sequence.ts`, `tests/` |
 | [62](62-hazard-appropriate-instructions.md) | Hazard-appropriate participant instructions (stop assuming dynamic) | D1/D2 · validity · **Medium** | — | `app/src/lib/i18n.ts`, `tests/` |
 | [63](63-neutral-action-buttons.md) | Neutral action buttons (drop the reward-priming emoji) | D2 · design-flaw · Low | — | `app/src/lib/i18n.ts`, `tests/` |
+| [64](64-kiosk-window-permissions.md) | Kiosk lock silently no-ops: grant the Tauri window setters | Bug · **Medium** · found by 60 | — | `app/src-tauri/capabilities/default.json`, `tests/` |
 
-### Cycle 02 acceptance (rolls up 57–63)
+### Cycle 02 acceptance (rolls up 57–64)
 
 - A renamed or re-counted study is validated against its own colors and trial
   counts; the default study's validation is byte-identical.
@@ -338,5 +342,7 @@ gates stay green, and the default study stays byte-identical where it applies.
   rising-hazard structure; practice runs never claim data was recorded.
 - The Master CSV data dictionary matches the real columns; action controls stay
   measurement-neutral.
-- Kiosk lock + practice banner are observed in a real Tauri run.
+- Kiosk lock + practice banner are observed in a real Tauri run. (In progress: the
+  static ACL check found the window setters ungranted — issue 64/F15 — so the live
+  GUI observation of an engaging lock is owed once 64 lands.)
 - Every v1.0.0 `study.json` still validates; the four gates stay green throughout.

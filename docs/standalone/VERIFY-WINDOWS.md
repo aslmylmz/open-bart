@@ -62,3 +62,51 @@ All eight boxes checked: the installer installs per-user and offline, SmartScree
 only friction, the Sidecar runs locally, a complete Session writes the three Session Files,
 the config snapshot is faithful, and uninstall is clean. Record the tested installer
 version and Windows build in the release notes.
+
+## Kiosk lock + practice banner (issue 60 · register F11)
+
+**Phase 4 · issues 43–44 · SPEC §11**
+
+The kiosk in-app lock (fullscreen + always-on-top + passcode-gated exit +
+capture-phase Escape/F11 swallow) and the practice banner have unit tests, but the
+window-level behavior **only exists in a real Tauri window** — a headless CI runner
+and the jsdom tests (which mock `lib/desktop`) cannot exercise it. Run this once on a
+real build (`npm run tauri dev` or an installed build) whenever the shell, the window
+capabilities, or the kiosk/practice code changes.
+
+> Prerequisite: the window setters must be granted in the capability set. Issue 60's
+> static ACL check found them **missing** (`allow-set-fullscreen` /
+> `allow-set-always-on-top` not in `capabilities/default.json`) — tracked as issue 64
+> (F15). Until 64 lands the lock silently no-ops; run this checklist **after** it.
+
+- [ ] **1. Launch a passcode-locked study.** Run the app with a Study Preset that sets
+  `exit_passcode`. Enter the participant flow.
+
+- [ ] **2. Fullscreen engages.** On entering the task the window goes fullscreen (no
+  title bar / OS chrome) — not just maximized.
+
+- [ ] **3. Always-on-top holds.** Try to bring another window forward (click another
+  app, `Cmd/Alt-Tab`). The task window stays on top / cannot be covered.
+
+- [ ] **4. Escape and F11 are swallowed.** Press **Escape**, then **F11**. Neither
+  exits, minimizes, un-fullscreens, nor toggles the shell's own fullscreen — each
+  instead opens the researcher passcode prompt.
+
+- [ ] **5. The passcode gates exit.** In the prompt, a wrong code keeps the session
+  running (readable error, field cleared); the correct `exit_passcode` exits.
+
+- [ ] **6. The lock disengages at the debrief.** Complete a session to the thank-you
+  screen. Fullscreen/always-on-top release and the back control leaves **without**
+  asking for the passcode (researcher hand-back).
+
+- [ ] **7. Practice banner on every screen.** Start a **Test Run** (practice). The
+  red "TEST RUN — data not recorded" banner is visible on consent, ID, task, and
+  debrief, and the debrief shows the no-recording thank-you (issue 59), not "recorded".
+
+- [ ] **8. Practice data stays quarantined.** Confirm the practice session's files
+  land under a `practice/` subfolder and **nothing** was appended to the study-wide
+  master CSV.
+
+**Pass criteria.** All eight boxes checked on a real Tauri window. Record pass/fail +
+the OS/build here or in issue 60's `## Comments`; if anything fails, spin an
+evidence-first register row/issue rather than fixing blind.
