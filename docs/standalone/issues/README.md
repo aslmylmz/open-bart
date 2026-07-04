@@ -342,7 +342,8 @@ byte-identical where it applies.
   rising-hazard structure; practice runs never claim data was recorded.
 - The Master CSV data dictionary matches the real columns; action controls stay
   measurement-neutral.
-- Kiosk lock + practice banner are observed in a real Tauri run. (In progress: the
-  static ACL check found the window setters ungranted — issue 64/F15 — so the live
-  GUI observation of an engaging lock is owed once 64 lands.)
+- Kiosk lock + practice banner are observed in a real Tauri run. (The static ACL
+  check found the window setters ungranted — issue 64/F15, now fixed and validated by
+  `cargo check`. The live GUI observation of an engaging lock is issue 60's remaining
+  human step, now unblocked.)
 - Every v1.0.0 `study.json` still validates; the four gates stay green throughout.

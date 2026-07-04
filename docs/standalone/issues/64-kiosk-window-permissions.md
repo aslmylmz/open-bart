@@ -2,7 +2,7 @@
 
 **Bug · depends on: none · found by: [60](60-kiosk-real-run-verification.md)**
 
-Status: ready-for-agent
+Status: done
 
 ## Context
 
@@ -59,3 +59,17 @@ new row F15). This is the defect issue 60 was created to catch. Not fixed blind:
 grant is justified by the ACL manifest, but recording it as its own slice keeps the
 one-change-at-a-time discipline and lets issue 60's live GUI observation confirm the
 fix end-to-end. Left `ready-for-agent` for an explicit implement command.
+
+**Done 2026-07-04.** Added `core:window:allow-set-fullscreen` and
+`core:window:allow-set-always-on-top` to `app/src-tauri/capabilities/default.json`
+(only those two — the capability set stays minimal; description updated). Regression
+guard: `app/src/lib/capabilities.test.ts` imports the shipped capability file and
+asserts both setters are granted; it fails red without them (the webview mocks can't
+see the ACL). No `/score` or `TaskConfig` change → no re-freeze.
+
+Verified at the ACL level, not just the schema: `cargo check` in `app/src-tauri`
+re-ran `build.rs`/`tauri-codegen` (which validate capabilities) and finished clean, so
+the two permission ids are accepted by a real Tauri build. Four gates green (`vitest`
+138, `tsc --noEmit`, `vite build`, `pytest` 182). The remaining live GUI observation
+that the lock now visibly engages fullscreen + always-on-top is issue 60's owed
+human step — now unblocked.

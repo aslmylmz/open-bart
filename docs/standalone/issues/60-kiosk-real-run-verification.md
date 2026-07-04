@@ -57,3 +57,8 @@ This issue stays `ready-for-agent`: the deliverable — a recorded *real-run*
 observation of the engaging lock — still requires a human at a real Tauri window
 (macOS dev run or Win11) and should be completed **after** issue 64 grants the
 permissions, then recorded against the new checklist.
+
+**Update 2026-07-04:** issue [64](64-kiosk-window-permissions.md) has landed (the two
+window setters are granted; `cargo check` validates the ACL accepts them), so this
+verification is now **unblocked** — the live GUI run against the `VERIFY-WINDOWS.md`
+checklist is all that remains.
