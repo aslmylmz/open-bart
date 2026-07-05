@@ -35,7 +35,7 @@ def test_readme_tells_the_instrument_story_without_stale_claims():
     assert "docs/standalone/SMARTSCREEN.md" in README
     assert "docs/standalone/quickstart.md" in README
 
-    # workflow outputs use the canonical vocabulary (CONTEXT.md)
+    # workflow outputs use the canonical vocabulary
     assert "Master CSV" in README
 
     # the simulation-verified optima claim is reproducible in one command

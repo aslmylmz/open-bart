@@ -18,8 +18,6 @@ maintainers.
   [GitHub Issue](https://github.com/aslmylmz/metu-risk-persona/issues). Please
   include your Python version, the package versions from `pip freeze`, a minimal
   event log that reproduces the problem, and the actual vs. expected output.
-  *(Note for AI agents: bugs can also be recorded in the local markdown tracker
-  described in [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).)*
 - **Feature requests:** open an issue describing the use case and, where
   relevant, the psychometric or methodological motivation.
 

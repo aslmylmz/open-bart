@@ -61,17 +61,6 @@ exclude_patterns = [
     "_build",
     "Thumbs.db",
     ".DS_Store",
-    # Untracked, developer-only notes that are not part of the published site
-    # (and do not exist at all on Read the Docs, where these patterns are no-ops).
-    "adr/**",
-    "agents/**",
-    # Internal issue-tracker entries ("tracking notes, not GitHub issues"): not
-    # researcher-facing, and they use filesystem-path links that are not valid
-    # cross-references once rendered.
-    "standalone/issues/**",
-    # Internal quality-improvement process doc (kaizen framework): maintainer-
-    # facing, and it links into the excluded issue tracker above.
-    "standalone/QUALITY-KAIZEN.md",
 ]
 
 intersphinx_mapping = {

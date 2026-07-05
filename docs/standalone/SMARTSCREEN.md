@@ -3,7 +3,7 @@
 **Phase 4 · issue 20 · SPEC §14, §20**
 
 The BART Instrument is currently shipped **unsigned** (no code-signing certificate — see
-[SPEC.md](SPEC.md) §14 *Distribution & signing* and §20 *Open decisions*). On Windows that
+the technical specifications). On Windows that
 means the **first launch shows a warning**. This page explains why, how a researcher gets
 past it in two clicks, and how an IT administrator can pre-approve it on managed lab
 machines. Nothing here indicates the software is harmful.
@@ -89,4 +89,4 @@ Purchasing an **OV** (Organization Validation) or **EV** (Extended Validation) *
 certificate** and signing the installer + executables would remove the SmartScreen warning
 (EV grants reputation immediately; OV builds it over time) and sharply reduce AV false
 positives. That is a procurement decision, deliberately deferred for now — the rationale and
-ownership are recorded in [SPEC.md](SPEC.md) §14 and §20.
+ownership are recorded in the technical specifications.

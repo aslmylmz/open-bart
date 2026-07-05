@@ -214,7 +214,7 @@ class TrialRecord(BaseModel):
     The row shape of the study-wide trials CSV — identity columns are added by
     the writer; this model carries the design + behavior columns the scoring
     engine computes from the event log. Field names follow the canonical BART
-    nomenclature (CONTEXT.md) so the file reads without a codebook.
+    nomenclature so the file reads without a codebook.
     """
 
     trial: int = Field(description="1-based trial index within the session")

@@ -22,7 +22,7 @@ re-ordered study therefore has all of these metrics computed coherently, and the
 `session_warnings` completeness/balance checks are judged against the study's own
 colors and trial counts (issue 57). `orange_avg_pumps` keeps its legacy field name
 but reports the study's highest-risk color. See ADR 0004
-(`docs/adr/0004-persona-metrics-default-color-triad.md`; issue 56).
+(issue 56).
 ```
 
 ## Volume & outcome

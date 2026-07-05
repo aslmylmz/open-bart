@@ -77,7 +77,7 @@ To run a different design, **load another `study.json`** from Study Setup (or ed
 current one and re-save). The parameters you will adjust most often:
 
 - **Hazard family** — the burst-probability model. See the hazard-family table in
-  [SPEC §7.2](SPEC.md) for all available families and their parameters.
+  [the technical documentation](../hazard_families.md) for all available families and their parameters.
 - **`max_pumps`** ($N$) — the per-color pump cap; it sets where the EV-optimal stop $s^*$
   sits.
 - **`reward_per_pump`** — currency banked per collected pump (it does **not** move the

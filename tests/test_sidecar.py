@@ -501,7 +501,7 @@ def test_write_output_persists_session_files(tmp_path):
 
 def test_write_output_appends_master_csv(tmp_path):
     """Every /write-output appends one row per session to the study's master CSV
-    (``[StudyTitle]_results.csv``, CONTEXT.md), creating it with a header on first
+    (``[StudyTitle]_results.csv``), creating it with a header on first
     write — researchers get an SPSS/R-ready sheet with no manual merging (issue 28)."""
     events = _collected_session()
     cfg = DEFAULT_TASK_CONFIG.model_dump()

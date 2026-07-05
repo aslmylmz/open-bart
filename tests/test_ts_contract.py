@@ -3,7 +3,7 @@ not silently drift from the pydantic models that own the study/session shapes.
 
 The webview re-declares ``TaskConfig`` / ``ColorProfile`` / the hazard families /
 ``GameSession`` by hand — a typing convenience; the sidecar stays the sole
-validation authority (CONTEXT.md). Those hand-written shapes have drifted before:
+validation authority. Those hand-written shapes have drifted before:
 ``TaskConfig`` grew ``qc`` and ``payout`` on the Python side and the TS type
 never followed, so Study Setup silently could not configure them.
 

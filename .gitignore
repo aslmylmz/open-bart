@@ -54,3 +54,15 @@ Thumbs.db
 .vscode/
 .idea/
 .claude/
+
+# ── Internal Development & Scratch Files ──────────────────────────────────
+docs/standalone/issues/
+docs/agents/
+docs/adr/
+docs/standalone/QUALITY-KAIZEN.md
+docs/standalone/VERIFY-WINDOWS.md
+docs/standalone/DESIGN.md
+docs/standalone/SPEC.md
+CLAUDE.md
+CONTEXT.md
+app/Dynamic-Hazard-Rate-BART-*
