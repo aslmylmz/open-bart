@@ -45,13 +45,16 @@ Launch **BART Instrument**. It opens in **Study Setup** mode, where you design t
 
 ## 4. Run participants
 
-Switch to **Run** mode. Each run walks one participant through the full flow:
+Switch to **Run** mode. RAs can click **Test Run** to practice the flow (a persistent
+banner appears and the debrief notes that no data is recorded), or click **Start
+real run** for a participant. Each run walks through the full flow:
 
 > **consent → participant ID → balloon task → debrief**
 
 Run **one participant per launch** — when the debrief screen appears the session is
 complete, so relaunch the app for the next participant. The balloon sequence is reproducible
-from the study's `seed`, so a given seed always produces the same balloons.
+from the study's `seed` and the participant's `ID`, so a fixed seed gives every participant
+a unique but reproducible sequence.
 
 ## 5. Collect data
 
@@ -80,8 +83,8 @@ current one and re-save). The parameters you will adjust most often:
 - **`reward_per_pump`** — currency banked per collected pump (it does **not** move the
   optimum).
 - **`language`** — participant-facing language, `tr` or `en`.
-- **`seed`** — the RNG seed; fix it for reproducible balloon sequences, or clear it for a
-  fresh random run each time.
+- **`seed`** — the RNG seed; fix it to give each participant a reproducible balloon sequence,
+  or clear it for a completely fresh random run each time.
 
 ## 7. Troubleshooting
 
