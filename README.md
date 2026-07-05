@@ -255,6 +255,14 @@ python scripts/generate_synthetic.py --n 60 --seed 42
 - Harris, C. R., et al. (2020). Array programming with NumPy. *Nature, 585*,
   357–362. <https://doi.org/10.1038/s41586-020-2649-2>
 
+## Community
+
+Contributions, bug reports, and feature requests are welcome! See
+[CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute, where to
+get support, and how to report issues.
+
+This project is governed by our [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ---
 
 ## License

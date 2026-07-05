@@ -52,7 +52,7 @@ template.
 | Example usage | ✅ | README quick start, `docs/quickstart.md`, `docs/standalone/quickstart.md` |
 | API documentation | ✅ | Sphinx autodoc on Read the Docs; builds 0-warning (`tests/test_docs.py`) |
 | Automated tests | ✅ | pytest 107, vitest 71, tsc; CI on Windows (sidecar) + paper build |
-| Community guidelines | ✅ | `CONTRIBUTING.md` |
+| Community guidelines | ✅ | `CONTRIBUTING.md` (with issue tracker/support paths), `CODE_OF_CONDUCT.md` |
 | Paper: 250–1000 words, summary + need + refs | ✅ | 758 words; guarded by `tests/test_paper.py` |
 | Paper compiles with Open Journals toolchain | ✅ | CI run 28594904052, `joss-paper` artifact (506 KB) |
 | Author ORCID + affiliation | ✅ | frontmatter of `paper/paper.md` |
@@ -68,3 +68,15 @@ the release can be added to the JOSS submission form directly. Local PyInstaller
 of the 1.0.0 sidecar verified on macOS (both gated frozen tests pass); the editable
 install must be compat-mode (`pip install -e . --config-settings editable_mode=compat`)
 for `collect_submodules("scoring")` to see the package.
+
+**2026-07-02 — post-tag verification (v1.0.0 tag pushed, main = 9adab3b):**
+
+| Item | Status | Evidence |
+|---|---|---|
+| Tagged release (merge + tag) | ✅ | user-authorized; `main` fast-forwarded to `9adab3b`, tag `v1.0.0` pushed |
+| `windows-release.yml` on tag | ✅ green | run 28612766926 — all jobs incl. silent smoke-install passed; artifacts `bart-installer-windows` (232.4 MB) + `sidecar-windows-exe` (25.7 MB) |
+| GitHub Release v1.0.0 | ⏳ **manual — not yet created** | the workflow only uploads artifacts; as with v0.2.0, the Release must be created by hand and the installer attached. Publishing it is what fires the Zenodo webhook. |
+| Zenodo archive of v1.0.0 | ⏳ blocked on the above | concept DOI currently lists 6 versions, none 1.0.0. ⚠️ v0.2.0 has **three** depositions (21084164, 21084682, 21086639) — re-publishing/re-creating a release mints duplicate DOIs, so publish the v1.0.0 Release exactly once, with final text. |
+| Read the Docs rebuild | ✅ | `latest` **and** `stable` built green from `9adab3b` (builds 33416254/33416255); `hazard_families.html` and `data_outputs.html` live (HTTP 200) |
+| Manual `VERIFY-WINDOWS.md` pass | ⏳ | user action on Win11 hardware, using the run-28612766926 installer artifact (or the Release asset once published) |
+| JOSS submission | ⛔ author action | never automated |

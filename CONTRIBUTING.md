@@ -3,6 +3,12 @@
 Thanks for your interest in the Dynamic Hazard Rate BART. Contributions,
 bug reports, and feature requests are all welcome.
 
+## Code of Conduct
+
+This project is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By participating,
+you are expected to uphold this code. Please report unacceptable behavior to the project
+maintainers.
+
 ## Getting help and reporting issues
 
 - **Questions and support:** open a
@@ -12,6 +18,8 @@ bug reports, and feature requests are all welcome.
   [GitHub Issue](https://github.com/aslmylmz/metu-risk-persona/issues). Please
   include your Python version, the package versions from `pip freeze`, a minimal
   event log that reproduces the problem, and the actual vs. expected output.
+  *(Note for AI agents: bugs can also be recorded in the local markdown tracker
+  described in [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).)*
 - **Feature requests:** open an issue describing the use case and, where
   relevant, the psychometric or methodological motivation.
 
