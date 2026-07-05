@@ -39,10 +39,17 @@ Developed for a research program at Middle East Technical University (METU).
 2. **Design your study** in Study Setup: balloon colors, capacities (*N*),
    trials, reward per pump, language (English/Turkish), and a hazard family
    per color — with a live EV-curve preview showing the optimum as you edit.
+   You can also configure experimental **conditions**, a real-world **currency**
+   and **payout conversion rate**, and automated **QC thresholds**.
    Save/load the design as `study.json`.
-3. **Run participants**: Consent → ID → Gameplay → Debrief (F11 toggles
-   fullscreen kiosk mode). Participants see a thank-you screen, never their
-   clinical metrics.
+3. **Run participants**: Consent → ID → Gameplay → Debrief. A passcode-gated
+   **in-app kiosk lock** (`exit_passcode`) secures the session: it forces
+   fullscreen, stays on top, and swallows Escape/F11 so participants cannot
+   exit prematurely (when no passcode is set, F11 is a plain fullscreen toggle).
+   A **reproducible seed** ensures each participant's random sequence is
+   fixed by `(seed, id)`. RAs can use **Test Run** mode (with a persistent banner
+   and no-recording debrief) to practice without polluting the data folder.
+   Participants see a thank-you screen, never their clinical metrics.
 4. **Collect your data** from the configured output directory:
    - `[CandidateID]_[Timestamp]_events.jsonl` — raw pump-level telemetry,
    - `[CandidateID]_[Timestamp]_metrics.json` — the full scored output,
@@ -174,7 +181,8 @@ metu-risk-persona/
 ├── app/                            Standalone desktop instrument
 │   ├── src/                        React/Vite UI (Study Setup + Run mode)
 │   ├── src-tauri/                  Tauri v2 shell (offline CSP, kiosk, dialogs)
-│   └── sidecar/                    FastAPI scoring sidecar (frozen via PyInstaller)
+│   ├── sidecar/                    FastAPI scoring sidecar (frozen via PyInstaller)
+│   └── e2e/                        End-to-end verification scripts
 ├── scripts/
 │   ├── monte_carlo_ev.py           Default-study EV figures + earnings simulation
 │   ├── plot_hazard_families.py     EV curves across all 11 families (MC overlay)
