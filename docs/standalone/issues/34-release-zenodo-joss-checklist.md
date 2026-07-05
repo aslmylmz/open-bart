@@ -80,3 +80,7 @@ for `collect_submodules("scoring")` to see the package.
 | Read the Docs rebuild | ✅ | `latest` **and** `stable` built green from `9adab3b` (builds 33416254/33416255); `hazard_families.html` and `data_outputs.html` live (HTTP 200) |
 | Manual `VERIFY-WINDOWS.md` pass | ⏳ | user action on Win11 hardware, using the run-28612766926 installer artifact (or the Release asset once published) |
 | JOSS submission | ⛔ author action | never automated |
+
+**2026-07-05 — JOSS public/internal repo pruning (issue 70):**
+- `docs/client-brief.md`: Removed from tracked tree (private client brief).
+- `docs/agents/`: Kept. Documents the local markdown issue tracker convention referenced by `CONTRIBUTING.md`.
