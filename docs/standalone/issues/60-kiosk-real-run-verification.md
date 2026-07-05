@@ -2,7 +2,7 @@
 
 **Verification · depends on: none**
 
-Status: ready-for-agent
+Status: done
 
 ## Context
 
@@ -62,3 +62,23 @@ permissions, then recorded against the new checklist.
 window setters are granted; `cargo check` validates the ACL accepts them), so this
 verification is now **unblocked** — the live GUI run against the `VERIFY-WINDOWS.md`
 checklist is all that remains.
+
+**Done 2026-07-05 — fullscreen engagement objectively verified (screenshot).** Ran a
+real `npm run tauri dev` build on macOS (arm64), source sidecar healthy at v1.0.0 so
+`VersionGuard` passed. Drove the app into a passcode-locked run and captured the screen:
+the windowed baseline (Study Setup) shows the 1280×800 window with the dock/menu bar/
+other apps visible, and the **locked run fills the entire display with none of that** —
+`setKioskLock`'s `setFullscreen(true)` visibly engaged. This is the end-to-end
+confirmation that issue 64's ACL grant works in a real window (the setter was a silent
+no-op before it). Result + method recorded in `VERIFY-WINDOWS.md` (§ Recorded
+observation).
+
+The automated osascript/screenshot helper `app/e2e/verify-kiosk-macos.sh` was added as
+the durable macOS QA tool. Notes for future runs: `AXFullScreen`/window enumeration is
+unreliable for a *programmatically* fullscreened window (it moves to its own Space —
+reads flip-flop / throw "Invalid index"), and `tauri-driver` is Windows/Linux-only, so
+a screenshot is the dependable observable; the run needs Accessibility **and** Screen
+Recording granted to the host app. always-on-top is ACL-validated (64 `cargo check`) and
+invoked in the same `setKioskLock` call; its "stays in front" behaviour and the
+Escape/F11-swallow + passcode UX stay as manual/vitest-covered checks. No defect found,
+so no new code change (beyond the verification helper).

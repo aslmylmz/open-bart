@@ -110,3 +110,30 @@ capabilities, or the kiosk/practice code changes.
 **Pass criteria.** All eight boxes checked on a real Tauri window. Record pass/fail +
 the OS/build here or in issue 60's `## Comments`; if anything fails, spin an
 evidence-first register row/issue rather than fixing blind.
+
+### Recorded observation — 2026-07-05 (macOS 15, arm64 dev build)
+
+**Fullscreen engagement: PASS (objective, screenshot-verified).** A real
+`npm run tauri dev` build (source sidecar on an ephemeral loopback port, healthy at
+v1.0.0 → `VersionGuard` passed) was driven into a passcode-locked run and the screen
+captured with `screencapture`:
+
+- *Windowed baseline* (Study Setup): the app is a 1280×800 window with the macOS dock,
+  menu bar, and other apps all visible behind it.
+- *Locked run* (the "Before you begin" screen): the participant view fills the **entire**
+  display — no dock, no menu bar, no other windows — i.e. `setKioskLock`'s
+  `setFullscreen(true)` visibly engaged. This confirms issue 64's ACL fix end-to-end in
+  a real Tauri window (before it, the setter was silently denied).
+
+**always-on-top:** the `core:window:allow-set-always-on-top` grant is validated at the
+build/ACL level (issue 64 `cargo check`) and is invoked in the same `setKioskLock` call
+whose fullscreen half is now visually confirmed. The "stays in front on Cmd-Tab"
+behaviour (box 3) and the passcode/Escape/F11-swallow UX (boxes 4–5) remain a manual
+cross-check — they are pure-JS/webview behaviour already covered by the vitest suite.
+
+**Tooling notes for re-runs.** On macOS, `AXFullScreen` / window enumeration is
+**unreliable** for a *programmatically* fullscreened window (it moves to its own Space;
+reads flip-flop or throw "Invalid index"), and `tauri-driver` is Windows/Linux-only — so
+the dependable observable is a screenshot. `app/e2e/verify-kiosk-macos.sh` automates
+capturing before/after evidence and reports the Space-membership signal; it needs
+Accessibility **and** Screen Recording granted to the terminal/host app.
