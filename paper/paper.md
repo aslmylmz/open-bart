@@ -40,13 +40,13 @@ model, $P(\text{burst at pump } k) = k/N$, moves the optimum to an
 attainable $\approx \sqrt{N}$, so cautious, calibrated, and risk-seeking
 strategies separate; the classic uniform model [@lejuez2002] and nine other
 families (constant, Rayleigh, exponential, Weibull, Gompertz, logistic,
-log-normal, step, and a validated tabular escape hatch) support baselines,
+log-normal, step, and a validated tabular mechanism for arbitrary distributions) support baselines,
 replications, and novel designs on the same instrument. Because arbitrary
 hazards have no closed-form optimum, the engine computes each
 configuration's optimum numerically from its survival curve and verifies it
 by independent, seeded Monte Carlo simulation (\autoref{fig:families}).
 Every session is scored locally into more than forty psychometric metrics
-and exported as per-session telemetry plus a study-wide **Master CSV** ready
+and exported as per-session telemetry plus a study-wide *Master CSV* ready
 for SPSS or R.
 
 ![Expected-value curves for representative parameterizations of all eleven
@@ -74,7 +74,7 @@ but they either target the browser and presume hosting infrastructure
 [@deleeuw2015] or require scripting skills [@mueller2014] — while many
 testing rooms run offline machines under strict data-protection and ethics
 constraints. This instrument installs per-user from a double-click
-installer, runs with **zero network access** (the scoring engine is a
+installer, runs with a *strict offline execution model* (the scoring engine is a
 loopback-only local process), needs no programming at any step, and ships
 bilingual (English/Turkish) participant-facing screens. Data never leave
 the machine, and outputs load directly into statistical software.
@@ -96,7 +96,7 @@ external replication against the Basel–Berlin Risk Study [@frey2017].
 The instrument is a Tauri shell hosting a React/Vite interface, with the
 scoring engine frozen by PyInstaller and supervised as a local FastAPI
 sidecar; a strict offline content-security policy and a watchdog guarantee
-the zero-network, no-orphan posture. Studies are portable `study.json`
+the offline execution and ensure all subprocesses terminate cleanly. Studies are portable `study.json`
 files validated by the engine's configuration layer — a single `TaskConfig`
 feeds the task, the live EV preview, the scoring, and the persisted config
 snapshot, so every dataset is self-documenting. The numerical core uses
