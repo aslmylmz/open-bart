@@ -5,7 +5,7 @@ import { checkId, preview } from "../lib/api";
 import type { TaskConfig } from "../lib/config";
 import { setKioskLock } from "../lib/desktop";
 import { taskStrings } from "../lib/i18n";
-import { cardStyle, centerStyle, headingStyle, pageStyle } from "./participantStyles";
+import { cardStyle, centerStyle, headingStyle, pagePosture } from "./participantStyles";
 
 interface RunFlowProps {
   config: TaskConfig;
@@ -257,7 +257,7 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
     // BartGame owns the back button here: it only offers the exit while no
     // balloon is live, so a participant can't leave mid-trial (Issue 27).
     return (
-      <div style={pageStyle}>
+      <div {...pagePosture}>
         {practiceBanner}
         {lockPrompt}
         <BartGame
@@ -275,7 +275,7 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
   }
 
   return (
-    <div style={pageStyle}>
+    <div {...pagePosture}>
       {practiceBanner}
       {lockPrompt}
       {backBar}

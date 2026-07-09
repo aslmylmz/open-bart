@@ -1,0 +1,99 @@
+/* Design tokens — the single semantic layer (DESIGN-SPEC §1.2).
+ *
+ * NEUTRAL LADDER RULE (binding): every neutral is an OKLCH literal at hue
+ * ≈260° with chroma ≤ 0.006, stepped only in lightness. Tuning happens inside
+ * this rule (maintainer screenshot review) — never by drifting hue or chroma
+ * per-token. Chroma is reserved for data: the accent/status roles below and
+ * profile colors in curves.
+ *
+ * Dark Posture lives on :root — researcher surfaces inherit it. Light Posture
+ * is the one [data-posture="light"] remap at the bottom: it carries the exact
+ * pre-redesign participant hexes (zero-visual-change contract, ADR 0003).
+ */
+:root {
+  /* Neutrals (the ladder) */
+  --color-bg-app: oklch(0.14 0.004 260); /* ≈ #08090b */
+  --color-bg-surface: oklch(0.17 0.004 260); /* ≈ #0e0f11 */
+  --color-bg-raised: oklch(0.21 0.005 260); /* ≈ #17181b */
+  --color-border: oklch(0.26 0.005 260); /* ≈ #232426 */
+  --color-border-strong: oklch(0.33 0.006 260); /* ≈ #343539 */
+  --color-text-tertiary: oklch(0.55 0.006 260); /* ≈ #6f7275 */
+  --color-text-secondary: oklch(0.72 0.005 260); /* ≈ #a3a5a8 */
+  --color-text-primary: oklch(0.93 0.003 260); /* ≈ #e7e8ea */
+
+  /* Chroma — data and status only. The accent is the instrument's existing
+   * indigo (hue 277) lightness-tuned for near-black: one brand hue, both
+   * postures. */
+  --color-accent: oklch(0.62 0.19 277); /* ≈ #6d74f5 */
+  --color-accent-hover: oklch(0.66 0.19 277); /* ≈ #7881ff */
+  --color-error: oklch(0.68 0.19 25); /* ≈ #f75d59 */
+  --color-success: oklch(0.72 0.17 150); /* ≈ #3fc168 */
+  --color-warning: oklch(0.78 0.15 85); /* ≈ #e3ae28 */
+  --color-accent-wash: oklch(0.62 0.19 277 / 0.12);
+  --color-error-wash: oklch(0.68 0.19 25 / 0.12);
+  --color-success-wash: oklch(0.72 0.17 150 / 0.12);
+  --color-warning-wash: oklch(0.78 0.15 85 / 0.12);
+  --overlay-scrim: oklch(0 0 0 / 0.6);
+  --shadow-card: none; /* researcher depth = bg step + hairline, never shadow */
+
+  /* Typography (§1.3): bundled Inter variable, system fallback; mono is the
+   * system stack — stat readouts and the file-identity line only. */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  --text-micro: 11px;
+  --text-small: 12px; /* labels, secondary, rail descriptions */
+  --text-body: 13px;
+  --text-title: 15px; /* section titles */
+  --text-display: 18px; /* identity bar */
+  --leading-body: 1.45;
+  --leading-title: 1.25;
+
+  /* Shape & rhythm: 4px grid — every gap must be a ladder value. */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --control-height: 32px;
+  --radius-sm: 4px; /* controls, chips */
+  --radius-md: 6px; /* chart panels */
+  --radius-full: 999px; /* participant pill */
+
+  /* Motion — restraint everywhere except the Mode Switch (§3.1). Transitions
+   * are declared per-property only, never `transition: all`. */
+  --duration-fast: 100ms; /* hover/active */
+  --duration-base: 160ms; /* fades/focus */
+  --ease-standard: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --switch-out: 200ms;
+  --switch-hold: 250ms;
+  --switch-in: 250ms;
+}
+
+/* Light Posture — the Participant View remap. Exact pre-redesign hexes, so
+ * these are hex literals by design, not OKLCH: pixel-equivalence is the
+ * contract and the ladder rule does not apply here. */
+[data-posture="light"] {
+  --color-bg-app: #f8f9fa;
+  --color-bg-surface: #ffffff;
+  --color-bg-raised: #f3f4f6;
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-text-tertiary: #6b7280;
+  --color-text-secondary: #374151;
+  --color-text-primary: #111827;
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-error: #b91c1c;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-accent-wash: rgba(79, 70, 229, 0.12);
+  --color-error-wash: rgba(185, 28, 28, 0.12);
+  --color-success-wash: rgba(22, 163, 74, 0.12);
+  --color-warning-wash: rgba(217, 119, 6, 0.12);
+  --overlay-scrim: rgba(17, 24, 39, 0.55);
+  /* The participant card shadow survives as a light-posture-only token. */
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.06);
+}

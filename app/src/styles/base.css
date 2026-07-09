@@ -1,0 +1,260 @@
+/* Base styles: bundled font, resets, element defaults, scrollbar.
+ * tokens.css + base.css replace the old index.css (DESIGN-SPEC §1.2).
+ * Component-level styling migrates to co-located per-surface files (§1.4). */
+
+/* Bundled Inter variable (ADR 0002 — no outbound network): Latin + Latin-Ext
+ * subset of the official InterVariable.woff2, roman axis, Turkish ğ/ş/ı/İ
+ * preserved. License: src/assets/fonts/LICENSE.txt (SIL OFL 1.1). */
+@font-face {
+  font-family: "Inter";
+  src: url("../assets/fonts/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+/* Resets */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+[data-posture="light"] {
+  color-scheme: light;
+}
+
+html,
+body {
+  background: var(--color-bg-app);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbar on the neutral ladder */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-app);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+/* Element defaults (button/input/select/fieldset). These read from the token
+ * layer, so they resolve dark on researcher surfaces and light inside the
+ * participant wrapper. Participant controls below bake in their own metrics
+ * and do not depend on these. */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  background: var(--color-bg-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+button:hover {
+  background: var(--color-border);
+  border-color: var(--color-border-strong);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input,
+select {
+  font-family: inherit;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  transition:
+    border-color var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard);
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-wash);
+}
+
+fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-16);
+  margin-bottom: var(--space-16);
+  background: var(--color-bg-surface);
+}
+
+legend {
+  padding: 0 var(--space-8);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: var(--text-small);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Layout utilities referenced in JSX (participant task surfaces). Pre-redesign
+ * literals on purpose — the spacing ladder governs researcher surfaces, not
+ * the frozen participant view. */
+.flex {
+  display: flex;
+}
+.flex-col {
+  flex-direction: column;
+}
+.items-center {
+  align-items: center;
+}
+.gap-6 {
+  gap: 24px;
+}
+.text-5xl {
+  font-size: 3rem;
+  line-height: 1;
+}
+.text-6xl {
+  font-size: 3.75rem;
+  line-height: 1;
+}
+.w-full {
+  width: 100%;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Participant (Light Posture) controls. Pre-redesign metrics are baked in —
+ * padding, type size, radius, and the original 0.2s ease transition timing —
+ * so the researcher-side element defaults above (and the motion tokens)
+ * can evolve without touching the participant view (zero-visual-change
+ * contract). Colors ride the light-posture remap where the old hex already
+ * matched a token role; one-off hexes stay literal. Migrates to run-frame
+ * CSS with the session-frame issue. */
+.btn-ghost-participant {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+.btn-ghost-participant:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: #9ca3af;
+}
+
+.btn-primary-participant {
+  background: var(--color-accent);
+  color: #fff;
+  border: 1px solid var(--color-accent-hover);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+.btn-primary-participant:hover {
+  background: var(--color-accent-hover);
+  border-color: #3730a3;
+}
+
+/* Neutral task controls: Pump and Collect must look identical so the UI does
+ * not prime one action over the other (methodological requirement, Issue 27). */
+.btn-secondary-participant {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+.btn-secondary-participant:hover {
+  background: var(--color-bg-raised);
+  border-color: #9ca3af;
+}
+
+.input-participant {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.95rem;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.input-participant:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
