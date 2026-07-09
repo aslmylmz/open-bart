@@ -61,6 +61,14 @@ exclude_patterns = [
     "_build",
     "Thumbs.db",
     ".DS_Store",
+    # Gitignored maintainer notes (issue 70 removed them from tracking, but
+    # they persist in local working trees): absent on CI/Read the Docs, where
+    # these patterns are no-ops, yet without them a local build drowns in
+    # toc.not_included warnings and the 0-warning docs gate fails.
+    "adr/**",
+    "agents/**",
+    "standalone/issues/**",
+    "standalone/QUALITY-KAIZEN.md",
 ]
 
 intersphinx_mapping = {
