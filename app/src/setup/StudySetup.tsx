@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { FolderOpen, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
+import { Icon } from "../components/Icon";
 import { validateConfig } from "../lib/api";
 import { HAZARD_FAMILIES, type HazardFamily, type Language, type TaskConfig } from "../lib/config";
 import { loadStudy, saveStudy, selectOutputDir } from "../lib/desktop";
+import { EvPreview } from "./EvPreview";
 import { FAMILY_PARAMS } from "./familyParams";
 import {
   addColor,
@@ -20,26 +23,52 @@ import {
   setQcField,
   setStudyField,
 } from "./studyForm";
+import "./StudySetup.css";
+
+/** How long the armed "Confirm remove" state holds before quietly reverting. */
+const REMOVE_CONFIRM_MS = 3000;
 
 interface StudySetupProps {
   config: TaskConfig;
   onChange: (config: TaskConfig) => void;
+  onTestRun: () => void;
+  onStartRun: () => void;
 }
 
-/** Study Setup form (SPEC §11). A thin shell over the pure form-model helpers in
- * studyForm.ts and the sidecar's /validate-config (the validation authority); the
- * live EV preview is wired in issue 15. Save/load go through the native dialogs in
- * desktop.ts (issue 12). */
-export function StudySetup({ config, onChange }: StudySetupProps) {
+/** The Researcher View: a single column of section bands — Study Info, Data
+ * Quality & Payout, Color Profiles, EV Preview, Run (DESIGN-SPEC §2.3) — as a
+ * thin shell over the pure form-model helpers in studyForm.ts, with the
+ * sidecar's /validate-config as the validation authority. Save/load go through
+ * the native dialogs in desktop.ts; the run callbacks belong to the App shell,
+ * which owns the mode. */
+export function StudySetup({ config, onChange, onTestRun, onStartRun }: StudySetupProps) {
   const [errors, setErrors] = useState<string[]>([]);
   const [status, setStatus] = useState<string>("");
+  // Two-step remove (§2.4): the index of the profile whose Remove is armed.
+  // One shared slot — arming a card disarms any other — so a stray confirm
+  // can never remove a card the researcher is no longer looking at.
+  const [armedRemove, setArmedRemove] = useState<number | null>(null);
+  const disarmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => () => clearTimeout(disarmTimer.current), []);
+
+  function handleRemoveClick(i: number) {
+    clearTimeout(disarmTimer.current);
+    if (armedRemove === i) {
+      setArmedRemove(null);
+      onChange(removeColor(config, i));
+      return;
+    }
+    setArmedRemove(i);
+    disarmTimer.current = setTimeout(() => setArmedRemove(null), REMOVE_CONFIRM_MS);
+  }
 
   async function handleSave() {
     setStatus("");
     const verdict = await validateConfig(config);
     if (!verdict.ok) {
       setErrors(verdict.errors);
-      setStatus("Not saved — fix the errors above.");
+      setStatus("Not saved — fix the errors below.");
       return;
     }
     setErrors([]);
@@ -86,257 +115,348 @@ export function StudySetup({ config, onChange }: StudySetupProps) {
   }
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 16px", display: "flex", flexDirection: "column", gap: "24px" }}>
-      <h1 style={{ fontSize: "2rem", fontWeight: 700, margin: 0 }}>Study Setup</h1>
+    <div className="setup-page">
+      <header className="setup-header">
+        <div className="setup-header-inner">
+          <h1 className="setup-title">Study Setup</h1>
+        </div>
+      </header>
 
-      <section style={{ background: "rgba(255, 255, 255, 0.03)", padding: "24px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
-        <h2 style={{ fontSize: "1.25rem", margin: "0 0 16px 0" }}>Study Info</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-            Title
-            <input
-              value={config.title}
-              onChange={(e) => onChange(setStudyField(config, { title: e.target.value }))}
-            />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-            Language
-            <select
-              value={config.language}
-              onChange={(e) => onChange(setStudyField(config, { language: e.target.value as Language }))}
-            >
-              <option value="en">English</option>
-              <option value="tr">Türkçe</option>
-            </select>
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-            Reward / pump
-            <input
-              type="number"
-              step={0.01}
-              min={0}
-              value={config.reward_per_pump}
-              onChange={(e) =>
-                onChange(setStudyField(config, { reward_per_pump: Number(e.target.value) }))
-              }
-            />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-            Seed
-            <input
-              type="number"
-              value={config.seed ?? ""}
-              onChange={(e) =>
-                onChange(
-                  setStudyField(config, { seed: e.target.value === "" ? null : Number(e.target.value) }),
-                )
-              }
-            />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db", gridColumn: "1 / -1" }}>
-            Conditions (optional, comma-separated — e.g. control, experimental)
-            {/* Committed on blur like the array hazard params, so typing commas
-                doesn't fight the parsed value. Empty = no conditions. */}
-            <input
-              key={(config.conditions ?? []).join(",")}
-              defaultValue={(config.conditions ?? []).join(", ")}
-              placeholder="Leave empty for a study without conditions"
-              onBlur={(e) =>
-                onChange(setStudyField(config, { conditions: parseConditionList(e.target.value) }))
-              }
-            />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db", gridColumn: "1 / -1" }}>
-            Exit passcode (optional — locks mid-session exits behind this code; deterrence, not security)
-            {/* Committed on blur like conditions, so the trim never fights typing. */}
-            <input
-              key={config.exit_passcode ?? ""}
-              defaultValue={config.exit_passcode ?? ""}
-              placeholder="Leave empty for ungated exits"
-              onBlur={(e) =>
-                onChange(setStudyField(config, { exit_passcode: parseExitPasscode(e.target.value) }))
-              }
-            />
-          </label>
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db", gridColumn: "1 / -1" }}>
-            Output dir
-            <div style={{ display: "flex", gap: "8px" }}>
+      <section className="setup-band">
+        <div className="setup-band-inner">
+          <div className="setup-rail">
+            <h2 className="setup-rail-title">Study info</h2>
+            <p className="setup-rail-desc">
+              Identity, language, and reward structure. The title appears in the saved study file
+              and the session data.
+            </p>
+          </div>
+          <div className="setup-rows">
+            <label className="setup-row">
+              <span className="setup-row-label">Title</span>
               <input
-                style={{ flex: 1 }}
-                value={config.output_dir}
-                onChange={(e) => onChange(setStudyField(config, { output_dir: e.target.value }))}
+                value={config.title}
+                onChange={(e) => onChange(setStudyField(config, { title: e.target.value }))}
               />
-              <button type="button" onClick={handleSelectOutputDir} style={{ padding: "0 16px" }}>
-                Select folder…
-              </button>
+            </label>
+            <label className="setup-row">
+              <span className="setup-row-label">Language</span>
+              <select
+                value={config.language}
+                onChange={(e) => onChange(setStudyField(config, { language: e.target.value as Language }))}
+              >
+                <option value="en">English</option>
+                <option value="tr">Türkçe</option>
+              </select>
+            </label>
+            <label className="setup-row">
+              <span className="setup-row-label">Reward per pump</span>
+              <input
+                type="number"
+                step={0.01}
+                min={0}
+                value={config.reward_per_pump}
+                onChange={(e) =>
+                  onChange(setStudyField(config, { reward_per_pump: Number(e.target.value) }))
+                }
+              />
+            </label>
+            <label className="setup-row">
+              <span className="setup-row-label">Seed</span>
+              <input
+                type="number"
+                placeholder="Fresh randomness each run"
+                value={config.seed ?? ""}
+                onChange={(e) =>
+                  onChange(
+                    setStudyField(config, { seed: e.target.value === "" ? null : Number(e.target.value) }),
+                  )
+                }
+              />
+            </label>
+            <label className="setup-row">
+              <span className="setup-row-label">Conditions</span>
+              {/* Committed on blur like the array hazard params, so typing commas
+                  doesn't fight the parsed value. Empty = no conditions. */}
+              <input
+                key={(config.conditions ?? []).join(",")}
+                defaultValue={(config.conditions ?? []).join(", ")}
+                placeholder="Comma-separated — empty for none"
+                onBlur={(e) =>
+                  onChange(setStudyField(config, { conditions: parseConditionList(e.target.value) }))
+                }
+              />
+            </label>
+            <label className="setup-row">
+              <span className="setup-row-label">Exit passcode</span>
+              {/* Committed on blur like conditions, so the trim never fights typing. */}
+              <input
+                key={config.exit_passcode ?? ""}
+                defaultValue={config.exit_passcode ?? ""}
+                placeholder="Empty for ungated exits"
+                onBlur={(e) =>
+                  onChange(setStudyField(config, { exit_passcode: parseExitPasscode(e.target.value) }))
+                }
+              />
+            </label>
+            <div className="setup-row">
+              <label className="setup-row-label" htmlFor="setup-output-dir">
+                Output directory
+              </label>
+              <div className="setup-inline-group">
+                <input
+                  id="setup-output-dir"
+                  value={config.output_dir}
+                  onChange={(e) => onChange(setStudyField(config, { output_dir: e.target.value }))}
+                />
+                <button type="button" onClick={handleSelectOutputDir}>
+                  <Icon icon={FolderOpen} />
+                  Select folder…
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section style={{ background: "rgba(255, 255, 255, 0.03)", padding: "24px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
-        <h2 style={{ fontSize: "1.25rem", margin: "0 0 8px 0" }}>Data Quality &amp; Payout</h2>
-        <p style={{ margin: "0 0 16px 0", fontSize: "0.8rem", color: "#9ca3af" }}>
-          Both are optional. QC thresholds only flag sessions — nothing is ever excluded. Leave payout off to show participants their task earnings unchanged.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-            Fast response (ms)
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={config.qc?.fast_response_ms ?? DEFAULT_QC.fast_response_ms}
-              onChange={(e) => onChange(setQcField(config, { fast_response_ms: Number(e.target.value) }))}
-            />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-            Zero-pump streak (trials)
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={config.qc?.zero_pump_streak ?? DEFAULT_QC.zero_pump_streak}
-              onChange={(e) => onChange(setQcField(config, { zero_pump_streak: Number(e.target.value) }))}
-            />
-          </label>
-          <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", fontSize: "0.875rem", color: "#d1d5db", gridColumn: "1 / -1" }}>
-            <input
-              type="checkbox"
-              checked={config.payout != null}
-              onChange={(e) => onChange(setPayoutEnabled(config, e.target.checked))}
-            />
-            Convert task earnings to a real payout
-          </label>
-          {config.payout != null && (
-            <>
-              <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-                Payout rate (per earnings unit)
+      <section className="setup-band">
+        <div className="setup-band-inner">
+          <div className="setup-rail">
+            <h2 className="setup-rail-title">Data quality &amp; payout</h2>
+            <p className="setup-rail-desc">
+              QC thresholds only flag sessions — nothing is ever excluded. Payout off means
+              participants see task earnings unchanged.
+            </p>
+          </div>
+          <div className="setup-rows">
+            <label className="setup-row">
+              <span className="setup-row-label">Fast response (ms)</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={config.qc?.fast_response_ms ?? DEFAULT_QC.fast_response_ms}
+                onChange={(e) => onChange(setQcField(config, { fast_response_ms: Number(e.target.value) }))}
+              />
+            </label>
+            <label className="setup-row">
+              <span className="setup-row-label">Zero-pump streak (trials)</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={config.qc?.zero_pump_streak ?? DEFAULT_QC.zero_pump_streak}
+                onChange={(e) => onChange(setQcField(config, { zero_pump_streak: Number(e.target.value) }))}
+              />
+            </label>
+            <div className="setup-row">
+              <span className="setup-row-label">Real payout</span>
+              <label className="setup-check">
                 <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={config.payout.rate}
-                  onChange={(e) => onChange(setPayoutField(config, { rate: Number(e.target.value) }))}
+                  type="checkbox"
+                  checked={config.payout != null}
+                  onChange={(e) => onChange(setPayoutEnabled(config, e.target.checked))}
                 />
+                Convert task earnings to a real payout
               </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-                Currency label (e.g. ₺, $, credits)
-                <input
-                  value={config.payout.currency}
-                  onChange={(e) => onChange(setPayoutField(config, { currency: e.target.value }))}
-                />
-              </label>
-            </>
-          )}
+            </div>
+            {config.payout != null && (
+              <>
+                <label className="setup-row">
+                  <span className="setup-row-label">Payout rate (per earnings unit)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={config.payout.rate}
+                    onChange={(e) => onChange(setPayoutField(config, { rate: Number(e.target.value) }))}
+                  />
+                </label>
+                <label className="setup-row">
+                  <span className="setup-row-label">Currency label</span>
+                  <input
+                    placeholder="₺, $, credits…"
+                    value={config.payout.currency}
+                    onChange={(e) => onChange(setPayoutField(config, { currency: e.target.value }))}
+                  />
+                </label>
+              </>
+            )}
+          </div>
         </div>
       </section>
 
-      <div>
-        <h2 style={{ fontSize: "1.25rem", margin: "0 0 16px 0" }}>Color Profiles</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {config.colors.map((color, i) => (
-            <fieldset key={i} style={{ margin: 0, padding: "20px", borderLeft: `6px solid ${color.display_hex}`, background: "rgba(255, 255, 255, 0.03)", borderTop: "1px solid rgba(255, 255, 255, 0.1)", borderRight: "1px solid rgba(255, 255, 255, 0.1)", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
-              <legend style={{ padding: "0 8px", color: color.display_hex, fontWeight: "bold" }}>{color.label || color.name}</legend>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-                  Name
-                  <input
-                    value={color.name}
-                    onChange={(e) => onChange(setColorField(config, i, { name: e.target.value }))}
-                  />
-                </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-                  Label
-                  <input
-                    value={color.label}
-                    onChange={(e) => onChange(setColorField(config, i, { label: e.target.value }))}
-                  />
-                </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-                  Color
-                  <input
-                    type="color"
-                    style={{ padding: 0, height: "36px", width: "100%", cursor: "pointer" }}
-                    value={color.display_hex}
-                    onChange={(e) => onChange(setColorField(config, i, { display_hex: e.target.value }))}
-                  />
-                </label>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-                  N (max pumps)
-                  <input
-                    type="number"
-                    min={1}
-                    value={color.max_pumps}
-                    onChange={(e) =>
-                      onChange(setColorField(config, i, { max_pumps: Number(e.target.value) }))
-                    }
-                  />
-                </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-                  Trials
-                  <input
-                    type="number"
-                    min={1}
-                    value={color.trials}
-                    onChange={(e) => onChange(setColorField(config, i, { trials: Number(e.target.value) }))}
-                  />
-                </label>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
-                  Hazard family
-                  <select
-                    value={color.hazard.family}
-                    onChange={(e) =>
-                      onChange(setColorHazardFamily(config, i, e.target.value as HazardFamily))
-                    }
-                  >
-                    {HAZARD_FAMILIES.map((family) => (
-                      <option key={family} value={family}>
-                        {family}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {renderHazardParams(config, i, onChange)}
-              </div>
-
-              <button type="button" onClick={() => onChange(removeColor(config, i))} style={{ background: "rgba(220, 38, 38, 0.2)", borderColor: "rgba(220, 38, 38, 0.4)", color: "#fca5a5" }}>
-                Remove profile
-              </button>
-            </fieldset>
-          ))}
-          <button type="button" onClick={() => onChange(addColor(config))} style={{ background: "transparent", border: "1px dashed #4b5563", padding: "16px", color: "#9ca3af" }}>
-            + Add color profile
-          </button>
-        </div>
-      </div>
-
-      <section style={{ display: "flex", gap: "16px", alignItems: "center", background: "rgba(255, 255, 255, 0.03)", padding: "16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
-        <button type="button" onClick={handleSave} style={{ flex: 1, background: "#4f46e5", borderColor: "#4338ca" }}>
-          Save study…
-        </button>
-        <button type="button" onClick={handleLoad} style={{ flex: 1 }}>
-          Load study…
-        </button>
-      </section>
-
-      {status && <p style={{ textAlign: "center", color: "#9ca3af" }}>{status}</p>}
-      {errors.length > 0 && (
-        <div style={{ background: "rgba(220, 38, 38, 0.1)", border: "1px solid rgba(220, 38, 38, 0.3)", borderRadius: "8px", padding: "16px" }}>
-          <h3 style={{ color: "#fca5a5", marginTop: 0, fontSize: "0.9rem", marginBottom: "8px" }}>Validation Errors</h3>
-          <ul style={{ color: "#fca5a5", margin: 0, paddingLeft: "20px", fontSize: "0.875rem" }}>
-            {errors.map((err, i) => (
-              <li key={i}>{err}</li>
+      <section className="setup-band">
+        <div className="setup-band-inner">
+          <div className="setup-rail">
+            <h2 className="setup-rail-title">Color profiles</h2>
+            <p className="setup-rail-desc">
+              Each balloon color carries its own hazard. Participants see colors, never parameters.
+            </p>
+          </div>
+          <div className="setup-cards">
+            {config.colors.map((color, i) => (
+              <section key={i} className="setup-card">
+                <div className="setup-card-head">
+                  <span className="setup-card-id">
+                    <span className="setup-card-dot" style={{ background: color.display_hex }} />
+                    {color.label || color.name}
+                  </span>
+                  <span className="setup-card-meta">
+                    <span className="setup-card-summary">
+                      {color.hazard.family} · N {color.max_pumps} · {color.trials} trials
+                    </span>
+                    <button
+                      type="button"
+                      className={armedRemove === i ? "setup-remove is-armed" : "setup-remove"}
+                      disabled={config.colors.length <= 1}
+                      title={config.colors.length <= 1 ? "A study needs at least one color profile" : undefined}
+                      onClick={() => handleRemoveClick(i)}
+                    >
+                      {armedRemove === i ? "Confirm remove" : "Remove"}
+                    </button>
+                  </span>
+                </div>
+                <div className="setup-card-grid">
+                  <label className="setup-field">
+                    Name
+                    <input
+                      value={color.name}
+                      onChange={(e) => onChange(setColorField(config, i, { name: e.target.value }))}
+                    />
+                  </label>
+                  <label className="setup-field">
+                    Label
+                    <input
+                      value={color.label}
+                      onChange={(e) => onChange(setColorField(config, i, { label: e.target.value }))}
+                    />
+                  </label>
+                  <label className="setup-field">
+                    Color
+                    <input
+                      type="color"
+                      className="setup-swatch"
+                      value={color.display_hex}
+                      onChange={(e) => onChange(setColorField(config, i, { display_hex: e.target.value }))}
+                    />
+                  </label>
+                  <label className="setup-field">
+                    Max pumps (N)
+                    <input
+                      type="number"
+                      min={1}
+                      value={color.max_pumps}
+                      onChange={(e) =>
+                        onChange(setColorField(config, i, { max_pumps: Number(e.target.value) }))
+                      }
+                    />
+                  </label>
+                  <label className="setup-field">
+                    Trials
+                    <input
+                      type="number"
+                      min={1}
+                      value={color.trials}
+                      onChange={(e) => onChange(setColorField(config, i, { trials: Number(e.target.value) }))}
+                    />
+                  </label>
+                  <label className="setup-field">
+                    Hazard family
+                    <select
+                      value={color.hazard.family}
+                      onChange={(e) =>
+                        onChange(setColorHazardFamily(config, i, e.target.value as HazardFamily))
+                      }
+                    >
+                      {HAZARD_FAMILIES.map((family) => (
+                        <option key={family} value={family}>
+                          {family}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {renderHazardParams(config, i, onChange)}
+                </div>
+              </section>
             ))}
-          </ul>
+            <button type="button" className="setup-add-row" onClick={() => onChange(addColor(config))}>
+              <Icon icon={Plus} />
+              Add color profile
+            </button>
+          </div>
         </div>
-      )}
+      </section>
+
+      <section className="setup-band">
+        <div className="setup-band-inner">
+          <div className="setup-rail">
+            <h2 className="setup-rail-title">EV preview</h2>
+            <p className="setup-rail-desc">
+              Expected value, survival, and hazard per color profile, computed by the scoring
+              engine. Updates live as parameters change; the dashed marker is the optimum.
+            </p>
+          </div>
+          <div className="setup-ev-slot">
+            <EvPreview config={config} />
+          </div>
+        </div>
+      </section>
+
+      <section className="setup-band">
+        <div className="setup-band-inner">
+          <div className="setup-rail">
+            <h2 className="setup-rail-title">Run</h2>
+            <p className="setup-rail-desc">
+              A test run rehearses the participant flow without touching the dataset. Start run
+              begins a real session.
+            </p>
+          </div>
+          <div className="setup-run-actions">
+            <button type="button" className="setup-btn-test" onClick={onTestRun}>
+              Test run
+            </button>
+            <button type="button" className="setup-btn-primary" onClick={onStartRun}>
+              Start run →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Interim placement — issue 03 replaces this band with the sticky
+          identity bar (Save/Load + feedback) and the under-bar error strip. */}
+      <section className="setup-band">
+        <div className="setup-band-inner">
+          <div className="setup-rail">
+            <h2 className="setup-rail-title">Save &amp; load</h2>
+            <p className="setup-rail-desc">
+              Studies are saved as JSON files. Loaded files validate against the scoring engine
+              before replacing the current study.
+            </p>
+          </div>
+          <div className="setup-save-block">
+            <div className="setup-save-actions">
+              <button type="button" className="setup-btn-primary" onClick={handleSave}>
+                Save study…
+              </button>
+              <button type="button" className="setup-btn-ghost" onClick={handleLoad}>
+                Load study…
+              </button>
+            </div>
+            {status && <p className="setup-status">{status}</p>}
+            {errors.length > 0 && (
+              <div className="setup-errors">
+                <h3 className="setup-errors-title">Validation errors</h3>
+                <ul>
+                  {errors.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -355,7 +475,7 @@ function renderHazardParams(
   if (hazard.family === "step") {
     return (
       <>
-        <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
+        <label className="setup-field">
           Breakpoints
           <input
             key="bp"
@@ -369,7 +489,7 @@ function renderHazardParams(
             }
           />
         </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
+        <label className="setup-field">
           Levels
           <input
             key="lv"
@@ -389,7 +509,7 @@ function renderHazardParams(
 
   if (hazard.family === "tabular") {
     return (
-      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db", gridColumn: "1 / -1" }}>
+      <label className="setup-field setup-field-wide">
         Values (h per pump)
         <input
           key="vals"
@@ -407,7 +527,7 @@ function renderHazardParams(
   }
 
   return FAMILY_PARAMS[hazard.family].map((field) => (
-    <label key={field.key} style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.875rem", color: "#d1d5db" }}>
+    <label key={field.key} className="setup-field">
       {field.label}
       <input
         type="number"

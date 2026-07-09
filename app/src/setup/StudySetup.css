@@ -1,0 +1,379 @@
+/* Study Setup — the Researcher View band structure (DESIGN-SPEC §2.3, §2.4,
+ * §2.7). Full-width section bands separated by hairlines; each band pairs a
+ * left rail (title + one-liner) with dense label-left/control-right rows.
+ * Values come from tokens.css only; the one inline style allowed in the JSX
+ * is a profile's dynamic display_hex. */
+
+.setup-page {
+  /* Page geometry, defined once: the column cap (≈1100px incl. the band
+   * gutters), the rail width (§2.3 "rail ~200px"), the row label column, and
+   * the density cap that keeps controls from stretching to the band edge. */
+  --setup-col-max: 1036px;
+  --setup-rail-width: 200px;
+  --setup-label-width: 200px;
+  --setup-content-max: 680px;
+
+  min-height: 100vh;
+  padding-bottom: var(--space-48);
+}
+
+/* Interim page header — issue 03 replaces it with the sticky identity bar. */
+.setup-header {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--space-32);
+}
+
+.setup-header-inner {
+  max-width: var(--setup-col-max);
+  margin: 0 auto;
+  padding: var(--space-16) 0;
+}
+
+.setup-title {
+  font-size: var(--text-display);
+  font-weight: 600;
+  line-height: var(--leading-title);
+}
+
+/* Section bands: content column capped ≈1100px incl. the band gutters; the
+ * hairline separator lives on the inner column so it aligns with the text
+ * edge, not the viewport. */
+.setup-band {
+  padding: 0 var(--space-32);
+}
+
+.setup-band-inner {
+  max-width: var(--setup-col-max);
+  margin: 0 auto;
+  padding: var(--space-48) 0;
+  display: grid;
+  grid-template-columns: var(--setup-rail-width) minmax(0, 1fr);
+  column-gap: var(--space-48);
+  align-items: start;
+}
+
+.setup-band + .setup-band .setup-band-inner {
+  border-top: 1px solid var(--color-border);
+}
+
+.setup-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.setup-rail-title {
+  font-size: var(--text-title);
+  font-weight: 600;
+  line-height: var(--leading-title);
+}
+
+.setup-rail-desc {
+  font-size: var(--text-small);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-body);
+}
+
+/* Rail stacks above the rows on narrow windows (EN/TR labels may wrap to two
+ * lines at any width; controls hold their width). */
+@media (max-width: 860px) {
+  .setup-band-inner {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-24);
+  }
+}
+
+/* Property rows: label small/secondary at left, 32px control at right. The
+ * column is capped for density — controls should not stretch to the band
+ * edge on wide windows. */
+.setup-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  max-width: var(--setup-content-max);
+}
+
+.setup-row {
+  display: grid;
+  grid-template-columns: var(--setup-label-width) minmax(0, 1fr);
+  column-gap: var(--space-16);
+  align-items: center;
+  min-height: var(--control-height);
+}
+
+.setup-row-label {
+  font-size: var(--text-small);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-body);
+}
+
+.setup-inline-group {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.setup-inline-group input {
+  flex: 1;
+  min-width: 0;
+}
+
+.setup-inline-group button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.setup-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--text-body);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+/* Styled-native controls (§2.7): 32px metrics, hidden number spinners,
+ * token-styled selects (native popup), accent checkbox, swatch color input.
+ * Colors/focus come from the base.css element defaults. */
+.setup-page input:not([type="checkbox"]):not([type="color"]),
+.setup-page select {
+  height: var(--control-height);
+  width: 100%;
+  padding: 0 var(--space-12);
+  font-size: var(--text-body);
+}
+
+.setup-page input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.setup-page input[type="number"]::-webkit-inner-spin-button,
+.setup-page input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* The chevron's %23a3a5a8 is --color-text-secondary's hex shadow — data URIs
+ * can't read var(); retune it alongside the token. */
+.setup-page select {
+  appearance: none;
+  padding-right: var(--space-32);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a3a5a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-12) center;
+}
+
+.setup-page input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+}
+
+.setup-swatch {
+  width: 48px;
+  height: var(--control-height);
+  padding: 2px;
+  cursor: pointer;
+}
+
+.setup-page button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  height: var(--control-height);
+  padding: 0 var(--space-16);
+  font-size: var(--text-body);
+}
+
+.setup-btn-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+  padding: 0 var(--space-24);
+}
+
+.setup-btn-primary:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.setup-btn-ghost {
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.setup-btn-ghost:hover {
+  background: var(--color-bg-raised);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+/* Test run: quiet ghost with the amber practice identity (§2.3). */
+.setup-btn-test {
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-warning);
+}
+
+.setup-btn-test:hover {
+  background: var(--color-warning-wash);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.setup-run-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+/* Color profile cards (§2.4). */
+.setup-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  max-width: var(--setup-content-max);
+}
+
+.setup-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-16);
+}
+
+.setup-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  margin-bottom: var(--space-16);
+}
+
+.setup-card-id {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--text-body);
+  font-weight: 500;
+  min-width: 0;
+}
+
+.setup-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.setup-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  flex-shrink: 0;
+}
+
+.setup-card-summary {
+  font-size: var(--text-small);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.setup-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-12) var(--space-16);
+}
+
+.setup-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  font-size: var(--text-small);
+  color: var(--color-text-secondary);
+}
+
+.setup-field-wide {
+  grid-column: 1 / -1;
+}
+
+/* Remove: quiet red ghost; the armed step turns solid error for ~3s. */
+.setup-remove {
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-error);
+  height: 24px;
+  padding: 0 var(--space-8);
+  font-size: var(--text-small);
+}
+
+.setup-remove:hover {
+  background: var(--color-error-wash);
+  border-color: var(--color-error);
+}
+
+.setup-remove.is-armed,
+.setup-remove.is-armed:hover {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: #fff;
+}
+
+.setup-add-row {
+  width: 100%;
+  background: transparent;
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+}
+
+.setup-add-row:hover {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+/* Interim save/load block — issue 03 moves the actions into the identity bar
+ * and the errors into the under-bar strip. */
+.setup-save-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  max-width: var(--setup-content-max);
+}
+
+.setup-save-actions {
+  display: flex;
+  gap: var(--space-12);
+}
+
+.setup-status {
+  font-size: var(--text-small);
+  color: var(--color-text-secondary);
+}
+
+.setup-errors {
+  background: var(--color-error-wash);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  padding: var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.setup-errors-title {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--color-error);
+}
+
+.setup-errors ul {
+  margin: 0;
+  padding-left: var(--space-16);
+  color: var(--color-error);
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+}

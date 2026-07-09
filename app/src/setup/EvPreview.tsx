@@ -39,9 +39,11 @@ export function EvPreview({ config }: EvPreviewProps) {
     };
   }, [config]);
 
+  // No heading or page container of its own: this renders inside the Study
+  // Setup's EV Preview band, whose rail carries the title (issue 02); the
+  // full redesign onto .ev-* classes is issue 05.
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px 32px 16px" }}>
-      <h2 style={{ fontSize: "1.25rem", margin: "0 0 16px 0" }}>EV Preview</h2>
+    <div>
       {error && (
         <p style={{ color: "#fca5a5", background: "rgba(220, 38, 38, 0.1)", padding: "12px", borderRadius: "8px", fontSize: "0.875rem" }}>
           Preview not updated: {error}
