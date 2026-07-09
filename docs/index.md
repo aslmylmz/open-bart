@@ -4,7 +4,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20592164.svg)](https://doi.org/10.5281/zenodo.20592164)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Documentation Status](https://readthedocs.org/projects/metu-risk-persona/badge/?version=latest)](https://metu-risk-persona.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/open-bart/badge/?version=latest)](https://open-bart.readthedocs.io/en/latest/?badge=latest)
 
 Dynamic Hazard Rate BART lets a research lab administer, score, and export
 [Balloon Analogue Risk Task](https://doi.org/10.1037/1076-898X.8.2.75) (BART)
@@ -114,7 +114,7 @@ references
 ## Citing this software
 
 If you use this instrument in your research, please cite the archived
-release (see [CITATION.cff](https://github.com/aslmylmz/metu-risk-persona/blob/main/CITATION.cff)):
+release (see [CITATION.cff](https://github.com/aslmylmz/open-bart/blob/main/CITATION.cff)):
 
 > Yılmaz, A. S. (2026). *Dynamic Hazard Rate BART: A Configurable Offline
 > Desktop Instrument for the Balloon Analogue Risk Task* (Version 1.0.0)
@@ -122,4 +122,4 @@ release (see [CITATION.cff](https://github.com/aslmylmz/metu-risk-persona/blob/m
 
 ## License
 
-Released under the [MIT License](https://github.com/aslmylmz/metu-risk-persona/blob/main/LICENSE).
+Released under the [MIT License](https://github.com/aslmylmz/open-bart/blob/main/LICENSE).

@@ -2,7 +2,7 @@
 
 Standalone command-line tools: the optima-verification module inside the
 package, and the helper scripts in
-[`scripts/`](https://github.com/aslmylmz/metu-risk-persona/tree/main/scripts)
+[`scripts/`](https://github.com/aslmylmz/open-bart/tree/main/scripts)
 (which need the extras: `pip install -e ".[scripts]"`).
 
 ## Optima verification (all hazard families)
@@ -20,7 +20,7 @@ survival-curve error). This module is numpy-only and needs no extras.
 
 ## Hazard-family EV figure
 
-[`scripts/plot_hazard_families.py`](https://github.com/aslmylmz/metu-risk-persona/blob/main/scripts/plot_hazard_families.py)
+[`scripts/plot_hazard_families.py`](https://github.com/aslmylmz/open-bart/blob/main/scripts/plot_hazard_families.py)
 renders the eleven-panel EV-curve figure embedded in the
 [hazard-family reference](hazard_families.md) — analytic curves with numeric
 optima marked and Monte Carlo estimates overlaid:
@@ -34,7 +34,7 @@ the committed copy lives at `docs/_static/hazard_families_ev.png`).
 
 ## Default-study EV figures
 
-[`scripts/monte_carlo_ev.py`](https://github.com/aslmylmz/metu-risk-persona/blob/main/scripts/monte_carlo_ev.py)
+[`scripts/monte_carlo_ev.py`](https://github.com/aslmylmz/open-bart/blob/main/scripts/monte_carlo_ev.py)
 empirically confirms the analytic EV-optimal stops and characterizes the
 earnings distribution under optimal play. It simulates 100,000 sessions
 (`N_SESSIONS`, seed 42) and produces three figures.
@@ -75,7 +75,7 @@ Requires `numpy`, `scipy`, and `matplotlib`.
 
 ## Synthetic data generation
 
-[`scripts/generate_synthetic.py`](https://github.com/aslmylmz/metu-risk-persona/blob/main/scripts/generate_synthetic.py)
+[`scripts/generate_synthetic.py`](https://github.com/aslmylmz/open-bart/blob/main/scripts/generate_synthetic.py)
 generates synthetic participant records — DOSPERT subscale means and summary
 BART metrics — drawn from parameterized distributions chosen to approximate
 realistic ranges.

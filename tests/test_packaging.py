@@ -30,7 +30,7 @@ def test_installed_metadata_matches_version():
     import scoring
 
     try:
-        dist_version = version("metu-risk-persona")
+        dist_version = version("open-bart")
     except PackageNotFoundError:
         pytest.skip("scoring not pip-installed (running from a source checkout)")
 

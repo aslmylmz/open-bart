@@ -22,8 +22,8 @@ authors:
 version: "1.0.0"
 date-released: "2026-07-02"
 license: MIT
-repository-code: "https://github.com/aslmylmz/metu-risk-persona"
-url: "https://metu-risk-persona.readthedocs.io"
+repository-code: "https://github.com/aslmylmz/open-bart"
+url: "https://open-bart.readthedocs.io"
 doi: "10.5281/zenodo.20592164"
 keywords:
   - BART

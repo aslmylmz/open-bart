@@ -76,7 +76,7 @@ html_title = "Dynamic Hazard Rate BART"
 html_show_sourcelink = True
 
 html_theme_options = {
-    "source_repository": "https://github.com/aslmylmz/metu-risk-persona/",
+    "source_repository": "https://github.com/aslmylmz/open-bart/",
     "source_branch": "main",
     "source_directory": "docs/",
 }

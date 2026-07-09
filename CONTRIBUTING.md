@@ -12,10 +12,10 @@ maintainers.
 ## Getting help and reporting issues
 
 - **Questions and support:** open a
-  [GitHub Discussion](https://github.com/aslmylmz/metu-risk-persona/discussions)
+  [GitHub Discussion](https://github.com/aslmylmz/open-bart/discussions)
   or an issue with the `question` label.
 - **Bug reports:** open a
-  [GitHub Issue](https://github.com/aslmylmz/metu-risk-persona/issues). Please
+  [GitHub Issue](https://github.com/aslmylmz/open-bart/issues). Please
   include your Python version, the package versions from `pip freeze`, a minimal
   event log that reproduces the problem, and the actual vs. expected output.
 - **Feature requests:** open an issue describing the use case and, where
@@ -24,8 +24,8 @@ maintainers.
 ## Development setup
 
 ```bash
-git clone https://github.com/aslmylmz/metu-risk-persona.git
-cd metu-risk-persona
+git clone https://github.com/aslmylmz/open-bart.git
+cd open-bart
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 pip install pytest          # for the test suite

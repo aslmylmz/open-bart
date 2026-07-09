@@ -3,7 +3,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "metu-risk-persona"
+name = "open-bart"
 dynamic = ["version"]
 description = "Dynamic Hazard Rate BART: a configurable, EV-calibrated Balloon Analogue Risk Task scoring engine and instrument."
 readme = "README.md"
@@ -46,9 +46,9 @@ build = ["pyinstaller>=6.6"]
 dev = ["pytest>=7", "httpx>=0.27", "pyyaml>=6"]
 
 [project.urls]
-Homepage = "https://github.com/aslmylmz/metu-risk-persona"
-Repository = "https://github.com/aslmylmz/metu-risk-persona"
-Documentation = "https://metu-risk-persona.readthedocs.io"
+Homepage = "https://github.com/aslmylmz/open-bart"
+Repository = "https://github.com/aslmylmz/open-bart"
+Documentation = "https://open-bart.readthedocs.io"
 
 [tool.pytest.ini_options]
 filterwarnings = [

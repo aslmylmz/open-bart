@@ -1,6 +1,6 @@
 # Game Client
 
-[`app/src/BartGame.tsx`](https://github.com/aslmylmz/metu-risk-persona/blob/main/app/src/BartGame.tsx)
+[`app/src/BartGame.tsx`](https://github.com/aslmylmz/open-bart/blob/main/app/src/BartGame.tsx)
 is a self-contained React component (bundled by Vite into a static SPA) that
 administers the dynamic-hazard BART and captures pump-level telemetry. Its UI
 strings are in Turkish, matching the reference study's cohort.

@@ -24,8 +24,8 @@ Optional extras (`pip install -e ".[scripts]"`) pull in `matplotlib`,
 ## From source
 
 ```bash
-git clone https://github.com/aslmylmz/metu-risk-persona.git
-cd metu-risk-persona
+git clone https://github.com/aslmylmz/open-bart.git
+cd open-bart
 pip install -e .
 ```
 
