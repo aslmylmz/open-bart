@@ -439,6 +439,25 @@
   grid-column: 1 / -1;
 }
 
+/* Inline validation (§2.5): error border on the flagged control and a 12px
+ * error line under it. In the label-left rows the line takes the control
+ * column; in card fields the flex column already stacks it under the input. */
+.setup-page input[aria-invalid="true"],
+.setup-page select[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
+.setup-field-error {
+  margin: 0;
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+  color: var(--color-error);
+}
+
+.setup-row > .setup-field-error {
+  grid-column: 2;
+}
+
 /* Remove: quiet red ghost; the armed step turns solid error for ~3s. */
 .setup-remove {
   background: transparent;

@@ -94,11 +94,12 @@ describe("Save/Load shortcuts (§2.7)", () => {
     fireEvent.keyDown(window, { key: "s", metaKey: true });
     fireEvent.keyDown(window, { key: "o", metaKey: true });
 
-    // Nothing to await: give any stray handler a microtask to surface.
+    // Nothing to await: give any stray handler a microtask to surface. The
+    // dialog spies are the signal — validateConfig may legitimately fire from
+    // setup mode's debounced live validation (§2.5) before the run started.
     await Promise.resolve();
     expect(saveStudy).not.toHaveBeenCalled();
     expect(loadStudy).not.toHaveBeenCalled();
-    expect(validateConfig).not.toHaveBeenCalled();
   });
 });
 

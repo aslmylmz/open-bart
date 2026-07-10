@@ -343,6 +343,184 @@ describe("Error strip (§2.2)", () => {
   });
 });
 
+describe("Live validation — touched-then-live (§2.5)", () => {
+  const REWARD_ERROR = {
+    ok: false,
+    errors: ["reward_per_pump: Input should be greater than 0"],
+  };
+  const REWARD_MESSAGE = "Input should be greater than 0";
+
+  function breakReward() {
+    fireEvent.change(screen.getByLabelText(/reward per pump/i), { target: { value: "0" } });
+  }
+
+  it("never renders an error at a field that was not blurred", async () => {
+    stubPlatform("MacIntel");
+    vi.useFakeTimers();
+    validateConfig.mockResolvedValue(REWARD_ERROR);
+    render(<Harness initial={DEFAULT_STUDY} />);
+
+    breakReward();
+    await act(async () => {
+      vi.advanceTimersByTime(450);
+    });
+
+    // The sidecar has flagged the field, but first typing is never nagged.
+    expect(screen.queryByText(REWARD_MESSAGE)).toBeNull();
+  });
+
+  it("renders the error under the control after blur + debounce", async () => {
+    stubPlatform("MacIntel");
+    vi.useFakeTimers();
+    validateConfig.mockResolvedValue(REWARD_ERROR);
+    render(<Harness initial={DEFAULT_STUDY} />);
+
+    breakReward();
+    fireEvent.blur(screen.getByLabelText(/reward per pump/i));
+    await act(async () => {
+      vi.advanceTimersByTime(450);
+    });
+
+    expect(screen.getByText(REWARD_MESSAGE)).toBeTruthy();
+  });
+
+  it("reveals an already-known error the moment its field is first blurred", async () => {
+    stubPlatform("MacIntel");
+    vi.useFakeTimers();
+    validateConfig.mockResolvedValue(REWARD_ERROR);
+    render(<Harness initial={DEFAULT_STUDY} />);
+
+    breakReward();
+    await act(async () => {
+      vi.advanceTimersByTime(450);
+    });
+    expect(screen.queryByText(REWARD_MESSAGE)).toBeNull();
+
+    fireEvent.blur(screen.getByLabelText(/reward per pump/i));
+
+    expect(screen.getByText(REWARD_MESSAGE)).toBeTruthy();
+  });
+
+  it("clears the error at debounce cadence once the value is fixed", async () => {
+    stubPlatform("MacIntel");
+    vi.useFakeTimers();
+    validateConfig.mockResolvedValue(REWARD_ERROR);
+    render(<Harness initial={DEFAULT_STUDY} />);
+
+    breakReward();
+    fireEvent.blur(screen.getByLabelText(/reward per pump/i));
+    await act(async () => {
+      vi.advanceTimersByTime(450);
+    });
+    expect(screen.getByText(REWARD_MESSAGE)).toBeTruthy();
+
+    validateConfig.mockResolvedValue({ ok: true, errors: [] });
+    fireEvent.change(screen.getByLabelText(/reward per pump/i), { target: { value: "0.25" } });
+    await act(async () => {
+      vi.advanceTimersByTime(450);
+    });
+
+    expect(screen.queryByText(REWARD_MESSAGE)).toBeNull();
+  });
+
+  it("keeps an unmappable error off the form until a save attempt summons the strip", async () => {
+    stubPlatform("MacIntel");
+    vi.useFakeTimers();
+    // Top-level `currency` has no Study-Setup control — unmappable by design.
+    validateConfig.mockResolvedValue({
+      ok: false,
+      errors: ["currency: String should have at least 1 character"],
+    });
+    render(<Harness initial={DEFAULT_STUDY} />);
+
+    fireEvent.blur(screen.getByLabelText(/title/i));
+    await act(async () => {
+      vi.advanceTimersByTime(450);
+    });
+    expect(screen.queryByText(/at least 1 character/)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await act(async () => {});
+
+    expect(screen.getByText("Not saved — 1 error.")).toBeTruthy();
+    expect(screen.getByText("currency: String should have at least 1 character")).toBeTruthy();
+  });
+
+  it("reveals mapped errors at their fields after a save attempt and still blocks the save", async () => {
+    stubPlatform("MacIntel");
+    validateConfig.mockResolvedValue(REWARD_ERROR);
+    render(<Harness initial={DEFAULT_STUDY} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    expect(await screen.findByText("Not saved — 1 error.")).toBeTruthy();
+    // The field itself was never blurred — the save attempt reveals it.
+    expect(screen.getByText(REWARD_MESSAGE)).toBeTruthy();
+    expect(saveStudy).not.toHaveBeenCalled();
+  });
+
+  it("commits a blur-committed input's value on the same blur that marks it touched", () => {
+    stubPlatform("MacIntel");
+    render(<Harness initial={DEFAULT_STUDY} />);
+
+    const conditions = screen.getByLabelText(/conditions/i);
+    fireEvent.change(conditions, { target: { value: "control, treatment," } });
+    fireEvent.blur(conditions);
+
+    // The parsed list landed in the config (trailing comma dropped)…
+    expect(screen.getByDisplayValue("control, treatment")).toBeTruthy();
+    // …so the study is dirty: the commit was not swallowed by the touch wiring.
+    expect(screen.getByRole("img", { name: /unsaved changes/i })).toBeTruthy();
+  });
+
+  it("stops nagging never-blurred fields once a save succeeds", async () => {
+    stubPlatform("MacIntel");
+    vi.useFakeTimers();
+    saveStudy.mockResolvedValue("/tmp/s.json");
+    render(<Harness initial={DEFAULT_STUDY} />);
+
+    // A save attempt reveals everything…
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await act(async () => {});
+    expect(screen.getByText("Saved to /tmp/s.json")).toBeTruthy();
+
+    // …but after it succeeds, a fresh edit at an untouched field is not
+    // nagged mid-typing again (§2.5 "first typing is never nagged").
+    validateConfig.mockResolvedValue(REWARD_ERROR);
+    breakReward();
+    await act(async () => {
+      vi.advanceTimersByTime(450);
+    });
+
+    expect(screen.queryByText(REWARD_MESSAGE)).toBeNull();
+  });
+
+  it("renders a cross-field error at all involved fields", async () => {
+    stubPlatform("MacIntel");
+    const stepStudy = {
+      ...DEFAULT_STUDY,
+      colors: [
+        {
+          ...DEFAULT_STUDY.colors[0],
+          hazard: { family: "step" as const, breakpoints: [4], levels: [0.05, 0.5, 0.9] },
+        },
+      ],
+    };
+    const message = "step hazard needs len(levels) == len(breakpoints) + 1";
+    validateConfig.mockResolvedValue({
+      ok: false,
+      errors: [`colors.0.hazard.step: Value error, ${message}`],
+    });
+    render(<Harness initial={stepStudy} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /save/i }));
+    await screen.findByText("Not saved — 1 error.");
+
+    // Both array params carry the shared shape error (§2.5 cross-field rule).
+    expect(screen.getAllByText(message).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe("Color profile remove — two-step inline confirm", () => {
   it("arms on the first click instead of removing", async () => {
     render(<Harness initial={DEFAULT_STUDY} />);

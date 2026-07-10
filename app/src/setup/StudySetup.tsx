@@ -1,8 +1,8 @@
 import { FolderOpen, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FocusEvent } from "react";
 
 import { Icon } from "../components/Icon";
-import { validateConfig } from "../lib/api";
+import { validateConfig, type ValidateResult } from "../lib/api";
 import { HAZARD_FAMILIES, type HazardFamily, type Language, type TaskConfig } from "../lib/config";
 import { loadStudy, saveStudy, selectOutputDir, type LoadedStudyFile } from "../lib/desktop";
 import { isMacPlatform, matchesShortcut, shortcutChip } from "../lib/platform";
@@ -28,6 +28,12 @@ import {
   setQcField,
   setStudyField,
 } from "./studyForm";
+import {
+  knownFieldPaths,
+  mapErrorsToFields,
+  retargetTouchedAfterColorRemoval,
+  visibleFieldErrors,
+} from "./validation";
 import "./StudySetup.css";
 
 /** How long the armed "Confirm remove" state holds before quietly reverting. */
@@ -36,6 +42,10 @@ const REMOVE_CONFIRM_MS = 3000;
 /** How long a transient save/load message holds line 2 of the identity bar
  * before it reverts to the file identity (DESIGN-SPEC §2.1 "~4s"). */
 const FEEDBACK_MS = 4000;
+
+/** How long the form sits idle after an edit before the sidecar re-validates
+ * (DESIGN-SPEC §2.5 "~400ms"). */
+const VALIDATE_DEBOUNCE_MS = 400;
 
 /** §2.2's load-rejected headline — the current study is never replaced by a
  * file that fails parsing or sidecar validation. */
@@ -93,7 +103,58 @@ export function StudySetup({
   const disarmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // The inline validation layer (§2.5): the sidecar's latest verdict, which
+  // fields have been blurred at least once, and whether a save was attempted
+  // (which reveals errors everywhere). Presentation state only — it resets
+  // with the component; the sidecar remains the sole validation authority.
+  const [validation, setValidation] = useState<ValidateResult>({ ok: true, errors: [] });
+  const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
+  const [saveAttempted, setSaveAttempted] = useState(false);
+  // Monotonic ticket for /validate-config responses: only the newest request
+  // may set state, so a slow stale response can't overwrite a fresher verdict.
+  const validateSeq = useRef(0);
+
   const macLike = isMacPlatform(navigator.platform);
+
+  // Debounced live validation (§2.5): ~400ms after the last edit, ask the
+  // sidecar for a fresh verdict. A transport failure quietly keeps the last
+  // verdict — surfacing sidecar outages is the save/load handlers' job.
+  useEffect(() => {
+    const seq = ++validateSeq.current;
+    const timer = setTimeout(() => {
+      validateConfig(config).then(
+        (verdict) => {
+          if (validateSeq.current === seq) setValidation(verdict);
+        },
+        () => {},
+      );
+    }, VALIDATE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [config]);
+
+  const fieldErrors = visibleFieldErrors(
+    mapErrorsToFields(validation.errors, knownFieldPaths(config)),
+    touched,
+    saveAttempted,
+  );
+
+  /** Record a field's first blur — from then on its errors render live. */
+  function touch(field: string) {
+    setTouched((prev) => (prev.has(field) ? prev : new Set(prev).add(field)));
+  }
+
+  /** The blur + error-flag props every validated control carries. Controls
+   * that commit their value on blur pass the commit here, so the commit and
+   * the touch land on the same blur. */
+  function fieldProps(field: string, commit?: (value: string) => void): FieldWiring {
+    return {
+      "aria-invalid": fieldErrors[field] ? true : undefined,
+      onBlur: (e) => {
+        touch(field);
+        commit?.(e.target.value);
+      },
+    };
+  }
 
   useEffect(
     () => () => {
@@ -125,6 +186,9 @@ export function StudySetup({
     clearTimeout(disarmTimer.current);
     if (armedRemove === i) {
       setArmedRemove(null);
+      // Keep blur history with its profile: later colors' touched paths shift
+      // down with their cards instead of pointing at whoever inherits the index.
+      setTouched((prev) => retargetTouchedAfterColorRemoval(prev, i));
       onChange(removeColor(config, i));
       return;
     }
@@ -147,6 +211,8 @@ export function StudySetup({
   }
 
   async function handleSave() {
+    // A save attempt reveals inline errors at every field, blurred or not (§2.5).
+    setSaveAttempted(true);
     let verdict: Awaited<ReturnType<typeof validateConfig>>;
     try {
       verdict = await validateConfig(config);
@@ -154,6 +220,10 @@ export function StudySetup({
       showFeedback(describeError("Save failed", err), "error");
       return;
     }
+    // The save-time pass is the freshest verdict — feed the inline layer and
+    // outrank any in-flight debounced response.
+    validateSeq.current += 1;
+    setValidation(verdict);
     if (!verdict.ok) {
       setStrip({ headline: saveBlockedHeadline(verdict.errors.length), errors: verdict.errors });
       return;
@@ -166,6 +236,10 @@ export function StudySetup({
       }
       setStrip(null);
       onSnapshotChange({ path, config });
+      // The saved study is clean — future edits start un-nagged again, so
+      // §2.5's "first typing is never nagged" outlives the save that
+      // revealed everything.
+      setSaveAttempted(false);
       showFeedback(`Saved to ${path}`, "success");
     } catch (err) {
       showFeedback(describeError("Save failed", err), "error");
@@ -207,6 +281,12 @@ export function StudySetup({
     }
     setStrip(null);
     clearFeedback();
+    // The loaded study just validated ok; restart the touched-then-live layer
+    // so the fresh study begins un-nagged (§2.5).
+    validateSeq.current += 1;
+    setValidation({ ok: true, errors: [] });
+    setTouched(new Set());
+    setSaveAttempted(false);
     onChange(loaded);
     onSnapshotChange({ path: picked.path, config: loaded });
   }
@@ -297,18 +377,22 @@ export function StudySetup({
               <span className="setup-row-label">Title</span>
               <input
                 value={config.title}
+                {...fieldProps("title")}
                 onChange={(e) => onChange(setStudyField(config, { title: e.target.value }))}
               />
+              <FieldError errors={fieldErrors["title"]} />
             </label>
             <label className="setup-row">
               <span className="setup-row-label">Language</span>
               <select
                 value={config.language}
+                {...fieldProps("language")}
                 onChange={(e) => onChange(setStudyField(config, { language: e.target.value as Language }))}
               >
                 <option value="en">English</option>
                 <option value="tr">Türkçe</option>
               </select>
+              <FieldError errors={fieldErrors["language"]} />
             </label>
             <label className="setup-row">
               <span className="setup-row-label">Reward per pump</span>
@@ -317,10 +401,12 @@ export function StudySetup({
                 step={0.01}
                 min={0}
                 value={config.reward_per_pump}
+                {...fieldProps("reward_per_pump")}
                 onChange={(e) =>
                   onChange(setStudyField(config, { reward_per_pump: Number(e.target.value) }))
                 }
               />
+              <FieldError errors={fieldErrors["reward_per_pump"]} />
             </label>
             <label className="setup-row">
               <span className="setup-row-label">Seed</span>
@@ -328,12 +414,14 @@ export function StudySetup({
                 type="number"
                 placeholder="Fresh randomness each run"
                 value={config.seed ?? ""}
+                {...fieldProps("seed")}
                 onChange={(e) =>
                   onChange(
                     setStudyField(config, { seed: e.target.value === "" ? null : Number(e.target.value) }),
                   )
                 }
               />
+              <FieldError errors={fieldErrors["seed"]} />
             </label>
             <label className="setup-row">
               <span className="setup-row-label">Conditions</span>
@@ -343,10 +431,11 @@ export function StudySetup({
                 key={(config.conditions ?? []).join(",")}
                 defaultValue={(config.conditions ?? []).join(", ")}
                 placeholder="Comma-separated — empty for none"
-                onBlur={(e) =>
-                  onChange(setStudyField(config, { conditions: parseConditionList(e.target.value) }))
-                }
+                {...fieldProps("conditions", (value) =>
+                  onChange(setStudyField(config, { conditions: parseConditionList(value) })),
+                )}
               />
+              <FieldError errors={fieldErrors["conditions"]} />
             </label>
             <label className="setup-row">
               <span className="setup-row-label">Exit passcode</span>
@@ -355,10 +444,11 @@ export function StudySetup({
                 key={config.exit_passcode ?? ""}
                 defaultValue={config.exit_passcode ?? ""}
                 placeholder="Empty for ungated exits"
-                onBlur={(e) =>
-                  onChange(setStudyField(config, { exit_passcode: parseExitPasscode(e.target.value) }))
-                }
+                {...fieldProps("exit_passcode", (value) =>
+                  onChange(setStudyField(config, { exit_passcode: parseExitPasscode(value) })),
+                )}
               />
+              <FieldError errors={fieldErrors["exit_passcode"]} />
             </label>
             <div className="setup-row">
               <label className="setup-row-label" htmlFor="setup-output-dir">
@@ -368,6 +458,7 @@ export function StudySetup({
                 <input
                   id="setup-output-dir"
                   value={config.output_dir}
+                  {...fieldProps("output_dir")}
                   onChange={(e) => onChange(setStudyField(config, { output_dir: e.target.value }))}
                 />
                 <button type="button" onClick={handleSelectOutputDir}>
@@ -375,6 +466,7 @@ export function StudySetup({
                   Select folder…
                 </button>
               </div>
+              <FieldError errors={fieldErrors["output_dir"]} />
             </div>
           </div>
         </div>
@@ -397,8 +489,10 @@ export function StudySetup({
                 min={1}
                 step={1}
                 value={config.qc?.fast_response_ms ?? DEFAULT_QC.fast_response_ms}
+                {...fieldProps("qc.fast_response_ms")}
                 onChange={(e) => onChange(setQcField(config, { fast_response_ms: Number(e.target.value) }))}
               />
+              <FieldError errors={fieldErrors["qc.fast_response_ms"]} />
             </label>
             <label className="setup-row">
               <span className="setup-row-label">Zero-pump streak (trials)</span>
@@ -407,8 +501,10 @@ export function StudySetup({
                 min={1}
                 step={1}
                 value={config.qc?.zero_pump_streak ?? DEFAULT_QC.zero_pump_streak}
+                {...fieldProps("qc.zero_pump_streak")}
                 onChange={(e) => onChange(setQcField(config, { zero_pump_streak: Number(e.target.value) }))}
               />
+              <FieldError errors={fieldErrors["qc.zero_pump_streak"]} />
             </label>
             <div className="setup-row">
               <span className="setup-row-label">Real payout</span>
@@ -430,16 +526,20 @@ export function StudySetup({
                     min={0}
                     step={0.01}
                     value={config.payout.rate}
+                    {...fieldProps("payout.rate")}
                     onChange={(e) => onChange(setPayoutField(config, { rate: Number(e.target.value) }))}
                   />
+                  <FieldError errors={fieldErrors["payout.rate"]} />
                 </label>
                 <label className="setup-row">
                   <span className="setup-row-label">Currency label</span>
                   <input
                     placeholder="₺, $, credits…"
                     value={config.payout.currency}
+                    {...fieldProps("payout.currency")}
                     onChange={(e) => onChange(setPayoutField(config, { currency: e.target.value }))}
                   />
+                  <FieldError errors={fieldErrors["payout.currency"]} />
                 </label>
               </>
             )}
@@ -483,15 +583,19 @@ export function StudySetup({
                     Name
                     <input
                       value={color.name}
+                      {...fieldProps(`colors.${i}.name`)}
                       onChange={(e) => onChange(setColorField(config, i, { name: e.target.value }))}
                     />
+                    <FieldError errors={fieldErrors[`colors.${i}.name`]} />
                   </label>
                   <label className="setup-field">
                     Label
                     <input
                       value={color.label}
+                      {...fieldProps(`colors.${i}.label`)}
                       onChange={(e) => onChange(setColorField(config, i, { label: e.target.value }))}
                     />
+                    <FieldError errors={fieldErrors[`colors.${i}.label`]} />
                   </label>
                   <label className="setup-field">
                     Color
@@ -499,8 +603,10 @@ export function StudySetup({
                       type="color"
                       className="setup-swatch"
                       value={color.display_hex}
+                      {...fieldProps(`colors.${i}.display_hex`)}
                       onChange={(e) => onChange(setColorField(config, i, { display_hex: e.target.value }))}
                     />
+                    <FieldError errors={fieldErrors[`colors.${i}.display_hex`]} />
                   </label>
                   <label className="setup-field">
                     Max pumps (N)
@@ -508,10 +614,12 @@ export function StudySetup({
                       type="number"
                       min={1}
                       value={color.max_pumps}
+                      {...fieldProps(`colors.${i}.max_pumps`)}
                       onChange={(e) =>
                         onChange(setColorField(config, i, { max_pumps: Number(e.target.value) }))
                       }
                     />
+                    <FieldError errors={fieldErrors[`colors.${i}.max_pumps`]} />
                   </label>
                   <label className="setup-field">
                     Trials
@@ -519,13 +627,16 @@ export function StudySetup({
                       type="number"
                       min={1}
                       value={color.trials}
+                      {...fieldProps(`colors.${i}.trials`)}
                       onChange={(e) => onChange(setColorField(config, i, { trials: Number(e.target.value) }))}
                     />
+                    <FieldError errors={fieldErrors[`colors.${i}.trials`]} />
                   </label>
                   <label className="setup-field">
                     Hazard family
                     <select
                       value={color.hazard.family}
+                      {...fieldProps(`colors.${i}.hazard.family`)}
                       onChange={(e) =>
                         onChange(setColorHazardFamily(config, i, e.target.value as HazardFamily))
                       }
@@ -536,8 +647,9 @@ export function StudySetup({
                         </option>
                       ))}
                     </select>
+                    <FieldError errors={fieldErrors[`colors.${i}.hazard.family`]} />
                   </label>
-                  {renderHazardParams(config, i, onChange)}
+                  {renderHazardParams(config, i, onChange, fieldErrors, fieldProps)}
                 </div>
               </section>
             ))}
@@ -588,16 +700,27 @@ export function StudySetup({
   );
 }
 
+/** What `fieldProps` hands every validated control: the error flag for the
+ * red border plus the blur handler (touch, then any value commit). */
+type FieldWiring = {
+  "aria-invalid": true | undefined;
+  onBlur: (e: FocusEvent<HTMLInputElement | HTMLSelectElement>) => void;
+};
+
 /** Render the parameter inputs for one color's hazard: number inputs for scalar
  * families (driven by FAMILY_PARAMS) and comma-separated list inputs for the two
- * array families (committed on blur via parseNumberList). */
+ * array families (committed on blur via parseNumberList). Each param carries its
+ * inline validation wiring against the `colors.<i>.hazard.<param>` field path. */
 function renderHazardParams(
   config: TaskConfig,
   i: number,
   onChange: (config: TaskConfig) => void,
+  fieldErrors: Record<string, string[]>,
+  fieldProps: (field: string, commit?: (value: string) => void) => FieldWiring,
 ) {
   const hazard = config.colors[i].hazard;
   const values = hazard as unknown as Record<string, number>;
+  const base = `colors.${i}.hazard`;
 
   if (hazard.family === "step") {
     return (
@@ -607,28 +730,30 @@ function renderHazardParams(
           <input
             key="bp"
             defaultValue={hazard.breakpoints.join(", ")}
-            onBlur={(e) =>
+            {...fieldProps(`${base}.breakpoints`, (value) =>
               onChange(
                 setColorField(config, i, {
-                  hazard: { ...hazard, breakpoints: parseNumberList(e.target.value) },
+                  hazard: { ...hazard, breakpoints: parseNumberList(value) },
                 }),
-              )
-            }
+              ),
+            )}
           />
+          <FieldError errors={fieldErrors[`${base}.breakpoints`]} />
         </label>
         <label className="setup-field">
           Levels
           <input
             key="lv"
             defaultValue={hazard.levels.join(", ")}
-            onBlur={(e) =>
+            {...fieldProps(`${base}.levels`, (value) =>
               onChange(
                 setColorField(config, i, {
-                  hazard: { ...hazard, levels: parseNumberList(e.target.value) },
+                  hazard: { ...hazard, levels: parseNumberList(value) },
                 }),
-              )
-            }
+              ),
+            )}
           />
+          <FieldError errors={fieldErrors[`${base}.levels`]} />
         </label>
       </>
     );
@@ -641,14 +766,15 @@ function renderHazardParams(
         <input
           key="vals"
           defaultValue={hazard.values.join(", ")}
-          onBlur={(e) =>
+          {...fieldProps(`${base}.values`, (value) =>
             onChange(
               setColorField(config, i, {
-                hazard: { ...hazard, values: parseNumberList(e.target.value) },
+                hazard: { ...hazard, values: parseNumberList(value) },
               }),
-            )
-          }
+            ),
+          )}
         />
+        <FieldError errors={fieldErrors[`${base}.values`]} />
       </label>
     );
   }
@@ -662,8 +788,17 @@ function renderHazardParams(
         max={field.max}
         step={field.step}
         value={values[field.key]}
+        {...fieldProps(`${base}.${field.key}`)}
         onChange={(e) => onChange(setHazardParam(config, i, field.key, Number(e.target.value)))}
       />
+      <FieldError errors={fieldErrors[`${base}.${field.key}`]} />
     </label>
   ));
+}
+
+/** The 12px line under a control naming its live validation errors (§2.5);
+ * nothing while the field is clean or its errors are not yet revealed. */
+function FieldError({ errors }: { errors?: string[] }) {
+  if (!errors || errors.length === 0) return null;
+  return <p className="setup-field-error">{errors.join("; ")}</p>;
 }
