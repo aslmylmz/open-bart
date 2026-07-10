@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { App } from "./App";
@@ -24,17 +24,82 @@ vi.mock("./lib/api", () => ({
   persistSession: (...args: unknown[]) => persistSession(...args),
 }));
 
+// The desktop module fronts native Tauri dialogs and window calls, none of
+// which exist in jsdom. Every export App or its children touch must be here.
+const saveStudy = vi.fn();
+const loadStudy = vi.fn();
+const selectOutputDir = vi.fn();
+const toggleFullscreen = vi.fn();
+const setKioskLock = vi.fn();
+vi.mock("./lib/desktop", () => ({
+  saveStudy: (...args: unknown[]) => saveStudy(...args),
+  loadStudy: (...args: unknown[]) => loadStudy(...args),
+  selectOutputDir: (...args: unknown[]) => selectOutputDir(...args),
+  toggleFullscreen: (...args: unknown[]) => toggleFullscreen(...args),
+  setKioskLock: (...args: unknown[]) => setKioskLock(...args),
+}));
+
 const t = taskStrings("en");
 
 beforeEach(() => {
   fetchHealth.mockRejectedValue(new Error("no sidecar in tests"));
   validateConfig.mockResolvedValue({ ok: true, errors: [] });
   preview.mockResolvedValue({ curves: {} });
+  // Cancelled-dialog semantics: the flows run but change nothing.
+  saveStudy.mockResolvedValue(null);
+  loadStudy.mockResolvedValue(null);
+  toggleFullscreen.mockResolvedValue(false);
+  setKioskLock.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
+  delete (window.navigator as { platform?: string }).platform;
+});
+
+/** Pin the platform string the shortcut layer reads (jsdom leaves it blank). */
+function stubPlatform(value: string) {
+  Object.defineProperty(window.navigator, "platform", { value, configurable: true });
+}
+
+describe("Save/Load shortcuts (§2.7)", () => {
+  it("⌘S fires the save flow in setup mode", async () => {
+    stubPlatform("MacIntel");
+    render(<App />);
+    await screen.findByRole("button", { name: /save/i });
+
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+
+    await waitFor(() => expect(saveStudy).toHaveBeenCalled());
+  });
+
+  it("⌘O fires the load flow in setup mode", async () => {
+    stubPlatform("MacIntel");
+    render(<App />);
+    await screen.findByRole("button", { name: /load/i });
+
+    fireEvent.keyDown(window, { key: "o", metaKey: true });
+
+    await waitFor(() => expect(loadStudy).toHaveBeenCalled());
+  });
+
+  it("stays inert during a run — the participant surface owns the keyboard", async () => {
+    stubPlatform("MacIntel");
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("button", { name: /start run/i }));
+    await screen.findByText(t.consentTitle);
+
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    fireEvent.keyDown(window, { key: "o", metaKey: true });
+
+    // Nothing to await: give any stray handler a microtask to surface.
+    await Promise.resolve();
+    expect(saveStudy).not.toHaveBeenCalled();
+    expect(loadStudy).not.toHaveBeenCalled();
+    expect(validateConfig).not.toHaveBeenCalled();
+  });
 });
 
 describe("Test Run control (issue 43)", () => {

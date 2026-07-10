@@ -32,12 +32,12 @@ describe("saveStudy", () => {
 });
 
 describe("loadStudy", () => {
-  it("reads and returns the content of the chosen path", async () => {
+  it("reads the chosen file and returns its path and content — the identity bar shows both", async () => {
     vi.mocked(open).mockResolvedValue("/tmp/study.json");
     vi.mocked(invoke).mockResolvedValue('{"title":"loaded"}');
-    const content = await loadStudy();
+    const result = await loadStudy();
     expect(invoke).toHaveBeenCalledWith("read_study_file", { path: "/tmp/study.json" });
-    expect(content).toBe('{"title":"loaded"}');
+    expect(result).toEqual({ path: "/tmp/study.json", text: '{"title":"loaded"}' });
   });
 
   it("returns null and reads nothing when the dialog is cancelled", async () => {

@@ -5,16 +5,20 @@ import {
   addColor,
   DEFAULT_PAYOUT,
   DEFAULT_QC,
+  fileIdentityLine,
+  isStudyDirty,
   parseConditionList,
   parseExitPasscode,
   parseNumberList,
   parseStudy,
   removeColor,
+  saveBlockedHeadline,
   setColorHazardFamily,
   setHazardParam,
   setPayoutEnabled,
   setPayoutField,
   setQcField,
+  setStudyField,
 } from "./studyForm";
 
 describe("setColorHazardFamily", () => {
@@ -181,5 +185,57 @@ describe("parseExitPasscode", () => {
   it("returns null for blank input — the study has no kiosk lock", () => {
     expect(parseExitPasscode("")).toBeNull();
     expect(parseExitPasscode("   ")).toBeNull();
+  });
+});
+
+describe("isStudyDirty", () => {
+  it("is clean against the snapshot it was seeded from", () => {
+    expect(isStudyDirty(DEFAULT_STUDY, DEFAULT_STUDY)).toBe(false);
+  });
+
+  it("marks an edited study dirty", () => {
+    const edited = setStudyField(DEFAULT_STUDY, { title: "Pilot 2" });
+    expect(isStudyDirty(edited, DEFAULT_STUDY)).toBe(true);
+  });
+
+  it("goes clean again when the edit is reverted", () => {
+    const edited = setStudyField(DEFAULT_STUDY, { title: "Pilot 2" });
+    const reverted = setStudyField(edited, { title: DEFAULT_STUDY.title });
+    expect(isStudyDirty(reverted, DEFAULT_STUDY)).toBe(false);
+  });
+
+  it("marks materialized qc defaults dirty — the saved file would change", () => {
+    // Editing a threshold to its own default still adds the qc block to the
+    // serialized file, so the study on disk would differ.
+    const materialized = setQcField(DEFAULT_STUDY, { fast_response_ms: DEFAULT_QC.fast_response_ms });
+    expect(isStudyDirty(materialized, DEFAULT_STUDY)).toBe(true);
+  });
+});
+
+describe("fileIdentityLine", () => {
+  it("reads 'not saved to file yet' before any save or load", () => {
+    expect(fileIdentityLine(null)).toBe("not saved to file yet");
+  });
+
+  it("shows the file name and its directory for a saved path", () => {
+    expect(fileIdentityLine("/Users/x/studies/study.json")).toBe("study.json — /Users/x/studies");
+  });
+
+  it("splits Windows paths on the backslash", () => {
+    expect(fileIdentityLine("C:\\studies\\study.json")).toBe("study.json — C:\\studies");
+  });
+
+  it("shows a bare file name without a directory suffix", () => {
+    expect(fileIdentityLine("study.json")).toBe("study.json");
+  });
+});
+
+describe("saveBlockedHeadline", () => {
+  it("counts the blocking errors", () => {
+    expect(saveBlockedHeadline(3)).toBe("Not saved — 3 errors.");
+  });
+
+  it("uses the singular for one error", () => {
+    expect(saveBlockedHeadline(1)).toBe("Not saved — 1 error.");
   });
 });

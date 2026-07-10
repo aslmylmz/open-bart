@@ -147,3 +147,37 @@ export function removeColor(config: TaskConfig, colorIndex: number): TaskConfig 
   if (config.colors.length <= 1) return config;
   return { ...config, colors: config.colors.filter((_, i) => i !== colorIndex) };
 }
+
+/** The last saved/loaded study file: the config the unsaved dot compares
+ * against and the path line 2 of the identity bar names (DESIGN-SPEC §2.1).
+ * Owned by the App shell, beside the active config, so it survives run trips
+ * (a run unmounts StudySetup). `path` is null until the study touches a file. */
+export interface StudySnapshot {
+  path: string | null;
+  config: TaskConfig;
+}
+
+/** Whether the active config differs from the last saved/loaded snapshot — the
+ * identity bar's unsaved dot (DESIGN-SPEC §2.1). Compares JSON serializations:
+ * "dirty" means exactly "saving now would write a different file", so an edit
+ * reverted by hand goes clean again, while materializing an optional block at
+ * its defaults (qc, payout) counts as a change. Key order is stable because
+ * every edit path spreads the previous config. */
+export function isStudyDirty(config: TaskConfig, snapshot: TaskConfig): boolean {
+  return JSON.stringify(config) !== JSON.stringify(snapshot);
+}
+
+/** The identity bar's line-2 file identity (DESIGN-SPEC §2.1): file name plus
+ * its directory for the last saved/loaded path, or the never-saved wording.
+ * Splits on either separator so a Windows path reads correctly too. */
+export function fileIdentityLine(path: string | null): string {
+  if (path === null) return "not saved to file yet";
+  const cut = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  if (cut < 0) return path;
+  return `${path.slice(cut + 1)} — ${path.slice(0, cut)}`;
+}
+
+/** Headline for the save-blocked error strip (DESIGN-SPEC §2.2). */
+export function saveBlockedHeadline(errorCount: number): string {
+  return `Not saved — ${errorCount} ${errorCount === 1 ? "error" : "errors"}.`;
+}

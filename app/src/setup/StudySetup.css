@@ -17,22 +17,162 @@
   padding-bottom: var(--space-48);
 }
 
-/* Interim page header — issue 03 replaces it with the sticky identity bar. */
-.setup-header {
+/* Identity bar (§2.1): two-line sticky artifact header (~56px). The wrapper
+ * carries the stickiness so the error strip below the bar rides along and a
+ * blocked ⌘S is visible from any scroll position. */
+.setup-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-bg-app);
+}
+
+.setup-bar {
   border-bottom: 1px solid var(--color-border);
   padding: 0 var(--space-32);
 }
 
-.setup-header-inner {
+.setup-bar-inner {
   max-width: var(--setup-col-max);
   margin: 0 auto;
-  padding: var(--space-16) 0;
+  padding: var(--space-8) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-.setup-title {
+.setup-bar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+/* Line 1: breadcrumb `Study Setup / <study title>` at display scale; only the
+ * study title carries full weight. */
+.setup-crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
   font-size: var(--text-display);
   font-weight: 600;
   line-height: var(--leading-title);
+  min-width: 0;
+}
+
+.setup-crumb-root,
+.setup-crumb-sep {
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.setup-crumb-study {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The accent unsaved dot — the one chroma allowance in the bar's chrome. */
+.setup-dirty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.setup-bar-actions {
+  display: flex;
+  gap: var(--space-8);
+  flex-shrink: 0;
+}
+
+/* Kbd chips: micro sans, never mono (§6 drift note). */
+.setup-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 var(--space-4);
+  font-family: inherit;
+  font-size: var(--text-micro);
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+/* On the solid accent Save the chip keys off white like the button label.
+ * New token escape (the ladder has no on-accent role): alpha-white wash +
+ * #fff, following issue 02's #fff-on-accent precedent — flagged for
+ * maintainer screenshot review. */
+.setup-btn-primary .setup-kbd {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* Line 2: the mono file identity, doubling as the ~4s feedback slot. */
+.setup-file-line {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  line-height: var(--leading-body);
+  color: var(--color-text-tertiary);
+}
+
+.setup-file-line.is-success {
+  color: var(--color-success);
+}
+
+.setup-file-line.is-error {
+  color: var(--color-error);
+}
+
+/* Form-level error strip (§2.2): error wash + hairlines directly under the
+ * bar, dismissible, summoned only by load-rejected and save-blocked. */
+.setup-strip {
+  background: var(--color-error-wash);
+  border-bottom: 1px solid var(--color-error);
+  padding: 0 var(--space-32);
+}
+
+.setup-strip-inner {
+  max-width: var(--setup-col-max);
+  margin: 0 auto;
+  padding: var(--space-12) 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.setup-strip-headline {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--color-error);
+}
+
+.setup-strip-list {
+  margin: var(--space-4) 0 0;
+  padding-left: var(--space-16);
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+  color: var(--color-error);
+}
+
+.setup-strip-dismiss {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-error);
+  height: 24px;
+  padding: 0 var(--space-4);
+  flex-shrink: 0;
+}
+
+.setup-strip-dismiss:hover {
+  background: var(--color-error-wash);
+  border-color: var(--color-error);
 }
 
 /* Section bands: content column capped ≈1100px incl. the band gutters; the
@@ -335,45 +475,3 @@
   color: var(--color-text-primary);
 }
 
-/* Interim save/load block — issue 03 moves the actions into the identity bar
- * and the errors into the under-bar strip. */
-.setup-save-block {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-  max-width: var(--setup-content-max);
-}
-
-.setup-save-actions {
-  display: flex;
-  gap: var(--space-12);
-}
-
-.setup-status {
-  font-size: var(--text-small);
-  color: var(--color-text-secondary);
-}
-
-.setup-errors {
-  background: var(--color-error-wash);
-  border: 1px solid var(--color-error);
-  border-radius: var(--radius-md);
-  padding: var(--space-16);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
-.setup-errors-title {
-  font-size: var(--text-body);
-  font-weight: 600;
-  color: var(--color-error);
-}
-
-.setup-errors ul {
-  margin: 0;
-  padding-left: var(--space-16);
-  color: var(--color-error);
-  font-size: var(--text-small);
-  line-height: var(--leading-body);
-}

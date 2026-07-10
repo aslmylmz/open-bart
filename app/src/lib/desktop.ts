@@ -14,12 +14,20 @@ export async function saveStudy(content: string): Promise<string | null> {
   return path;
 }
 
-/** Load study.json from a user-chosen path via the native dialog; returns its text, or
- * null if the user cancelled. The read goes through a Rust command. */
-export async function loadStudy(): Promise<string | null> {
+/** A study file picked through the load dialog: where it lives and what it holds. */
+export interface LoadedStudyFile {
+  path: string;
+  text: string;
+}
+
+/** Load study.json from a user-chosen path via the native dialog; returns the path
+ * and its text (the identity bar shows both — DESIGN-SPEC §2.1), or null if the
+ * user cancelled. The read goes through a Rust command. */
+export async function loadStudy(): Promise<LoadedStudyFile | null> {
   const selected = await open({ filters: STUDY_FILTERS, multiple: false, directory: false });
   if (typeof selected !== "string") return null;
-  return await invoke<string>("read_study_file", { path: selected });
+  const text = await invoke<string>("read_study_file", { path: selected });
+  return { path: selected, text };
 }
 
 /** Prompt the user to select an output directory via native dialog. */

@@ -4,6 +4,7 @@ import { DEFAULT_STUDY, type TaskConfig } from "./lib/config";
 import { toggleFullscreen } from "./lib/desktop";
 import { RunFlow } from "./run/RunFlow";
 import { StudySetup } from "./setup/StudySetup";
+import type { StudySnapshot } from "./setup/studyForm";
 import { VersionGuard } from "./VersionGuard";
 
 type Mode = "setup" | "run" | "practice";
@@ -17,6 +18,10 @@ type Mode = "setup" | "run" | "practice";
 export function App() {
   const [mode, setMode] = useState<Mode>("setup");
   const [config, setConfig] = useState<TaskConfig>(DEFAULT_STUDY);
+  // The last saved/loaded study file (DESIGN-SPEC §2.1) lives beside the
+  // config: a run trip unmounts StudySetup, and the unsaved dot and file
+  // identity must not reset with it.
+  const [snapshot, setSnapshot] = useState<StudySnapshot>({ path: null, config: DEFAULT_STUDY });
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -43,6 +48,8 @@ export function App() {
       <StudySetup
         config={config}
         onChange={setConfig}
+        snapshot={snapshot}
+        onSnapshotChange={setSnapshot}
         onTestRun={() => setMode("practice")}
         onStartRun={() => setMode("run")}
       />

@@ -1,20 +1,25 @@
-import { FolderOpen, Plus } from "lucide-react";
+import { FolderOpen, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "../components/Icon";
 import { validateConfig } from "../lib/api";
 import { HAZARD_FAMILIES, type HazardFamily, type Language, type TaskConfig } from "../lib/config";
-import { loadStudy, saveStudy, selectOutputDir } from "../lib/desktop";
+import { loadStudy, saveStudy, selectOutputDir, type LoadedStudyFile } from "../lib/desktop";
+import { isMacPlatform, matchesShortcut, shortcutChip } from "../lib/platform";
 import { EvPreview } from "./EvPreview";
 import { FAMILY_PARAMS } from "./familyParams";
 import {
   addColor,
   DEFAULT_QC,
+  fileIdentityLine,
+  isStudyDirty,
+  type StudySnapshot,
   parseConditionList,
   parseExitPasscode,
   parseNumberList,
   parseStudy,
   removeColor,
+  saveBlockedHeadline,
   setColorField,
   setColorHazardFamily,
   setHazardParam,
@@ -28,29 +33,93 @@ import "./StudySetup.css";
 /** How long the armed "Confirm remove" state holds before quietly reverting. */
 const REMOVE_CONFIRM_MS = 3000;
 
+/** How long a transient save/load message holds line 2 of the identity bar
+ * before it reverts to the file identity (DESIGN-SPEC §2.1 "~4s"). */
+const FEEDBACK_MS = 4000;
+
+/** §2.2's load-rejected headline — the current study is never replaced by a
+ * file that fails parsing or sidecar validation. */
+const LOAD_REJECTED_HEADLINE = "Loaded file is invalid — keeping the current study.";
+
+/** A transient line-2 message; tone only picks the text color. */
+interface Feedback {
+  text: string;
+  tone: "neutral" | "success" | "error";
+}
+
+/** The under-bar error strip's content (§2.2): a save-blocked or load-rejected
+ * headline plus the sidecar's full-pass reasons. */
+interface ErrorStrip {
+  headline: string;
+  errors: string[];
+}
+
 interface StudySetupProps {
   config: TaskConfig;
   onChange: (config: TaskConfig) => void;
+  /** The last saved/loaded study file — App-owned so it survives run trips. */
+  snapshot: StudySnapshot;
+  onSnapshotChange: (snapshot: StudySnapshot) => void;
   onTestRun: () => void;
   onStartRun: () => void;
 }
 
-/** The Researcher View: a single column of section bands — Study Info, Data
- * Quality & Payout, Color Profiles, EV Preview, Run (DESIGN-SPEC §2.3) — as a
- * thin shell over the pure form-model helpers in studyForm.ts, with the
- * sidecar's /validate-config as the validation authority. Save/load go through
- * the native dialogs in desktop.ts; the run callbacks belong to the App shell,
- * which owns the mode. */
-export function StudySetup({ config, onChange, onTestRun, onStartRun }: StudySetupProps) {
-  const [errors, setErrors] = useState<string[]>([]);
-  const [status, setStatus] = useState<string>("");
+/** "<prefix>: <reason>" when the error carries a message, "<prefix>." when not. */
+function describeError(prefix: string, err: unknown): string {
+  return err instanceof Error && err.message ? `${prefix}: ${err.message}` : `${prefix}.`;
+}
+
+/** The Researcher View: the sticky identity bar (breadcrumb, unsaved dot,
+ * Save/Load with ⌘S/⌘O, file-identity/feedback line — DESIGN-SPEC §2.1) over
+ * a single column of section bands — Study Info, Data Quality & Payout, Color
+ * Profiles, EV Preview, Run (§2.3) — as a thin shell over the pure form-model
+ * helpers in studyForm.ts, with the sidecar's /validate-config as the
+ * validation authority. Save/load go through the native dialogs in desktop.ts;
+ * the run callbacks belong to the App shell, which owns the mode. */
+export function StudySetup({
+  config,
+  onChange,
+  snapshot,
+  onSnapshotChange,
+  onTestRun,
+  onStartRun,
+}: StudySetupProps) {
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [strip, setStrip] = useState<ErrorStrip | null>(null);
   // Two-step remove (§2.4): the index of the profile whose Remove is armed.
   // One shared slot — arming a card disarms any other — so a stray confirm
   // can never remove a card the researcher is no longer looking at.
   const [armedRemove, setArmedRemove] = useState<number | null>(null);
   const disarmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  useEffect(() => () => clearTimeout(disarmTimer.current), []);
+  const macLike = isMacPlatform(navigator.platform);
+
+  useEffect(
+    () => () => {
+      clearTimeout(disarmTimer.current);
+      clearTimeout(feedbackTimer.current);
+    },
+    [],
+  );
+
+  // Real ⌘S/⌘O (§2.7). The listener lives here rather than in App because the
+  // App shell mounts StudySetup only in setup mode — unmounting is what turns
+  // the shortcuts off during a run. Re-registered every render so the handlers
+  // never close over a stale config.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (matchesShortcut(e, "s", macLike)) {
+        e.preventDefault();
+        void handleSave();
+      } else if (matchesShortcut(e, "o", macLike)) {
+        e.preventDefault();
+        void handleLoad();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   function handleRemoveClick(i: number) {
     clearTimeout(disarmTimer.current);
@@ -63,44 +132,83 @@ export function StudySetup({ config, onChange, onTestRun, onStartRun }: StudySet
     disarmTimer.current = setTimeout(() => setArmedRemove(null), REMOVE_CONFIRM_MS);
   }
 
+  /** Hold a transient message in line 2's feedback slot, then revert to the
+   * file identity (§2.1). */
+  function showFeedback(text: string, tone: Feedback["tone"] = "neutral") {
+    clearTimeout(feedbackTimer.current);
+    setFeedback({ text, tone });
+    feedbackTimer.current = setTimeout(() => setFeedback(null), FEEDBACK_MS);
+  }
+
+  /** Drop any transient message so line 2 shows the file identity again. */
+  function clearFeedback() {
+    clearTimeout(feedbackTimer.current);
+    setFeedback(null);
+  }
+
   async function handleSave() {
-    setStatus("");
-    const verdict = await validateConfig(config);
-    if (!verdict.ok) {
-      setErrors(verdict.errors);
-      setStatus("Not saved — fix the errors below.");
+    let verdict: Awaited<ReturnType<typeof validateConfig>>;
+    try {
+      verdict = await validateConfig(config);
+    } catch (err) {
+      showFeedback(describeError("Save failed", err), "error");
       return;
     }
-    setErrors([]);
+    if (!verdict.ok) {
+      setStrip({ headline: saveBlockedHeadline(verdict.errors.length), errors: verdict.errors });
+      return;
+    }
     try {
       const path = await saveStudy(JSON.stringify(config, null, 2));
-      setStatus(path ? `Saved to ${path}` : "Save cancelled.");
+      if (!path) {
+        showFeedback("Save cancelled.");
+        return;
+      }
+      setStrip(null);
+      onSnapshotChange({ path, config });
+      showFeedback(`Saved to ${path}`, "success");
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : "Save failed.");
+      showFeedback(describeError("Save failed", err), "error");
     }
   }
 
   async function handleLoad() {
-    setStatus("");
+    let picked: LoadedStudyFile | null;
     try {
-      const text = await loadStudy();
-      if (text === null) {
-        setStatus("Load cancelled.");
-        return;
-      }
-      const loaded = parseStudy(text);
-      const verdict = await validateConfig(loaded);
-      if (!verdict.ok) {
-        setErrors(verdict.errors);
-        setStatus("Loaded file is invalid — keeping the current study.");
-        return;
-      }
-      setErrors([]);
-      onChange(loaded);
-      setStatus("Loaded.");
+      picked = await loadStudy();
     } catch (err) {
-      setStatus(err instanceof Error ? `Could not load: ${err.message}` : "Could not load.");
+      showFeedback(describeError("Could not load", err), "error");
+      return;
     }
+    if (!picked) {
+      showFeedback("Load cancelled.");
+      return;
+    }
+    let loaded: TaskConfig;
+    try {
+      loaded = parseStudy(picked.text);
+    } catch (err) {
+      setStrip({
+        headline: LOAD_REJECTED_HEADLINE,
+        errors: [err instanceof Error ? err.message : "The file is not valid JSON."],
+      });
+      return;
+    }
+    let verdict: Awaited<ReturnType<typeof validateConfig>>;
+    try {
+      verdict = await validateConfig(loaded);
+    } catch (err) {
+      showFeedback(describeError("Could not load", err), "error");
+      return;
+    }
+    if (!verdict.ok) {
+      setStrip({ headline: LOAD_REJECTED_HEADLINE, errors: verdict.errors });
+      return;
+    }
+    setStrip(null);
+    clearFeedback();
+    onChange(loaded);
+    onSnapshotChange({ path: picked.path, config: loaded });
   }
 
   async function handleSelectOutputDir() {
@@ -110,17 +218,70 @@ export function StudySetup({ config, onChange, onTestRun, onStartRun }: StudySet
         onChange(setStudyField(config, { output_dir: dir }));
       }
     } catch (err) {
-      setStatus(err instanceof Error ? `Could not select dir: ${err.message}` : "Could not select dir.");
+      showFeedback(describeError("Could not select dir", err), "error");
     }
   }
 
   return (
     <div className="setup-page">
-      <header className="setup-header">
-        <div className="setup-header-inner">
-          <h1 className="setup-title">Study Setup</h1>
-        </div>
-      </header>
+      <div className="setup-sticky">
+        <header className="setup-bar">
+          <div className="setup-bar-inner">
+            <div className="setup-bar-top">
+              <h1 className="setup-crumb">
+                <span className="setup-crumb-root">Study Setup</span>
+                <span className="setup-crumb-sep" aria-hidden>
+                  /
+                </span>
+                <span className="setup-crumb-study">{config.title}</span>
+                {isStudyDirty(config, snapshot.config) && (
+                  <span
+                    className="setup-dirty-dot"
+                    role="img"
+                    aria-label="Unsaved changes"
+                    title="Unsaved changes"
+                  />
+                )}
+              </h1>
+              <div className="setup-bar-actions">
+                <button type="button" className="setup-btn-ghost" onClick={handleLoad}>
+                  Load
+                  <kbd className="setup-kbd">{shortcutChip("O", macLike)}</kbd>
+                </button>
+                <button type="button" className="setup-btn-primary" onClick={handleSave}>
+                  Save
+                  <kbd className="setup-kbd">{shortcutChip("S", macLike)}</kbd>
+                </button>
+              </div>
+            </div>
+            <p className={feedback ? `setup-file-line is-${feedback.tone}` : "setup-file-line"}>
+              {feedback ? feedback.text : fileIdentityLine(snapshot.path)}
+            </p>
+          </div>
+        </header>
+        {strip && (
+          <div className="setup-strip" role="alert">
+            <div className="setup-strip-inner">
+              <div className="setup-strip-body">
+                <p className="setup-strip-headline">{strip.headline}</p>
+                <ul className="setup-strip-list">
+                  {strip.errors.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+              <button
+                type="button"
+                className="setup-strip-dismiss"
+                aria-label="Dismiss errors"
+                onClick={() => setStrip(null)}
+              >
+                <Icon icon={X} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <section className="setup-band">
         <div className="setup-band-inner">
@@ -423,40 +584,6 @@ export function StudySetup({ config, onChange, onTestRun, onStartRun }: StudySet
         </div>
       </section>
 
-      {/* Interim placement — issue 03 replaces this band with the sticky
-          identity bar (Save/Load + feedback) and the under-bar error strip. */}
-      <section className="setup-band">
-        <div className="setup-band-inner">
-          <div className="setup-rail">
-            <h2 className="setup-rail-title">Save &amp; load</h2>
-            <p className="setup-rail-desc">
-              Studies are saved as JSON files. Loaded files validate against the scoring engine
-              before replacing the current study.
-            </p>
-          </div>
-          <div className="setup-save-block">
-            <div className="setup-save-actions">
-              <button type="button" className="setup-btn-primary" onClick={handleSave}>
-                Save study…
-              </button>
-              <button type="button" className="setup-btn-ghost" onClick={handleLoad}>
-                Load study…
-              </button>
-            </div>
-            {status && <p className="setup-status">{status}</p>}
-            {errors.length > 0 && (
-              <div className="setup-errors">
-                <h3 className="setup-errors-title">Validation errors</h3>
-                <ul>
-                  {errors.map((err, i) => (
-                    <li key={i}>{err}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
