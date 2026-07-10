@@ -1,0 +1,43 @@
+/* App-shell styles: the mode-switch veil (DESIGN-SPEC §3.1). The fades read
+ * the same --switch-* tokens the shell's stage timers read at runtime, so the
+ * two cannot drift apart. */
+
+.mode-switch {
+  position: fixed;
+  inset: 0;
+  z-index: 300; /* above the run flow's lock prompt (200) */
+  background: var(--color-bg-app);
+  opacity: 1;
+}
+
+@keyframes mode-switch-veil {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mode-switch.is-out {
+  animation: mode-switch-veil var(--switch-out) var(--ease-standard) both;
+}
+
+.mode-switch.is-in {
+  animation: mode-switch-veil var(--switch-in) var(--ease-standard) both reverse;
+}
+
+/* Return trips are plain ~200ms fades (§3.1): both fades run at the out
+ * duration, mirroring the shell's stage clock, and the hold stage never
+ * renders. */
+.mode-switch.is-return.is-in {
+  animation-duration: var(--switch-out);
+}
+
+/* The shell skips the choreography under reduced motion (instant cuts); this
+ * is the belt-and-braces for a preference flipped mid-trip. */
+@media (prefers-reduced-motion: reduce) {
+  .mode-switch {
+    display: none;
+  }
+}

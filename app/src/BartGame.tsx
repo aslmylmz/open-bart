@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
-import { persistSession, submitSession } from "./lib/api";
+import { persistSession, submitSession, type WriteOutputResult } from "./lib/api";
 import type { TaskConfig } from "./lib/config";
 import type { GameEvent } from "./lib/events";
 import { taskStrings } from "./lib/i18n";
@@ -14,6 +14,10 @@ import {
 } from "./lib/taskEngine";
 import { type AssessmentResult, Debrief } from "./run/Debrief";
 import { type Balloon, buildSequence, deriveRunSeed, mulberry32 } from "./run/sequence";
+// The participant control classes (.btn-*-participant, .input-participant)
+// live in the run-frame sheet; imported here too so this surface never
+// depends on RunFlow having loaded it first.
+import "./run/RunFlow.css";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -52,7 +56,10 @@ interface BartGameProps {
     /** True for Test Run sessions (issue 43) — stamped into the payload so the
      * sidecar routes the files to practice/ and skips the study-wide CSVs. */
     practice?: boolean;
-    onComplete?: (data: AssessmentResult) => void;
+    /** Fired once the session is scored AND persisted (issue 49's order): the
+     * scored result plus the sidecar's write receipt, which the researcher-side
+     * return surface (issue 06) reports from. */
+    onComplete?: (data: AssessmentResult, write: WriteOutputResult) => void;
     /** Escape hatch back to the researcher view. Only offered while no balloon is
      * live (idle / finished / results) so a participant can't exit mid-trial. */
     onExit?: () => void;
@@ -157,7 +164,7 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
             // instead of dropping the sidecar's response — the write landed, but
             // e.g. a locked master CSV was diverted to a sibling to merge by hand.
             setSaveWarnings(writeResult?.warnings ?? []);
-            if (onComplete) onComplete(data);
+            if (onComplete) onComplete(data, writeResult);
         } catch (err) {
             console.error("Session submit/persist error:", err);
             setFeedbackMessage(t.saveError);

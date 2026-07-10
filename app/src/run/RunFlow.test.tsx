@@ -346,7 +346,14 @@ describe("kiosk in-app lock (issue 44)", () => {
     const lockedTinyStudy = { ...tinyStudy, exit_passcode: "1234" };
     preview.mockResolvedValue(tinyPreview);
     submitSession.mockResolvedValue({ session_id: "s-1" });
-    persistSession.mockResolvedValue({});
+    persistSession.mockResolvedValue({
+      events: "/data/demo/x_events.jsonl",
+      metrics: "/data/demo/x_metrics.json",
+      config: "/data/demo/x_config.json",
+      session: "/data/demo/x_session.json",
+      master_csv: "/data/demo/demo_results.csv",
+      warnings: [],
+    });
 
     render(<RunFlow config={lockedTinyStudy} onExit={onExit} />);
     await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
@@ -362,10 +369,125 @@ describe("kiosk in-app lock (issue 44)", () => {
     // Researcher hand-back: the window lock is released at debrief…
     expect(setKioskLock).toHaveBeenLastCalledWith(false);
 
-    // …and leaving needs no passcode.
+    // …and leaving needs no passcode — the trip home now passes through the
+    // return surface (issue 06), still without asking for the code.
     await userEvent.click(screen.getByRole("button", { name: /back to setup/i }));
     expect(screen.queryByText(t.lockTitle)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /back to study setup/i }));
+    expect(screen.queryByText(t.lockTitle)).toBeNull();
     expect(onExit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("return surface (issue 06, DESIGN-SPEC §3.2)", () => {
+  // A realistic completion payload: /score result with the balloon count the
+  // surface reports, and /write-output paths the data confirmation derives
+  // its facts from. The surface must state what the payload says — the
+  // deliberately-off balloon count (7 ≠ the 1 balloon actually played)
+  // pins that the payload, not the client, is the authority.
+  const scoredResult = { session_id: "s-1", raw_metrics: { total_balloons: 7 } };
+  const writeResult = {
+    events: "/data/demo/demo_p001_events.jsonl",
+    metrics: "/data/demo/demo_p001_metrics.json",
+    config: "/data/demo/demo_p001_config.json",
+    session: "/data/demo/demo_p001_session.json",
+    master_csv: "/data/demo/demo_results.csv",
+    trials_csv: "/data/demo/demo_trials.csv",
+    warnings: [] as string[],
+  };
+
+  /** Play the one-balloon study to the debrief (thank-you screen). */
+  async function playToDebrief(practice = false) {
+    if (!practice) {
+      await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
+      await userEvent.type(screen.getByPlaceholderText(t.idPlaceholder), "P001");
+      await userEvent.click(screen.getByRole("button", { name: t.idContinue }));
+    } else {
+      await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
+      await userEvent.click(screen.getByRole("button", { name: t.idContinue }));
+    }
+    await userEvent.click(await screen.findByRole("button", { name: t.startButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+    await screen.findByText(t.thankYouTitle);
+  }
+
+  it("lands a real run on the return surface with the session facts", async () => {
+    const onExit = vi.fn();
+    const conditionedTinyStudy = { ...tinyStudy, conditions: ["control", "experimental"] };
+    preview.mockResolvedValue(tinyPreview);
+    submitSession.mockResolvedValue(scoredResult);
+    persistSession.mockResolvedValue(writeResult);
+
+    render(<RunFlow config={conditionedTinyStudy} onExit={onExit} />);
+    await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
+    await userEvent.type(screen.getByPlaceholderText(t.idPlaceholder), "P001");
+    await userEvent.selectOptions(screen.getByLabelText(t.conditionLabel), "control");
+    await userEvent.click(screen.getByRole("button", { name: t.idContinue }));
+    await userEvent.click(await screen.findByRole("button", { name: t.startButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+    await screen.findByText(t.thankYouTitle);
+
+    // The debrief exit lands on the return surface, not back in setup.
+    await userEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+    expect(onExit).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: /session complete/i })).toBeTruthy();
+
+    // Session facts + data confirmation, straight from the completion payload.
+    expect(screen.getByText("P001")).toBeTruthy();
+    expect(screen.getByText("control")).toBeTruthy();
+    expect(screen.getByText("7")).toBeTruthy();
+    expect(screen.getByText("/data/demo")).toBeTruthy();
+    expect(screen.getByText(/demo_results\.csv/)).toBeTruthy();
+
+    // The single action returns to Study Setup.
+    await userEvent.click(screen.getByRole("button", { name: /back to study setup/i }));
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends a practice run straight back — no return surface", async () => {
+    const onExit = vi.fn();
+    preview.mockResolvedValue(tinyPreview);
+    submitSession.mockResolvedValue(scoredResult);
+    persistSession.mockResolvedValue({ ...writeResult, master_csv: null, trials_csv: null });
+
+    render(<RunFlow config={tinyStudy} onExit={onExit} practice />);
+    await playToDebrief(true);
+
+    await userEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+
+    expect(screen.queryByText(/session complete/i)).toBeNull();
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps an abandoned run's exit direct — the surface needs a completed session", async () => {
+    const onExit = vi.fn();
+    render(<RunFlow config={tinyStudy} onExit={onExit} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+
+    expect(screen.queryByText(/session complete/i)).toBeNull();
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders sidecar write warnings prominently on the surface", async () => {
+    const warning = "master CSV locked — row diverted to demo_results_20260710.csv";
+    preview.mockResolvedValue(tinyPreview);
+    submitSession.mockResolvedValue(scoredResult);
+    persistSession.mockResolvedValue({ ...writeResult, warnings: [warning] });
+
+    render(<RunFlow config={tinyStudy} onExit={() => {}} />);
+    await playToDebrief();
+    await userEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+
+    await screen.findByRole("heading", { name: /session complete/i });
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts.some((a) => a.textContent?.includes(warning))).toBe(true);
   });
 });
 

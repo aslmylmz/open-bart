@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { App } from "./App";
@@ -100,6 +100,97 @@ describe("Save/Load shortcuts (§2.7)", () => {
     await Promise.resolve();
     expect(saveStudy).not.toHaveBeenCalled();
     expect(loadStudy).not.toHaveBeenCalled();
+  });
+});
+
+describe("Mode switch choreography (issue 06, DESIGN-SPEC §3.1)", () => {
+  // jsdom has no stylesheet, so the shell falls back to the spec's token
+  // values — the advances below (200ms out, 250ms hold, 250ms in) pin those
+  // §3.1 numbers deliberately, mirroring tokens.css.
+  afterEach(() => {
+    vi.useRealTimers();
+    delete (window as { matchMedia?: unknown }).matchMedia;
+  });
+
+  /** jsdom has no matchMedia at all; give it one with a fixed verdict. */
+  function stubReducedMotion(matches: boolean) {
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: (media: string) => ({ matches, media }),
+    });
+  }
+
+  async function advance(ms: number) {
+    await act(async () => {
+      vi.advanceTimersByTime(ms);
+    });
+  }
+
+  it("stages the handoff: setup holds through the fade-out, then the participant surface", async () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /start run/i }));
+
+    // Fade-out: the researcher surface is still the mounted one — the frame
+    // is veiling it; the participant never glimpses a half-built consent.
+    expect(screen.queryByText(t.consentTitle)).toBeNull();
+    expect(screen.getByRole("button", { name: /start run/i })).toBeTruthy();
+
+    // End of fade-out: surfaces swap under the opaque hold.
+    await advance(200);
+    expect(screen.getByText(t.consentTitle)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /start run/i })).toBeNull();
+
+    // Hold, then fade-in, complete without incident. (Each stage arms its
+    // timer from an effect, so the clock must advance stage by stage.)
+    await advance(250);
+    await advance(250);
+    expect(screen.getByText(t.consentTitle)).toBeTruthy();
+  });
+
+  it("keeps the Test run banner up from the first lit frame", async () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /test run/i }));
+    await advance(200);
+
+    // The banner is mounted while the veil is still opaque — there is no
+    // first frame without it.
+    expect(screen.getByText(t.practiceBanner)).toBeTruthy();
+  });
+
+  it("brings the researcher home on a plain fade — swap at ~200ms, no hold", async () => {
+    vi.useFakeTimers();
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /start run/i }));
+    await advance(200); // out
+    await advance(250); // hold
+    await advance(250); // in — ceremony over, consent up
+
+    fireEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+
+    // The run surface stays put while the fade runs…
+    expect(screen.getByText(t.consentTitle)).toBeTruthy();
+
+    // …and the swap lands after the plain ~200ms fade.
+    await advance(200);
+    expect(screen.getByRole("button", { name: /start run/i })).toBeTruthy();
+    expect(screen.queryByText(t.consentTitle)).toBeNull();
+    await advance(200); // fade-in home completes
+  });
+
+  it("cuts instantly both ways under prefers-reduced-motion", () => {
+    stubReducedMotion(true);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /start run/i }));
+    expect(screen.getByText(t.consentTitle)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+    expect(screen.getByRole("button", { name: /start run/i })).toBeTruthy();
+    expect(screen.queryByText(t.consentTitle)).toBeNull();
   });
 });
 

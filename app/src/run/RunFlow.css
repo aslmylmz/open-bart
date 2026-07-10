@@ -1,0 +1,275 @@
+/* Run-frame styles (DESIGN-SPEC §1.4: co-located, plain `.run-*` classes).
+ * Two postures live here: the return surface is researcher-side and styles
+ * against the dark `:root` tokens (§6 — no data-posture="light" on its
+ * subtree); the lock dialog renders inside the participant wrapper and
+ * resolves the light remap. */
+
+/* ── Return surface (§3.2) ─────────────────────────────────────────────── */
+
+.run-return {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-48) var(--space-24);
+  background: var(--color-bg-app);
+  color: var(--color-text-primary);
+  animation: run-return-fade var(--duration-base) var(--ease-standard);
+}
+
+@keyframes run-return-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-return {
+    animation: none;
+  }
+}
+
+.run-return-inner {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.run-return-title {
+  font-size: var(--text-display);
+  font-weight: 600;
+  line-height: var(--leading-title);
+  letter-spacing: -0.01em;
+}
+
+.run-return-facts {
+  display: flex;
+  gap: var(--space-48);
+}
+
+.run-return-fact dt {
+  font-size: var(--text-small);
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-4);
+}
+
+.run-return-fact dd {
+  font-size: var(--text-title);
+  color: var(--color-text-primary);
+}
+
+.run-return-data {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.run-return-data-title {
+  font-size: var(--text-small);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+}
+
+.run-return-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.run-return-row {
+  display: flex;
+  gap: var(--space-16);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+
+.run-return-row dt {
+  flex: 0 0 120px;
+  color: var(--color-text-tertiary);
+}
+
+.run-return-row dd {
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* Data readouts (paths, file names) are mono per §1.3. */
+.run-return-path {
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  color: var(--color-text-primary);
+}
+
+/* Write warnings must be impossible to miss (§3.2): warning color on a wash,
+ * inside the data block so they read as part of the record. */
+.run-return-warnings {
+  background: var(--color-warning-wash);
+  border-left: 2px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+  padding: var(--space-8) var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.run-return-warnings p {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--color-warning);
+}
+
+.run-return-action {
+  align-self: flex-start;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+  height: var(--control-height);
+  padding: 0 var(--space-24);
+}
+
+.run-return-action:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+/* ── Exit-passcode dialog (§3.3) ───────────────────────────────────────────
+ * A formality in the participant (light) posture: ~360px card, title-scale
+ * heading, centered entry, quiet one-line error (no shake). Renders inside
+ * the light-posture wrapper, so the color tokens resolve to the remap. */
+
+.run-lock-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--overlay-scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16);
+}
+
+.run-lock-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  /* The participant-only card radius (§6) — outside the researcher scale. */
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  padding: var(--space-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.run-lock-title {
+  font-size: var(--text-title);
+  font-weight: 600;
+  line-height: var(--leading-title);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.run-lock-input {
+  width: 100%;
+  text-align: center;
+}
+
+.run-lock-error {
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+  color: var(--color-error);
+  text-align: center;
+}
+
+.run-lock-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
+/* ── Participant (Light Posture) controls ──────────────────────────────────
+ * Migrated verbatim from base.css (the §1.4 co-location this issue owed).
+ * Pre-redesign metrics are baked in — padding, type size, radius, and the
+ * original 0.2s ease transition timing — so the researcher-side element
+ * defaults (and the motion tokens) can evolve without touching the
+ * participant view (zero-visual-change contract). Colors ride the
+ * light-posture remap where the old hex already matched a token role;
+ * one-off hexes stay literal. */
+
+.btn-ghost-participant {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+.btn-ghost-participant:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: #9ca3af;
+}
+
+.btn-primary-participant {
+  background: var(--color-accent);
+  color: #fff;
+  border: 1px solid var(--color-accent-hover);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+.btn-primary-participant:hover {
+  background: var(--color-accent-hover);
+  border-color: #3730a3;
+}
+
+/* Neutral task controls: Pump and Collect must look identical so the UI does
+ * not prime one action over the other (methodological requirement, Issue 27). */
+.btn-secondary-participant {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+.btn-secondary-participant:hover {
+  background: var(--color-bg-raised);
+  border-color: #9ca3af;
+}
+
+.input-participant {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.95rem;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.input-participant:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}

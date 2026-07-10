@@ -1,11 +1,14 @@
 import { useEffect, useState, type CSSProperties } from "react";
 
 import BartGame from "../BartGame";
-import { checkId, preview } from "../lib/api";
+import { checkId, preview, type WriteOutputResult } from "../lib/api";
 import type { TaskConfig } from "../lib/config";
 import { setKioskLock } from "../lib/desktop";
 import { taskStrings } from "../lib/i18n";
+import type { AssessmentResult } from "./Debrief";
 import { cardStyle, centerStyle, headingStyle, pagePosture } from "./participantStyles";
+import { ReturnSurface } from "./ReturnSurface";
+import "./RunFlow.css";
 
 interface RunFlowProps {
   config: TaskConfig;
@@ -16,7 +19,7 @@ interface RunFlowProps {
   practice?: boolean;
 }
 
-type Phase = "consent" | "id" | "loading" | "task" | "error";
+type Phase = "consent" | "id" | "loading" | "task" | "error" | "complete";
 
 const primaryBtnStyle: CSSProperties = {
   width: "100%",
@@ -48,12 +51,18 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
   const [lockPromptOpen, setLockPromptOpen] = useState(false);
   const [lockEntry, setLockEntry] = useState("");
   const [lockError, setLockError] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  // The completion payload (scored result + write receipt), set once the
+  // session is scored and persisted. Non-null doubles as "completed": it
+  // disengages the lock and routes a real run's exit to the return surface.
+  const [completion, setCompletion] = useState<{
+    result: AssessmentResult;
+    write: WriteOutputResult;
+  } | null>(null);
 
   // The lock gates mid-session escape, not normal completion: once the
   // session is scored and the debrief is up (researcher hand-back), the lock
   // disengages by itself.
-  const lockEngaged = Boolean(config.exit_passcode) && !completed;
+  const lockEngaged = Boolean(config.exit_passcode) && !completion;
 
   function openLockPrompt() {
     setLockEntry("");
@@ -62,13 +71,19 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
   }
 
   /** The single exit funnel: RunFlow's own back bar and BartGame's exit button
-   * both leave through here, so no path can bypass the lock. */
+   * both leave through here, so no path can bypass the lock. A completed real
+   * run leaves through the return surface (§3.2) — the researcher's record of
+   * where the data landed; practice and abandoned runs go straight back. */
   function requestExit() {
-    if (!lockEngaged) {
-      onExit();
+    if (lockEngaged) {
+      openLockPrompt();
       return;
     }
-    openLockPrompt();
+    if (completion && !practice) {
+      setPhase("complete");
+      return;
+    }
+    onExit();
   }
 
   // While locked, swallow the in-app escape keys (Escape, F11) into the
@@ -163,33 +178,17 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
 
   // The passcode prompt overlays whichever screen the exit was attempted from;
   // it is rendered outside BartGame's container, so keys typed here can never
-  // reach the task's own key handling.
+  // reach the task's own key handling. Restyled to a formality (§3.3): ~360px
+  // light-posture card, title-scale heading, quiet one-line error, Confirm +
+  // ghost Cancel — the lock mechanics and strings are untouched.
   const lockPrompt = lockPromptOpen ? (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 200,
-        background: "rgba(17, 24, 39, 0.55)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
-    >
-      <div style={cardStyle}>
-        <h1 style={headingStyle}>{t.lockTitle}</h1>
+    <div className="run-lock-scrim">
+      <div className="run-lock-card">
+        <h1 className="run-lock-title">{t.lockTitle}</h1>
         <input
-          className="input-participant"
+          className="input-participant run-lock-input"
           type="password"
           autoFocus
-          style={{
-            width: "100%",
-            fontSize: "1.05rem",
-            padding: "12px 14px",
-            textAlign: "center",
-            marginBottom: 16,
-          }}
           value={lockEntry}
           placeholder={t.lockPlaceholder}
           onChange={(e) => {
@@ -198,34 +197,34 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
           }}
         />
         {lockError && (
-          <p role="alert" style={{ color: "#b91c1c", margin: "0 0 16px", fontSize: "0.95rem" }}>
+          <p role="alert" className="run-lock-error">
             {t.lockWrong}
           </p>
         )}
-        <button
-          type="button"
-          className="btn-primary-participant"
-          style={primaryBtnStyle}
-          onClick={() => {
-            if (lockEntry === config.exit_passcode) {
-              setLockPromptOpen(false);
-              onExit();
-              return;
-            }
-            setLockEntry("");
-            setLockError(true);
-          }}
-        >
-          {t.lockConfirm}
-        </button>
-        <button
-          type="button"
-          className="btn-ghost-participant"
-          style={{ ...primaryBtnStyle, marginTop: 12 }}
-          onClick={() => setLockPromptOpen(false)}
-        >
-          {t.lockCancel}
-        </button>
+        <div className="run-lock-actions">
+          <button
+            type="button"
+            className="btn-ghost-participant"
+            onClick={() => setLockPromptOpen(false)}
+          >
+            {t.lockCancel}
+          </button>
+          <button
+            type="button"
+            className="btn-primary-participant"
+            onClick={() => {
+              if (lockEntry === config.exit_passcode) {
+                setLockPromptOpen(false);
+                onExit();
+                return;
+              }
+              setLockEntry("");
+              setLockError(true);
+            }}
+          >
+            {t.lockConfirm}
+          </button>
+        </div>
       </div>
     </div>
   ) : null;
@@ -253,6 +252,20 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
     </div>
   ) : null;
 
+  // The return surface renders on its own dark root: no light-posture wrapper,
+  // no banner, no back bar — the run is over and the researcher has the room.
+  if (phase === "complete" && completion) {
+    return (
+      <ReturnSurface
+        participantId={participantId.trim()}
+        condition={condition || null}
+        result={completion.result}
+        write={completion.write}
+        onBack={onExit}
+      />
+    );
+  }
+
   if (phase === "task" && hazards) {
     // BartGame owns the back button here: it only offers the exit while no
     // balloon is live, so a participant can't leave mid-trial (Issue 27).
@@ -267,7 +280,7 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
           condition={condition || null}
           duplicateAcknowledged={duplicateAcknowledged}
           practice={practice}
-          onComplete={() => setCompleted(true)}
+          onComplete={(result, write) => setCompletion({ result, write })}
           onExit={requestExit}
         />
       </div>
