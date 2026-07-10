@@ -1,0 +1,183 @@
+/* EV Preview — per-color stat chips over curve panels (DESIGN-SPEC §2.6).
+ * The aligned chips are the compact per-color table; panels are hand-rolled
+ * SVG in a responsive grid; one shared legend below. Values come from
+ * tokens.css only; the one inline style allowed in the JSX is a profile's
+ * dynamic display_hex (chip dot + EV stroke). */
+
+.ev-preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+/* 240px min (inside the spec's "~260px") so the default three-color study
+ * sits 3-across in the ~788px band content column. */
+.ev-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-16);
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+
+.ev-grid.is-dim {
+  opacity: 0.6;
+}
+
+.ev-panel {
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* Chip: dot + label + stat readout — the readout is data, so mono applies. */
+.ev-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.ev-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+/* A runaway profile label truncates; the stat readout never does. */
+.ev-chip-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ev-chip-stat {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* Mount fade covers the skeleton→plot swap; curve updates only touch the
+ * polyline points, so it never re-runs on a recompute. */
+.ev-plot {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  animation: ev-fade-in var(--duration-base) var(--ease-standard);
+}
+
+/* Curve strokes: EV carries the profile color inline; survival/hazard are
+ * muted neutrals so the data hue owns the panel. */
+.ev-line-ev {
+  fill: none;
+  stroke-width: 2;
+}
+
+.ev-line-survival {
+  fill: none;
+  stroke: var(--color-text-tertiary);
+  stroke-width: 1;
+}
+
+.ev-line-hazard {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+}
+
+.ev-line-optimum {
+  stroke: var(--color-text-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+/* First-render skeleton: hairline box at the plot's aspect ratio — 2/1
+ * mirrors BOX (320×160) in EvPreview.tsx; change them together. */
+.ev-skeleton {
+  aspect-ratio: 2 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-micro);
+  color: var(--color-text-tertiary);
+}
+
+/* Corner status label (11px): recomputing (neutral) / stale (warning). New
+ * elements can't transition in, so the fade is a one-shot animation at the
+ * same duration. */
+.ev-status {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
+  padding-left: var(--space-8);
+  font-size: var(--text-micro);
+  line-height: var(--leading-body);
+  color: var(--color-text-tertiary);
+  /* Floats over the chip row: an opaque bg keeps a long chip from colliding. */
+  background: var(--color-bg-app);
+  animation: ev-fade-in var(--duration-base) var(--ease-standard);
+}
+
+.ev-status.is-stale {
+  color: var(--color-warning);
+}
+
+@keyframes ev-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Shared legend: line swatches echo the strokes above. */
+.ev-legend {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-16);
+  font-size: var(--text-micro);
+  color: var(--color-text-tertiary);
+}
+
+.ev-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.ev-legend-swatch {
+  width: 12px;
+}
+
+/* No single profile color to echo, so EV's swatch keeps the 2px weight in a
+ * generic neutral. */
+.ev-legend-swatch.is-ev {
+  border-top: 2px solid var(--color-text-secondary);
+}
+
+.ev-legend-swatch.is-survival {
+  border-top: 1px solid var(--color-text-tertiary);
+}
+
+.ev-legend-swatch.is-hazard {
+  border-top: 1px solid var(--color-border-strong);
+}
+
+.ev-legend-swatch.is-optimum {
+  border-top: 1px dashed var(--color-text-tertiary);
+}
