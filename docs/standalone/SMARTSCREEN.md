@@ -2,7 +2,7 @@
 
 **Phase 4 · issue 20 · SPEC §14, §20**
 
-The BART Instrument is currently shipped **unsigned** (no code-signing certificate — see
+The Dynamic Hazard Rate BART app is currently shipped **unsigned** (no code-signing certificate — see
 the technical specifications). On Windows that
 means the **first launch shows a warning**. This page explains why, how a researcher gets
 past it in two clicks, and how an IT administrator can pre-approve it on managed lab
@@ -47,7 +47,7 @@ precise option.
 **AppLocker / Windows Defender Application Control (WDAC):**
 
 - Create a **file-hash** allow rule for both executables: the main app
-  (`BART Instrument.exe`) and the bundled Sidecar **`bart-sidecar.exe`**. A new hash is
+  (`Dynamic Hazard Rate BART.exe`) and the bundled Sidecar **`bart-sidecar.exe`**. A new hash is
   generated on every release, so update the rule when you deploy a new version.
 - Avoid broad *path* rules (e.g. allowing all of `%LOCALAPPDATA%`) — they are far weaker
   than a hash rule.

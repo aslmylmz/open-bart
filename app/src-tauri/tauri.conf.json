@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "BART Instrument",
+  "productName": "Dynamic Hazard Rate BART",
   "version": "1.0.0",
   "identifier": "com.metu.bart",
   "build": {

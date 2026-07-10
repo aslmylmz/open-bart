@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Dynamic Hazard Rate BART — app icon master (DESIGN-SPEC §4).
+  1024px source for `tauri icon`; the generated set in this directory is
+  derived, never hand-edited. Colors are the §1.2 token literals:
+  field #08090b (bg-app), field edge #232426 (border), mark #e7e8ea
+  (text-primary), tie-dot #6d74f5 (accent). The 824px rounded field on a
+  transparent 1024 canvas follows the macOS icon grid so the dock size
+  matches neighboring icons; Windows/Linux render the same field with a
+  transparent margin.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#08090b"/>
+  <rect x="104" y="104" width="816" height="816" rx="181" fill="none" stroke="#232426" stroke-width="8"/>
+  <!-- balloon body -->
+  <circle cx="512" cy="420" r="208" fill="none" stroke="#e7e8ea" stroke-width="64"/>
+  <!-- short tail (string) -->
+  <path d="M 512 710 L 512 826" fill="none" stroke="#e7e8ea" stroke-width="34" stroke-linecap="round"/>
+  <!-- accent tie-dot (knot at the balloon base) -->
+  <circle cx="512" cy="664" r="46" fill="#6d74f5"/>
+</svg>

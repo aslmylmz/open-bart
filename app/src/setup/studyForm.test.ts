@@ -213,8 +213,8 @@ describe("isStudyDirty", () => {
 });
 
 describe("fileIdentityLine", () => {
-  it("reads 'not saved to file yet' before any save or load", () => {
-    expect(fileIdentityLine(null)).toBe("not saved to file yet");
+  it("reads the first-launch default-study wording before any save or load", () => {
+    expect(fileIdentityLine(null)).toBe("default study — not saved to file yet");
   });
 
   it("shows the file name and its directory for a saved path", () => {

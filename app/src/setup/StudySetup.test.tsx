@@ -76,7 +76,7 @@ describe("Identity bar (§2.1)", () => {
 
     expect(screen.getByText("Study Setup")).toBeTruthy();
     expect(screen.getByText(DEFAULT_STUDY.title)).toBeTruthy();
-    expect(screen.getByText("not saved to file yet")).toBeTruthy();
+    expect(screen.getByText("default study — not saved to file yet")).toBeTruthy();
   });
 
   it("owns Save and Load — the old save/load band is gone", () => {
@@ -280,7 +280,7 @@ describe("Error strip (§2.2)", () => {
     expect(screen.getByText("title must not be empty")).toBeTruthy();
     // The active study and its file identity are untouched.
     expect(screen.getByDisplayValue(DEFAULT_STUDY.title)).toBeTruthy();
-    expect(screen.getByText("not saved to file yet")).toBeTruthy();
+    expect(screen.getByText("default study — not saved to file yet")).toBeTruthy();
   });
 
   it("rejects a file that is not valid JSON the same way", async () => {

@@ -31,7 +31,7 @@
 
 set -euo pipefail
 
-PROC="bart-instrument"          # dev binary; a bundled build shows as "BART Instrument"
+PROC="bart-instrument"          # dev binary; a bundled build shows as "Dynamic Hazard Rate BART"
 OUT="${1:-$(mktemp -d)}"
 mkdir -p "$OUT"
 

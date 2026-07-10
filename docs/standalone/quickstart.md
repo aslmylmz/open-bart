@@ -30,7 +30,7 @@ first time you launch it. This is expected for in-house research software; follo
 
 ## 3. Create a study
 
-Launch **BART Instrument**. It opens in **Study Setup** mode, where you design the task:
+Launch **Dynamic Hazard Rate BART**. It opens in **Study Setup** mode, where you design the task:
 
 1. **Pick a hazard family.** Choose the burst-probability model from the dropdown (for
    example the linear dynamic-hazard model, or a constant-probability baseline).

@@ -169,9 +169,13 @@ export function isStudyDirty(config: TaskConfig, snapshot: TaskConfig): boolean 
 
 /** The identity bar's line-2 file identity (DESIGN-SPEC §2.1): file name plus
  * its directory for the last saved/loaded path, or the never-saved wording.
+ * A null path means the session started from the built-in default study and
+ * has never saved or loaded a file (nothing persists across launches), hence
+ * the first-launch prefix (§4) — it stays through unsaved edits, where the
+ * dirty dot is the signal.
  * Splits on either separator so a Windows path reads correctly too. */
 export function fileIdentityLine(path: string | null): string {
-  if (path === null) return "not saved to file yet";
+  if (path === null) return "default study — not saved to file yet";
   const cut = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   if (cut < 0) return path;
   return `${path.slice(cut + 1)} — ${path.slice(0, cut)}`;
