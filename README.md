@@ -7,10 +7,10 @@
 <p align="center"><strong>A configurable, offline desktop instrument for the Balloon Analogue Risk Task</strong></p>
 
 <p align="center">
-  <a href="https://open-bart.readthedocs.io/en/latest/?badge=latest"><img src="https://readthedocs.org/projects/open-bart/badge/?version=latest" alt="Documentation Status"></a>
   <a href="https://doi.org/10.5281/zenodo.20592164"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.20592164.svg" alt="DOI"></a>
   <a href="https://github.com/aslmylmz/open-bart/releases/latest"><img src="https://img.shields.io/github/v/release/aslmylmz/open-bart" alt="Latest release"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://open-bart.readthedocs.io/en/latest/?badge=latest"><img src="https://readthedocs.org/projects/open-bart/badge/?version=latest" alt="Documentation Status"></a>
 </p>
 
 ![The Study Setup screen — point-and-click study design with a live expected-value preview, in a dark researcher posture](docs/screenshots/01-study-setup.png)
