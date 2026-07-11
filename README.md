@@ -1,11 +1,19 @@
-[![Documentation Status](https://readthedocs.org/projects/open-bart/badge/?version=latest)](https://open-bart.readthedocs.io/en/latest/?badge=latest)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20592164.svg)](https://doi.org/10.5281/zenodo.20592164)
-[![Latest release](https://img.shields.io/github/v/release/aslmylmz/open-bart)](https://github.com/aslmylmz/open-bart/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <img src="app/src-tauri/icons/128x128@2x.png" width="88" height="88" alt="Dynamic Hazard Rate BART app icon">
+</p>
 
-# Dynamic Hazard Rate BART
+<h1 align="center">Dynamic Hazard Rate BART</h1>
 
-**A configurable, offline desktop instrument for the Balloon Analogue Risk Task**
+<p align="center"><strong>A configurable, offline desktop instrument for the Balloon Analogue Risk Task</strong></p>
+
+<p align="center">
+  <a href="https://open-bart.readthedocs.io/en/latest/?badge=latest"><img src="https://readthedocs.org/projects/open-bart/badge/?version=latest" alt="Documentation Status"></a>
+  <a href="https://doi.org/10.5281/zenodo.20592164"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.20592164.svg" alt="DOI"></a>
+  <a href="https://github.com/aslmylmz/open-bart/releases/latest"><img src="https://img.shields.io/github/v/release/aslmylmz/open-bart" alt="Latest release"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
+
+![The Study Setup screen — point-and-click study design with a live expected-value preview, in a dark researcher posture](docs/screenshots/01-study-setup.png)
 
 Dynamic Hazard Rate BART is an open-source desktop application that lets a
 research lab administer, score, and export Balloon Analogue Risk Task sessions
@@ -25,6 +33,36 @@ configuration choices, so traditional baselines and replications run on the
 same instrument.
 
 Developed for a research program at Middle East Technical University (METU).
+
+---
+
+## A look at the instrument
+
+The whole workflow — design a study, validate it, run participants, and confirm
+the data — happens in one offline window.
+
+**Design and preview.** A live expected-value curve for every color profile
+updates as you edit; the dashed marker is the EV-optimal stop.
+
+![EV Preview — per-color expected-value, survival, and hazard curves with the optimum marked](docs/screenshots/02-ev-preview.png)
+
+**Validate as you go.** The scoring engine checks every field; errors surface
+inline the moment a value goes out of range — never before you have touched it.
+
+![Inline validation — an out-of-range reward field flagged directly under the control](docs/screenshots/03-inline-validation.png)
+
+**Run a session.** Participants see a familiar, distraction-free balloon task —
+pump to earn, collect to bank — with balloon progress and running total in view.
+
+![Participant gameplay — an inflating balloon mid-trial with pump and collect controls, in a light participant posture](docs/screenshots/04-participant-gameplay.png)
+
+**Confirm the data.** Each real session ends on a confirmation screen showing the
+output directory, the per-session files, and the appended Master CSV row.
+
+![Return surface — a session-complete screen confirming the output directory, session files, and the Master CSV row](docs/screenshots/05-return-surface.png)
+
+> **Windows:** the instrument ships as a Windows-first installer. A Windows-11
+> Study Setup screenshot for platform parity is pending a maintainer capture.
 
 ---
 
