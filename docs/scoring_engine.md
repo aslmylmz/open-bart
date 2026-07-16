@@ -141,9 +141,11 @@ consistency into:
   erratic strategy).
 
 `impulsivity_index` is a latency index, $1 - \mathrm{clip}(\text{mean latency} /
-800\text{ ms}, 0, 1)$ — higher means faster, more reflexive pumping. This follows
-Lejuez et al. (2002), who identify pump latency as the primary BART correlate of
-trait impulsivity.
+800\text{ ms}, 0, 1)$ — higher means faster, more reflexive pumping. This is an
+exploratory derived metric with no source in the Lejuez canon: Lejuez et al.
+(2002) records no latency measure (impulsivity there is a self-report scale
+correlated with adjusted pumps), so the index is not a validated impulsivity
+measure.
 
 ## The composite score
 

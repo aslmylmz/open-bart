@@ -363,8 +363,10 @@ class BARTMetrics(BaseModel):
             "Latency-based impulsivity index [0-1]. "
             "Derived from mean inter-pump latency: 1 - clamp(latency / 800ms, 0, 1). "
             "Higher = faster/more reflexive pumping. "
-            "Based on Lejuez et al. (2002): pump latency is the primary BART "
-            "correlate of trait impulsivity."
+            "Exploratory: a derived latency metric with no source in the Lejuez "
+            "canon — Lejuez et al. (2002) records no latency measure (impulsivity "
+            "there is a self-report scale correlated with adjusted pumps); treat "
+            "as descriptive, not a validated impulsivity measure."
         ),
     )
     avg_pumps_all_balloons: float = Field(
