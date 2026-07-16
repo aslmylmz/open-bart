@@ -8,6 +8,7 @@ probe; the scoring/preview/output endpoints land in issue 08.
 
 from __future__ import annotations
 
+import platform
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,7 +21,12 @@ from pydantic import ValidationError
 from scoring import __version__
 from scoring.bart import score_bart, trial_table
 from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
-from scoring.schemas import AssessmentResponse, BARTMetrics
+from scoring.schemas import (
+    AssessmentResponse,
+    BARTMetrics,
+    EngineStamp,
+    SessionEnvelope,
+)
 from sidecar.models import (
     CheckIdRequest,
     CheckIdResponse,
@@ -303,13 +309,27 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     metrics_path.write_text(metrics.model_dump_json(indent=2), encoding="utf-8")
     config_path.write_text(config.model_dump_json(indent=2), encoding="utf-8")
 
-    # The session envelope: identity + design assignment in a per-session file,
-    # so the master CSV stays rebuildable from the individual files (ADR 0001)
-    # and the condition survives outside the spreadsheet (issue 37). The raw
-    # telemetry stays in the .jsonl.
-    session_path.write_text(
-        req.session.model_dump_json(exclude={"events"}, indent=2), encoding="utf-8"
+    # The session envelope (DATA-SPEC §3): identity + design assignment +
+    # per-session provenance in a per-session file, so the master CSV stays
+    # rebuildable from the individual files (ADR 0001) and the condition
+    # survives outside the spreadsheet (issue 37). The raw telemetry stays in
+    # the .jsonl. The engine stamp is server-authored — the sidecar records
+    # what actually ran, so nothing a client sends can forge it.
+    envelope = SessionEnvelope(
+        session_id=req.session.session_id,
+        game_type=req.session.game_type,
+        candidate_id=req.session.candidate_id,
+        condition=req.session.condition,
+        duplicate_acknowledged=req.session.duplicate_acknowledged,
+        practice=req.session.practice,
+        station_id=station.station_id,
+        engine=EngineStamp(
+            app_version=__version__,
+            engine_version=__version__,
+            platform=platform.platform(),
+        ),
     )
+    session_path.write_text(envelope.model_dump_json(indent=2), encoding="utf-8")
 
     # The study-wide files — provenance (issue 42), master CSV, trials CSV —
     # are written together here: one decision point, and practice sessions

@@ -30,9 +30,10 @@ from scoring.projection import CLASSIC_CANON, CLASSIC_FIELDS, CLASSIC_TRIALS_DRO
 from scoring.schemas import (
     BARTMetrics,
     ColorMetrics,
+    EngineStamp,
     EventPayload,
     GameEvent,
-    GameSession,
+    SessionEnvelope,
     TrialRecord,
 )
 from sidecar.station import StationIdentity
@@ -354,10 +355,14 @@ def _render_dictionary(config: TaskConfig, slug: str) -> str:
         f"\n"
         f"### Session envelope (`*_session.json`)\n"
         f"\n"
-        f"The session's identity and design assignment (the raw telemetry "
-        f"stays in `*_events.jsonl`):\n"
+        f"The session's identity, design assignment, and per-session "
+        f"provenance (the raw telemetry stays in `*_events.jsonl`):\n"
         f"\n"
-        f"{_model_table(GameSession, skip={'events'})}"
+        f"{_model_table(SessionEnvelope)}"
+        f"\n"
+        f"`engine` fields (stamped by the instrument at write time):\n"
+        f"\n"
+        f"{_model_table(EngineStamp)}"
         f"\n"
         f"### Study config snapshot (`*_config.json`)\n"
         f"\n"
