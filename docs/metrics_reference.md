@@ -50,8 +50,10 @@ but reports the study's highest-risk color. See ADR 0004
   - 0–1
   - Fraction of balloons that exploded (gross, uncensored).
 * - `average_pumps_adjusted`
-  - ≥0
-  - Mean pumps per **non-exploded** balloon (adjusted BART score).
+  - ≥0 or missing
+  - Mean pumps per **non-exploded** balloon (adjusted BART score). Missing
+    (`null` JSON / empty CSV cell) when zero balloons were collected — never a
+    silent fallback to the all-balloon mean.
 * - `avg_pumps_all_balloons`
   - ≥0
   - Mean pumps across **all** balloons, including exploded — not subject to censoring bias.

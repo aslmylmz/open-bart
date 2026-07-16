@@ -81,6 +81,7 @@ def test_first_session_makes_the_output_directory_osf_ready(tmp_path):
     assert prov == {
         "app_version": scoring.__version__,
         "engine_version": scoring.__version__,
+        "metrics_mode": "advanced",
         "platform": platform.platform(),
         "seed": None,
     }
@@ -169,6 +170,93 @@ def test_dictionary_describes_every_field_of_the_session_files(tmp_path):
             if name not in skip and f"`{name}`" not in text
         ]
         assert missing == [], f"{model.__name__}: {missing}"
+
+
+def test_classic_dictionary_lists_exactly_the_classic_columns(tmp_path):
+    """In classic metrics mode (DATA-SPEC §4.3) the dictionary documents the
+    columns the mode actually emits: identity, the five canon metrics, and the
+    integrity/QC tier — in Advanced's order, with no per-color blocks — and
+    the trials table loses exactly ``mean_latency_between_pumps``."""
+    out = _write_session(
+        tmp_path, {**WIDEST, "metrics_mode": "classic"}, condition="control"
+    )
+
+    master = [n for n, _ in _dictionary_rows(tmp_path, out, "Master CSV columns")]
+    assert master == [
+        "timestamp_utc",
+        "session_id",
+        "candidate_id",
+        "condition",
+        "average_pumps_adjusted",
+        "total_balloons",
+        "total_pumps",
+        "total_explosions",
+        "avg_pumps_all_balloons",
+        "money_collected",
+        "session_valid",
+        "qc_fast_response_trials",
+        "qc_zero_pump_streak",
+        "qc_flagged",
+        "qc_fast_response_ms",
+        "qc_zero_pump_streak_threshold",
+        "payout_amount",
+        "payout_currency",
+    ]
+
+    trials = [n for n, _ in _dictionary_rows(tmp_path, out, "Trials CSV columns")]
+    assert "mean_latency_between_pumps" not in trials
+    assert {"hazard_family", "balloon_color", "pumps", "outcome", "trial_earnings"} <= set(
+        trials
+    )
+
+
+def test_classic_dictionary_carries_the_literature_names(tmp_path):
+    """Repo column names are kept in classic mode; the canon literature name
+    and citation live in the dictionary, on each of the five canon columns."""
+    out = _write_session(tmp_path, {"metrics_mode": "classic"})
+    rows = dict(_dictionary_rows(tmp_path, out, "Master CSV columns"))
+    for canon in (
+        "average_pumps_adjusted",
+        "total_explosions",
+        "total_pumps",
+        "avg_pumps_all_balloons",
+        "money_collected",
+    ):
+        assert "Lejuez" in rows[canon], canon
+
+
+def test_classic_dictionary_has_no_advanced_remnants(tmp_path):
+    """The classic dictionary describes only the classic surface: the header
+    names the mode, the per-color ``color_metrics`` structure is gone
+    everywhere, and the scored-metrics JSON section's extras narrow to the
+    JSON-only classic fields (``session_warnings`` + the null payout pair for
+    a payout-less study)."""
+    out = _write_session(tmp_path, {"metrics_mode": "classic"})
+    text = (tmp_path / f"{_study_slug(out)}_data_dictionary.md").read_text("utf-8")
+
+    assert "Metrics mode: `classic`" in text
+    assert "color_metrics" not in text
+    metrics_section = text.split("### Scored metrics", 1)[1].split("\n### ", 1)[0]
+    extras = re.findall(r"^\| `([^`]+)` \|", metrics_section, flags=re.M)
+    assert extras == ["session_warnings", "payout_amount", "payout_currency"]
+
+
+def test_advanced_dictionary_names_its_mode_too(tmp_path):
+    """Mode is never inferred from an absence (DATA-SPEC §2.4): the default
+    advanced dictionary states its mode explicitly in the header."""
+    out = _write_session(tmp_path)
+    text = (tmp_path / f"{_study_slug(out)}_data_dictionary.md").read_text("utf-8")
+    assert "Metrics mode: `advanced`" in text
+
+
+def test_provenance_record_names_the_metrics_mode(tmp_path):
+    """§4.5: the mode travels beside engine_version in the provenance record,
+    so a methods section can state it without opening the study config."""
+    out = _write_session(tmp_path, {"metrics_mode": "classic"})
+    prov = json.loads(
+        (tmp_path / f"{_study_slug(out)}_provenance.json").read_text("utf-8")
+    )
+    assert prov["metrics_mode"] == "classic"
 
 
 def _provenance_files(tmp_path, out: dict) -> list[Path]:

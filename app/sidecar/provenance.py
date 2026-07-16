@@ -26,6 +26,7 @@ from pathlib import Path
 import scoring
 from pydantic import BaseModel
 from scoring.config import ColorProfile, TaskConfig
+from scoring.projection import CLASSIC_CANON, CLASSIC_FIELDS, CLASSIC_TRIALS_DROPPED
 from scoring.schemas import (
     BARTMetrics,
     ColorMetrics,
@@ -117,13 +118,16 @@ def _records(path: Path, config_dump: dict) -> bool:
 def _refresh_provenance(path: Path, config: TaskConfig) -> None:
     """The provenance record a methods section needs. App and engine currently
     share one version constant (released in lockstep via the issue-35
-    handshake); recorded separately so a future split stays representable."""
+    handshake); recorded separately so a future split stays representable.
+    ``metrics_mode`` travels beside ``engine_version`` (DATA-SPEC §4.5) — the
+    mode is stated explicitly in both modes, never inferred from an absence."""
     _write_if_changed(
         path,
         json.dumps(
             {
                 "app_version": scoring.__version__,
                 "engine_version": scoring.__version__,
+                "metrics_mode": config.metrics_mode,
                 "platform": platform.platform(),
                 "seed": config.seed,
             },
@@ -184,17 +188,38 @@ def _unflattened_fields(config: TaskConfig) -> set[str]:
     return skip
 
 
+def _classic_described(name: str, description: str | None) -> str | None:
+    """A classic column's description with its canon literature name/definition
+    appended (DATA-SPEC §4.3): repo column names are kept, the literature name
+    lives here in the dictionary — never as a rename."""
+    canon = CLASSIC_CANON.get(name)
+    if not canon:
+        return description
+    lead = (description or "").strip()
+    if lead and not lead.endswith("."):
+        lead += "."
+    return f"{lead} {canon}".strip()
+
+
 def _master_csv_columns(config: TaskConfig) -> list[tuple[str, str | None]]:
     """Exactly the columns ``write_output`` puts in this study's master CSV:
     identity, then the flat ``BARTMetrics`` scalars, then per-color
-    ``{color}_{field}`` blocks — mirroring ``_flatten_metrics``."""
+    ``{color}_{field}`` blocks — mirroring ``_flatten_metrics``. In classic
+    metrics mode the scalars narrow to the projection's keep-set — annotated
+    with their literature names — and Classic is session-level only, so the
+    per-color blocks disappear (DATA-SPEC §4.3)."""
+    classic = config.metrics_mode == "classic"
     skip = _unflattened_fields(config)
+    if classic:
+        skip |= set(BARTMetrics.model_fields) - CLASSIC_FIELDS
     columns = _identity_columns(config)
     columns += [
-        (name, field.description)
+        (name, _classic_described(name, field.description) if classic else field.description)
         for name, field in BARTMetrics.model_fields.items()
         if name not in skip
     ]
+    if classic:
+        return columns
     for color in config.colors:
         columns += [
             (f"{color.name}_{name}", field.description)
@@ -206,10 +231,15 @@ def _master_csv_columns(config: TaskConfig) -> list[tuple[str, str | None]]:
 
 def _trials_csv_columns(config: TaskConfig) -> list[tuple[str, str | None]]:
     """Exactly the columns of this study's long-format trials CSV (issue 39):
-    identity, then the engine's ``TrialRecord`` fields."""
+    identity, then the engine's ``TrialRecord`` fields — minus the projection's
+    dropped column in classic metrics mode (DATA-SPEC §4.3)."""
+    dropped = (
+        CLASSIC_TRIALS_DROPPED if config.metrics_mode == "classic" else frozenset()
+    )
     return _identity_columns(config) + [
         (name, field.description)
         for name, field in TrialRecord.model_fields.items()
+        if name not in dropped
     ]
 
 
@@ -229,7 +259,39 @@ def _model_table(model: type[BaseModel], skip: set[str] = frozenset()) -> str:
 
 def _render_dictionary(config: TaskConfig, slug: str) -> str:
     """The study's data dictionary, generated from the scoring models so a
-    column added in code appears here without being documented twice."""
+    column added in code appears here without being documented twice. The
+    header states the study's metrics mode in both modes (DATA-SPEC §4.5);
+    in classic mode every section documents only what the projection emits."""
+    classic = config.metrics_mode == "classic"
+    if classic:
+        mode_note = (
+            "Metrics mode: `classic` — every output surface (master CSV, "
+            "trials CSV, scored metrics JSON) is projected down to the "
+            "classic BART canon (Lejuez et al., 2002/2003); the raw event "
+            "log records the complete session either way.\n"
+        )
+        metrics_intro = (
+            "The scored output in classic metrics mode: every Master CSV "
+            "metric column above, un-flattened, plus:"
+        )
+        # In classic, the JSON-only extras narrow to the classic fields the
+        # flattener keeps out of the CSV (session_warnings, and the null
+        # payout pair for payout-less studies).
+        json_extras = _unflattened_fields(config) & CLASSIC_FIELDS
+        color_entries = ""
+    else:
+        mode_note = (
+            "Metrics mode: `advanced` — the full metrics surface "
+            "(the v1.0.0 default).\n"
+        )
+        metrics_intro = (
+            "The full scored output: every Master CSV metric column above, "
+            "un-flattened, plus:"
+        )
+        json_extras = _unflattened_fields(config)
+        color_entries = (
+            "\nEach `color_metrics` entry:\n\n" + _model_table(ColorMetrics)
+        )
     return (
         f"# Data Dictionary — {config.title}\n"
         f"\n"
@@ -239,6 +301,8 @@ def _render_dictionary(config: TaskConfig, slug: str) -> str:
         f"(`{slug}_study.json`) and the provenance record "
         f"(`{slug}_provenance.json`), this makes the output directory "
         f"self-describing and ready to archive or upload (e.g. to OSF) as-is.\n"
+        f"\n"
+        f"{mode_note}"
         f"\n"
         f"## Master CSV columns (`{slug}_results.csv`)\n"
         f"\n"
@@ -269,14 +333,10 @@ def _render_dictionary(config: TaskConfig, slug: str) -> str:
         f"\n"
         f"### Scored metrics (`*_metrics.json`)\n"
         f"\n"
-        f"The full scored output: every Master CSV metric column above, "
-        f"un-flattened, plus:\n"
+        f"{metrics_intro}\n"
         f"\n"
-        f"{_model_table(BARTMetrics, skip=set(BARTMetrics.model_fields) - _unflattened_fields(config))}"
-        f"\n"
-        f"Each `color_metrics` entry:\n"
-        f"\n"
-        f"{_model_table(ColorMetrics)}"
+        f"{_model_table(BARTMetrics, skip=set(BARTMetrics.model_fields) - json_extras)}"
+        f"{color_entries}"
         f"\n"
         f"### Session envelope (`*_session.json`)\n"
         f"\n"

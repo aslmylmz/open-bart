@@ -1264,11 +1264,13 @@ def score_bart(
 
     avg_pumps_all_balloons = float(np.mean(all_pumps_array))
 
+    # Zero collected balloons -> no adjusted score (DATA-SPEC §4.4): the field
+    # is missing (null JSON / empty CSV cell), never a silent fallback to the
+    # all-balloon mean, which is a different estimator with its own column.
+    average_pumps_adjusted: float | None = None
     if non_exploded_pumps:
         adjusted_array = np.array(non_exploded_pumps, dtype=np.float64)
         average_pumps_adjusted = float(np.mean(adjusted_array))
-    else:
-        average_pumps_adjusted = avg_pumps_all_balloons
 
     explosion_rate = total_explosions / total_balloons if total_balloons > 0 else 0.0
 
@@ -1435,14 +1437,14 @@ def score_bart(
 
     logger.info(
         "BART scored — balloons=%d pumps=%d explosions=%d "
-        "avg_adjusted=%.2f avg_all=%.2f latency=%.1fms "
+        "avg_adjusted=%s avg_all=%.2f latency=%.1fms "
         "ev_ratio=%.1f explosion_penalty=%.3f risk_cal=%.1f "
         "adaptive_score=%.1f flat_strategy=%s "
         "patience=%.2f rng_norm=%.3f valid=%s warnings=%d",
         total_balloons,
         total_pumps,
         total_explosions,
-        average_pumps_adjusted,
+        "n/a" if average_pumps_adjusted is None else f"{average_pumps_adjusted:.2f}",
         avg_pumps_all_balloons,
         mean_latency,
         ev_ratio_score,
@@ -1474,7 +1476,11 @@ def score_bart(
         )
 
     metrics_obj = BARTMetrics(
-        average_pumps_adjusted=round(average_pumps_adjusted, 4),
+        average_pumps_adjusted=(
+            round(average_pumps_adjusted, 4)
+            if average_pumps_adjusted is not None
+            else None
+        ),
         explosion_rate=round(explosion_rate, 4),
         mean_latency_between_pumps=round(mean_latency, 4),
         total_balloons=total_balloons,

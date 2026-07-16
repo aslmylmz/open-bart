@@ -18,7 +18,9 @@ export interface AssessmentResult {
   session_id: string;
   game_type: string;
   raw_metrics: {
-    average_pumps_adjusted: number;
+    /** null when zero balloons were collected — no adjusted score exists
+     * (the engine never falls back to the all-balloon mean). */
+    average_pumps_adjusted: number | null;
     explosion_rate: number;
     mean_latency_between_pumps: number;
     total_balloons: number;

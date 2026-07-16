@@ -189,7 +189,7 @@ misaligned:
 
 | Column | Meaning |
 |--------|---------|
-| `average_pumps_adjusted` | Mean pumps on collected balloons (RNG-truncation safe) |
+| `average_pumps_adjusted` | Mean pumps on collected balloons (RNG-truncation safe); empty when zero balloons were collected |
 | `avg_pumps_all_balloons` | Mean pumps across all balloons |
 | `rng_normalized_pumps` | Mean pumps as a ratio of the EV-optimal stop |
 | `ev_ratio_score` | EV(participant)/EV(optimal) × 100, EV-weighted across colors |

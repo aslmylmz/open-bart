@@ -246,9 +246,15 @@ class BARTMetrics(BaseModel):
     """Computed metrics from a BART game session."""
 
     # Overall metrics
-    average_pumps_adjusted: float = Field(
+    average_pumps_adjusted: Optional[float] = Field(
         ...,
-        description="Mean pumps per non-exploded balloon (adjusted BART score)",
+        description=(
+            "Mean pumps per non-exploded balloon (adjusted BART score; "
+            "Lejuez et al., 2002). None (null JSON / empty CSV cell) when "
+            "zero balloons were collected — there is no adjusted score to "
+            "report, and the all-balloon mean is a different estimator "
+            "(see avg_pumps_all_balloons)."
+        ),
     )
     explosion_rate: float = Field(
         ...,
