@@ -7,12 +7,15 @@ reproduces the established 128/32/8 -> 11/5/2 result.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from pydantic import ValidationError
 
 from scoring.config import (
     DEFAULT_TASK_CONFIG,
     ColorProfile,
+    TaskConfig,
     ConstantHazard,
     ExponentialHazard,
     GompertzHazard,
@@ -175,6 +178,43 @@ def test_step_hazard_takes_segment_levels():
 def test_tabular_hazard_returns_its_array():
     h = TabularHazard(values=[0.1, 0.3, 0.7, 1.0]).hazard_vector(4)
     assert h == pytest.approx([0.1, 0.3, 0.7, 1.0])
+
+
+# ── Deployment & reporting flags (multi-station, schema 1.1) ─────────────────
+
+
+def test_v10_study_json_loads_with_default_deployment_flags():
+    """A pre-split (v1.0) `study.json` lacks `standalone`/`metrics_mode`; the
+    pydantic defaults must fill them in — zero migration, byte-for-byte
+    v1.0.0 behavior."""
+    v1 = DEFAULT_TASK_CONFIG.model_dump()
+    v1["schema_version"] = "1.0"  # exactly what a v1.0.0 file contains
+    v1.pop("standalone", None)
+    v1.pop("metrics_mode", None)
+
+    loaded = TaskConfig.model_validate(v1)
+    assert loaded.standalone is False
+    assert loaded.metrics_mode == "advanced"
+    assert loaded.schema_version == "1.0"  # documentary, not load-bearing
+
+
+def test_default_schema_version_is_1_1():
+    assert DEFAULT_TASK_CONFIG.schema_version == "1.1"
+
+
+def test_deployment_flags_ride_the_freeze_path():
+    """Both flags must land in the distributed `study.json` and each per-session
+    `config.json`, which are plain `model_dump_json` snapshots of the config."""
+    frozen = json.loads(DEFAULT_TASK_CONFIG.model_dump_json())
+    assert frozen["standalone"] is False
+    assert frozen["metrics_mode"] == "advanced"
+
+
+def test_metrics_mode_admits_only_the_two_modes():
+    v1 = DEFAULT_TASK_CONFIG.model_dump()
+    assert TaskConfig.model_validate({**v1, "metrics_mode": "classic"}).metrics_mode == "classic"
+    with pytest.raises(ValidationError):
+        TaskConfig.model_validate({**v1, "metrics_mode": "detailed"})
 
 
 # ── Validation ───────────────────────────────────────────────────────────────

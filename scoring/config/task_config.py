@@ -73,7 +73,14 @@ class TaskConfig(BaseModel):
     """
 
     schema_version: str = Field(
-        default="1.0", description="data format version of study.json"
+        default="1.1",
+        description=(
+            "data format version of study.json. 1.1 adds the optional "
+            "standalone and metrics_mode fields (and auto_participant_id, "
+            "landing with the auto-ID issue under this same bump); the bump "
+            "is documentary, not load-bearing — pydantic defaults validate "
+            "a 1.0 file with zero migration"
+        ),
     )
     title: str = Field(
         description="the study's display title; slugged into every output filename"
@@ -134,6 +141,25 @@ class TaskConfig(BaseModel):
             "deterrence, not security — it stops a curious participant, not "
             "an attacker with the preset file. Absent means exits are ungated "
             "— the v1.0.0 behavior"
+        ),
+    )
+    standalone: bool = Field(
+        default=False,
+        description=(
+            "multi-station deployment mode: when true, stations write only "
+            "per-session files — no live master-CSV appends — and the Hub "
+            "rebuilds study-level outputs. Deliberately a config field, not a "
+            "per-machine app setting, so every station of a study agrees by "
+            "construction. Default off is the v1.0.0 single-station behavior"
+        ),
+    )
+    metrics_mode: Literal["classic", "advanced"] = Field(
+        default="advanced",
+        description=(
+            "reported metrics surface: the engine always computes the full "
+            "advanced metrics; 'classic' projects every output (master CSV, "
+            "trials CSV, metrics.json, data dictionary) down to the classic "
+            "BART canon. Default 'advanced' is the v1.0.0 behavior"
         ),
     )
 

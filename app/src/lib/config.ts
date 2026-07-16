@@ -160,13 +160,23 @@ export interface TaskConfig {
   /** Real-world payout conversion (issue 41). Optional/null: absent means no
    * payout anywhere — the v1.0.0 behavior. */
   payout?: PayoutConversion | null;
+  /** Multi-station deployment mode: when true, stations write only per-session
+   * files (no live master-CSV appends) and the Hub rebuilds study-level
+   * outputs. A config field, not a per-machine setting, so every station of a
+   * study agrees by construction. Optional: absent means off — the v1.0.0
+   * single-station behavior. */
+  standalone?: boolean;
+  /** Reported metrics surface: the engine always computes the full advanced
+   * metrics; "classic" projects every output down to the classic BART canon.
+   * Optional: absent means "advanced" — the v1.0.0 behavior. */
+  metrics_mode?: "classic" | "advanced";
 }
 
 /** The validated default study: the original 128/32/8 dynamic hazard, $0.25/pump.
  * Mirrors `scoring.config.DEFAULT_TASK_CONFIG` so the app boots usable before any
  * editing and downstream issues (14–16) have a known-good starting config. */
 export const DEFAULT_STUDY: TaskConfig = {
-  schema_version: "1.0",
+  schema_version: "1.1",
   title: "Dynamic Hazard Rate BART (default dynamic study)",
   language: "en",
   reward_per_pump: 0.25,

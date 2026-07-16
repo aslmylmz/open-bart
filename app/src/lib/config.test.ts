@@ -13,7 +13,7 @@ describe("DEFAULT_STUDY", () => {
   });
 
   it("mirrors the default study's top-level fields", () => {
-    expect(DEFAULT_STUDY.schema_version).toBe("1.0");
+    expect(DEFAULT_STUDY.schema_version).toBe("1.1");
     expect(DEFAULT_STUDY.language).toBe("en");
     expect(DEFAULT_STUDY.reward_per_pump).toBe(0.25);
     expect(DEFAULT_STUDY.seed).toBeNull();

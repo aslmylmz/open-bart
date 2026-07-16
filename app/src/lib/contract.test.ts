@@ -54,6 +54,8 @@ const TASK_CONFIG: Record<keyof TaskConfig, true> = {
   exit_passcode: true,
   qc: true,
   payout: true,
+  standalone: true,
+  metrics_mode: true,
 };
 
 const COLOR_PROFILE: Record<keyof ColorProfile, true> = {

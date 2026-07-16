@@ -79,12 +79,14 @@
     "currency",
     "exit_passcode",
     "language",
+    "metrics_mode",
     "output_dir",
     "payout",
     "qc",
     "reward_per_pump",
     "schema_version",
     "seed",
+    "standalone",
     "title"
   ]
 }
