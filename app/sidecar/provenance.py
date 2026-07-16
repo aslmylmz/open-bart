@@ -35,9 +35,15 @@ from scoring.schemas import (
     GameSession,
     TrialRecord,
 )
+from sidecar.station import StationIdentity
 
 
-def ensure_provenance(out_dir: Path, config: TaskConfig, slug: str) -> list[str]:
+def ensure_provenance(
+    out_dir: Path,
+    config: TaskConfig,
+    slug: str,
+    station: StationIdentity | None = None,
+) -> list[str]:
     """Create or refresh the study-level provenance files under ``out_dir``.
 
     Called on every (non-practice) session write; returns readable warnings
@@ -47,7 +53,10 @@ def ensure_provenance(out_dir: Path, config: TaskConfig, slug: str) -> list[str]
     warnings: list[str] = []
     steps = [
         (out_dir / f"{slug}_study.json", _freeze_study_config),
-        (out_dir / f"{slug}_provenance.json", _refresh_provenance),
+        (
+            out_dir / f"{slug}_provenance.json",
+            lambda path, config: _refresh_provenance(path, config, station),
+        ),
         (
             out_dir / f"{slug}_data_dictionary.md",
             lambda path, config: _write_if_changed(
@@ -115,25 +124,30 @@ def _records(path: Path, config_dump: dict) -> bool:
         return False
 
 
-def _refresh_provenance(path: Path, config: TaskConfig) -> None:
+def _refresh_provenance(
+    path: Path, config: TaskConfig, station: StationIdentity | None = None
+) -> None:
     """The provenance record a methods section needs. App and engine currently
     share one version constant (released in lockstep via the issue-35
     handshake); recorded separately so a future split stays representable.
     ``metrics_mode`` travels beside ``engine_version`` (DATA-SPEC §4.5) — the
-    mode is stated explicitly in both modes, never inferred from an absence."""
-    _write_if_changed(
-        path,
-        json.dumps(
-            {
-                "app_version": scoring.__version__,
-                "engine_version": scoring.__version__,
-                "metrics_mode": config.metrics_mode,
-                "platform": platform.platform(),
-                "seed": config.seed,
-            },
-            indent=2,
-        ),
-    )
+    mode is stated explicitly in both modes, never inferred from an absence.
+
+    With a station ID set (DATA-SPEC §2.3) the record also carries the label
+    and the per-install machine UUID — folder-level machine identity, and the
+    Hub's detector for two machines sharing one label. Unset, both keys are
+    absent and the record stays byte-identical to single-station output."""
+    record = {
+        "app_version": scoring.__version__,
+        "engine_version": scoring.__version__,
+        "metrics_mode": config.metrics_mode,
+        "platform": platform.platform(),
+        "seed": config.seed,
+    }
+    if station is not None and station.station_id:
+        record["station_id"] = station.station_id
+        record["machine_uuid"] = station.machine_uuid
+    _write_if_changed(path, json.dumps(record, indent=2))
 
 
 def _cell(text: str | None) -> str:

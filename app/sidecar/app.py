@@ -27,12 +27,20 @@ from sidecar.models import (
     CurvePreview,
     PreviewResponse,
     ScoreRequest,
+    SetStationRequest,
+    StationResponse,
     ValidateConfigResponse,
     WriteOutputRequest,
     WriteOutputResponse,
 )
 from sidecar.provenance import ensure_provenance
+from sidecar.station import load_station, store_station_id
 from sidecar.versioned_csv import append_row, append_rows
+
+# The station label lands in every output filename, so it obeys the same slug
+# discipline check_id enforces on participant IDs, plus a length cap that keeps
+# the four-part filename stem well inside filesystem name limits.
+_STATION_ID_MAX = 32
 
 
 def _slug(text: str) -> str:
@@ -156,6 +164,56 @@ def score(req: ScoreRequest) -> AssessmentResponse:
     )
 
 
+@app.get("/station", response_model=StationResponse)
+def get_station() -> StationResponse:
+    """This machine's station identity (DATA-SPEC §2.3): the per-machine app
+    setting the study-setup surface re-displays each session, plus the
+    per-install UUID minted on first run."""
+    identity = load_station()
+    return StationResponse(
+        station_id=identity.station_id, machine_uuid=identity.machine_uuid
+    )
+
+
+def _station_id_problem(station_id: str) -> str | None:
+    """Why this station label cannot be used, or ``None`` when it can. The
+    label lands in filenames, so it obeys the same slug discipline ``check_id``
+    enforces on participant IDs (DATA-SPEC §2.3)."""
+    if _slug(station_id) != station_id:
+        return (
+            f"Station ID '{station_id}' cannot be used in file names. Use "
+            f"only letters, numbers, dots, underscores, and dashes."
+        )
+    if len(station_id) > _STATION_ID_MAX:
+        return f"Station ID must be at most {_STATION_ID_MAX} characters."
+    return None
+
+
+@app.post("/station", response_model=StationResponse)
+def set_station(req: SetStationRequest) -> StationResponse:
+    """Persist a new station label for this machine — entered once at machine
+    setup, never retyped per participant. A whitespace-only label clears the
+    setting; an unusable label is rejected without touching the stored one."""
+    station_id = req.station_id.strip() or None
+    error = _station_id_problem(station_id) if station_id is not None else None
+    if error is None:
+        try:
+            identity = store_station_id(station_id)
+            return StationResponse(
+                station_id=identity.station_id, machine_uuid=identity.machine_uuid
+            )
+        except OSError as exc:
+            reason = getattr(exc, "strerror", None) or str(exc) or type(exc).__name__
+            error = f"Could not save the station ID ({reason})."
+    identity = load_station()
+    return StationResponse(
+        ok=False,
+        station_id=identity.station_id,
+        machine_uuid=identity.machine_uuid,
+        error=error,
+    )
+
+
 @app.post("/check-id", response_model=CheckIdResponse)
 def check_id(req: CheckIdRequest) -> CheckIdResponse:
     """Vet a participant ID before the session starts (issue 38).
@@ -165,6 +223,19 @@ def check_id(req: CheckIdRequest) -> CheckIdResponse:
     recorded under this ID, and the count feeds the ID screen's warn-confirm.
     """
     config = req.config or DEFAULT_TASK_CONFIG
+    # The blank-station poka-yoke (DATA-SPEC §2.3): a standalone session with
+    # no station ID would be unattributable at the Hub, so it never starts.
+    # Machine setup, not the participant ID, is what needs fixing here.
+    if config.standalone and not load_station().station_id:
+        return CheckIdResponse(
+            ok=False,
+            sessions=0,
+            error=(
+                "This study runs in Standalone Mode, but this machine has no "
+                "station ID set. Set the station ID on the study-setup screen "
+                "before running sessions."
+            ),
+        )
     candidate_id = req.candidate_id
     if not candidate_id.strip():
         return CheckIdResponse(
@@ -208,7 +279,16 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
         out_dir = out_dir / "practice"
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    stem = f"{_slug(config.title)}_{_slug(req.session.candidate_id)}_{ts}"
+    # With a station ID set, the stem gains a station segment (DATA-SPEC §2.3)
+    # so sneakernet-merged station folders can never collide on filename,
+    # independent of clock skew. Unset — single-station mode — the stem stays
+    # byte-identical to v1.0.0.
+    station = load_station()
+    station_segment = f"_{_slug(station.station_id)}" if station.station_id else ""
+    stem = (
+        f"{_slug(config.title)}{station_segment}"
+        f"_{_slug(req.session.candidate_id)}_{ts}"
+    )
 
     events_path = out_dir / f"{stem}_events.jsonl"
     metrics_path = out_dir / f"{stem}_metrics.json"
@@ -244,7 +324,9 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
             config=str(config_path),
             session=str(session_path),
         )
-    provenance_warnings = ensure_provenance(out_dir, config, _slug(config.title))
+    provenance_warnings = ensure_provenance(
+        out_dir, config, _slug(config.title), station
+    )
     identity = {
         "timestamp_utc": ts,
         "session_id": req.session.session_id,

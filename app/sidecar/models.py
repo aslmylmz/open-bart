@@ -74,6 +74,25 @@ class CheckIdResponse(BaseModel):
     error: str | None = None
 
 
+class SetStationRequest(BaseModel):
+    """A new station label for this machine (DATA-SPEC §2.3). Whitespace-only
+    clears the setting — the machine UUID always stays."""
+
+    station_id: str
+
+
+class StationResponse(BaseModel):
+    """This machine's station identity, plus the ok/error verdict when a new
+    label was submitted (a rejected label never replaces the stored one).
+    ``machine_uuid`` is the random per-install UUID minted on first run — the
+    Hub's duplicate-station-label detector."""
+
+    ok: bool = True
+    station_id: str | None = None
+    machine_uuid: str
+    error: str | None = None
+
+
 class WriteOutputRequest(BaseModel):
     """A session to persist, optionally with the study config it ran under (SPEC
     §13). When ``config`` is omitted the sidecar falls back to the default study,
