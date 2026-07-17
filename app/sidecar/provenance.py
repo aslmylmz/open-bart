@@ -36,6 +36,7 @@ from scoring.schemas import (
     SessionEnvelope,
     TrialRecord,
 )
+from sidecar.naming import TIMESTAMP
 from sidecar.station import StationIdentity
 
 
@@ -106,7 +107,7 @@ def _freeze_study_config(path: Path, config: TaskConfig) -> None:
     copies = [
         p
         for p in path.parent.iterdir()
-        if re.fullmatch(rf"{re.escape(path.stem)}_\d{{8}}T\d+Z\.json", p.name)
+        if re.fullmatch(rf"{re.escape(path.stem)}_{TIMESTAMP}\.json", p.name)
     ]
     if any(_records(p, current) for p in [path, *copies]):
         return

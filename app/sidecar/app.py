@@ -41,6 +41,7 @@ from sidecar.models import (
     WriteOutputRequest,
     WriteOutputResponse,
 )
+from sidecar.naming import TIMESTAMP, slug as _slug
 from sidecar.provenance import ensure_provenance
 from sidecar.station import load_station, store_station_id
 from sidecar.versioned_csv import append_row, append_rows
@@ -49,11 +50,6 @@ from sidecar.versioned_csv import append_row, append_rows
 # discipline check_id enforces on participant IDs, plus a length cap that keeps
 # the four-part filename stem well inside filesystem name limits.
 _STATION_ID_MAX = 32
-
-
-def _slug(text: str) -> str:
-    """Filesystem-safe namespace fragment for output filenames (SPEC §13)."""
-    return re.sub(r"[^A-Za-z0-9._-]+", "-", text).strip("-") or "study"
 
 
 def _utc_now() -> datetime:
@@ -111,7 +107,7 @@ def _count_sessions(
     station_segment = f"_{re.escape(_slug(station_id))}" if station_id else ""
     stem = re.compile(
         rf"^{re.escape(_slug(config.title))}{station_segment}"
-        rf"_{re.escape(candidate_id)}_\d{{8}}T\d+Z_events\.jsonl$"
+        rf"_{re.escape(candidate_id)}_{TIMESTAMP}_events\.jsonl$"
     )
     return sum(1 for p in out_dir.iterdir() if stem.match(p.name))
 
