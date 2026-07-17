@@ -8,6 +8,7 @@ probe; the scoring/preview/output endpoints land in issue 08.
 
 from __future__ import annotations
 
+import json
 import platform
 import re
 from datetime import datetime, timezone
@@ -21,6 +22,7 @@ from pydantic import ValidationError
 from scoring import __version__
 from scoring.bart import score_bart, trial_table
 from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
+from scoring.projection import project_metrics, project_trial
 from scoring.schemas import (
     AssessmentResponse,
     BARTMetrics,
@@ -52,6 +54,17 @@ _STATION_ID_MAX = 32
 def _slug(text: str) -> str:
     """Filesystem-safe namespace fragment for output filenames (SPEC §13)."""
     return re.sub(r"[^A-Za-z0-9._-]+", "-", text).strip("-") or "study"
+
+
+def _utc_now() -> datetime:
+    """The clock ``write_output`` stamps sessions with (DATA-SPEC §9.5).
+
+    A module-level seam, not a clock abstraction: the golden-fixture builder
+    replaces it with fixed synthetic timestamps so the committed samples are
+    byte-reproducible through the real emission path. Production always runs
+    the real UTC clock.
+    """
+    return datetime.now(timezone.utc)
 
 
 def _flatten_metrics(metrics: BARTMetrics) -> dict[str, Any]:
@@ -284,7 +297,7 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     if req.session.practice:
         out_dir = out_dir / "practice"
     out_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    ts = _utc_now().strftime("%Y%m%dT%H%M%S%fZ")
     # With a station ID set, the stem gains a station segment (DATA-SPEC §2.3)
     # so sneakernet-merged station folders can never collide on filename,
     # independent of clock skew. Unset — single-station mode — the stem stays
@@ -305,8 +318,20 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
         for event in req.session.events:
             fh.write(event.model_dump_json() + "\n")
 
+    # The engine always computes the full BARTMetrics; the study's metrics
+    # mode is a projection applied here, at the single emission point, so it
+    # reaches metrics.json and both CSVs uniformly and never forks the engine
+    # (DATA-SPEC §4.1). The raw event log above stays the complete session
+    # either way.
     metrics = score_bart(req.session.events, config)
-    metrics_path.write_text(metrics.model_dump_json(indent=2), encoding="utf-8")
+    metrics_path.write_text(
+        json.dumps(
+            project_metrics(metrics.model_dump(mode="json"), config.metrics_mode),
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
     config_path.write_text(config.model_dump_json(indent=2), encoding="utf-8")
 
     # The session envelope (DATA-SPEC §3): identity + design assignment +
@@ -355,12 +380,12 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     }
     master_csv = append_row(
         out_dir / f"{_slug(config.title)}_results.csv",
-        {**identity, **_flatten_metrics(metrics)},
+        {**identity, **project_metrics(_flatten_metrics(metrics), config.metrics_mode)},
     )
     trials_csv = append_rows(
         out_dir / f"{_slug(config.title)}_trials.csv",
         [
-            {**identity, **trial.model_dump(mode="json")}
+            {**identity, **project_trial(trial.model_dump(mode="json"), config.metrics_mode)}
             for trial in trial_table(req.session.events, config)
         ],
     )
