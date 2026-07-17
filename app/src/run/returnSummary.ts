@@ -12,6 +12,12 @@ export interface ReturnSummary {
    * sibling when the main file was locked (the warnings explain) — or null
    * when the payload carries none. */
   masterCsvName: string | null;
+  /** Whether the study ran in Standalone Mode — stated by the payload
+   * (DATA-SPEC §2.4), so a missing master CSV reads as the mode's design,
+   * never as a silent absence. */
+  standalone: boolean;
+  /** This machine's station label, or null when unset (single-station). */
+  stationId: string | null;
 }
 
 const SESSION_FILE_KINDS = ["events", "metrics", "config", "session"] as const;
@@ -36,5 +42,7 @@ export function summarizeWriteResult(write: WriteOutputResult): ReturnSummary {
     outputDir: dirname(write.session),
     sessionFileKinds: SESSION_FILE_KINDS.filter((kind) => Boolean(write[kind])),
     masterCsvName: write.master_csv ? basename(write.master_csv) : null,
+    standalone: write.standalone,
+    stationId: write.station_id,
   };
 }

@@ -66,12 +66,17 @@ class CheckIdRequest(BaseModel):
 
 class CheckIdResponse(BaseModel):
     """Verdict on a participant ID: whether it can be used at all (``ok`` /
-    ``error``) and how many sessions the study already has for it — the ID
-    screen's warn-confirm input (issue 38)."""
+    ``error``) and how many sessions this station already has for it — the ID
+    screen's warn-confirm input (issue 38). ``standalone``/``station_id``
+    (DATA-SPEC §2.6) let the ID screen word the duplicate warning honestly:
+    the count is station-scoped and local-only — cross-station duplicates are
+    the Hub's to flag at assembly."""
 
     ok: bool
     sessions: int
     error: str | None = None
+    standalone: bool = False
+    station_id: str | None = None
 
 
 class SetStationRequest(BaseModel):
@@ -106,8 +111,11 @@ class WriteOutputResponse(BaseModel):
     """Absolute paths of the files written for one session, plus the study's
     master CSV the session row landed in — a timestamped sibling file when the
     main file was locked or unmergeable (issue 36), explained in ``warnings``.
-    Practice sessions (issue 43) append to no study-wide CSVs, so their
-    ``master_csv``/``trials_csv`` are ``None``."""
+    Practice sessions (issue 43) and Standalone Mode (DATA-SPEC §2.2) append
+    to no study-wide CSVs, so their ``master_csv``/``trials_csv`` are ``None``.
+    ``standalone``/``station_id`` state the deployment mode affirmatively
+    (§2.4): the return surface derives everything from this payload, never
+    from a file's absence."""
 
     events: str
     metrics: str
@@ -116,3 +124,5 @@ class WriteOutputResponse(BaseModel):
     master_csv: str | None = None
     trials_csv: str | None = None
     warnings: list[str] = Field(default_factory=list)
+    standalone: bool = False
+    station_id: str | None = None

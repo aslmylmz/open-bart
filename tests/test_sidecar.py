@@ -426,7 +426,13 @@ def test_check_id_fresh_id_has_no_sessions(tmp_path):
 
     resp = client.post("/check-id", json={"candidate_id": "P001", "config": cfg})
     assert resp.status_code == 200, resp.text
-    assert resp.json() == {"ok": True, "sessions": 0, "error": None}
+    assert resp.json() == {
+        "ok": True,
+        "sessions": 0,
+        "error": None,
+        "standalone": False,
+        "station_id": None,
+    }
 
 
 def test_check_id_reports_how_many_sessions_an_id_already_has(tmp_path):
@@ -446,10 +452,10 @@ def test_check_id_reports_how_many_sessions_an_id_already_has(tmp_path):
 
     check = client.post("/check-id", json={"candidate_id": "P001", "config": cfg})
     assert check.status_code == 200, check.text
-    assert check.json() == {"ok": True, "sessions": 2, "error": None}
+    assert check.json()["sessions"] == 2
 
     cousin = client.post("/check-id", json={"candidate_id": "P001_2", "config": cfg})
-    assert cousin.json() == {"ok": True, "sessions": 1, "error": None}
+    assert cousin.json()["sessions"] == 1
 
 
 @pytest.mark.parametrize("bad_id", ["", "   ", "004/E", "P?01", "a b"])

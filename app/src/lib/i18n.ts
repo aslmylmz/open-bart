@@ -21,9 +21,12 @@ export interface TaskStrings {
   conditionLabel: string;
   conditionPlaceholder: string;
   // Duplicate-ID warn-confirm + ID validation (issue 38). duplicateBody is a
-  // template: the component substitutes {id} and {n}.
+  // template: the component substitutes {id} and {n}. In Standalone Mode the
+  // count is honest about its reach (DATA-SPEC §2.6): it is this station's
+  // local files only — cross-station duplicates are flagged at the Hub.
   duplicateTitle: string;
   duplicateBody: string;
+  duplicateBodyStandalone: string;
   duplicateContinue: string;
   duplicateCancel: string;
   idInvalid: string;
@@ -94,6 +97,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
     conditionPlaceholder: "Select a condition…",
     duplicateTitle: "This ID already has data",
     duplicateBody: "{id} already has {n} recorded session(s) in this study. Continue anyway?",
+    duplicateBodyStandalone:
+      "This station has {n} prior session(s) for {id}. Cross-station duplicates aren't checked here; the Hub flags them at assembly. Continue anyway?",
     duplicateContinue: "Continue anyway",
     duplicateCancel: "Cancel",
     idInvalid:
@@ -146,6 +151,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
     conditionPlaceholder: "Bir koşul seçin…",
     duplicateTitle: "Bu kimliğin zaten kaydı var",
     duplicateBody: "{id} bu çalışmada zaten {n} kayıtlı oturuma sahip. Yine de devam edilsin mi?",
+    duplicateBodyStandalone:
+      "Bu istasyonda {id} için {n} önceki oturum kaydı var. İstasyonlar arası tekrarlar burada denetlenmez; Hub birleştirme sırasında işaretler. Yine de devam edilsin mi?",
     duplicateContinue: "Yine de devam et",
     duplicateCancel: "İptal",
     idInvalid:

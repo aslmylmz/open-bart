@@ -4,7 +4,8 @@ import type { WriteOutputResult } from "../lib/api";
 import { summarizeWriteResult } from "./returnSummary";
 
 /** A write payload as the sidecar returns it: absolute per-session paths plus
- * the study-wide CSV the row landed in. */
+ * the study-wide CSV the row landed in, and the deployment mode stated
+ * affirmatively (DATA-SPEC §2.4). */
 function writeResult(overrides: Partial<WriteOutputResult> = {}): WriteOutputResult {
   return {
     events: "/data/study/demo_p001_20260710_events.jsonl",
@@ -14,6 +15,8 @@ function writeResult(overrides: Partial<WriteOutputResult> = {}): WriteOutputRes
     master_csv: "/data/study/demo_results.csv",
     trials_csv: "/data/study/demo_trials.csv",
     warnings: [],
+    standalone: false,
+    station_id: null,
     ...overrides,
   };
 }
@@ -60,5 +63,19 @@ describe("summarizeWriteResult", () => {
   it("falls back to the path itself when the session path has no directory part", () => {
     const summary = summarizeWriteResult(writeResult({ session: "session.json" }));
     expect(summary.outputDir).toBe(".");
+  });
+
+  it("carries the deployment mode straight from the payload (DATA-SPEC §2.4)", () => {
+    const summary = summarizeWriteResult(
+      writeResult({ standalone: true, station_id: "S1", master_csv: null, trials_csv: null }),
+    );
+    expect(summary.standalone).toBe(true);
+    expect(summary.stationId).toBe("S1");
+  });
+
+  it("reports single-station mode affirmatively, not as an absence", () => {
+    const summary = summarizeWriteResult(writeResult());
+    expect(summary.standalone).toBe(false);
+    expect(summary.stationId).toBeNull();
   });
 });

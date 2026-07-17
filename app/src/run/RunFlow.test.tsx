@@ -394,6 +394,8 @@ describe("return surface (issue 06, DESIGN-SPEC §3.2)", () => {
     master_csv: "/data/demo/demo_results.csv",
     trials_csv: "/data/demo/demo_trials.csv",
     warnings: [] as string[],
+    standalone: false,
+    station_id: null as string | null,
   };
 
   /** Play the one-balloon study to the debrief (thank-you screen). */
@@ -475,6 +477,29 @@ describe("return surface (issue 06, DESIGN-SPEC §3.2)", () => {
     expect(onExit).toHaveBeenCalledTimes(1);
   });
 
+  it("states Standalone Mode affirmatively: station fact + Master-CSV row, never a bare dash (DATA-SPEC §2.4)", async () => {
+    preview.mockResolvedValue(tinyPreview);
+    submitSession.mockResolvedValue(scoredResult);
+    persistSession.mockResolvedValue({
+      ...writeResult,
+      master_csv: null,
+      trials_csv: null,
+      standalone: true,
+      station_id: "S1",
+    });
+
+    render(<RunFlow config={tinyStudy} onExit={() => {}} />);
+    await playToDebrief();
+    await userEvent.click(screen.getByRole("button", { name: /back to setup/i }));
+
+    await screen.findByRole("heading", { name: /session complete/i });
+    expect(screen.getByText("Station")).toBeTruthy();
+    expect(screen.getByText("S1")).toBeTruthy();
+    expect(
+      screen.getByText("Not written on this station (Standalone Mode; assembled at the Hub)"),
+    ).toBeTruthy();
+  });
+
   it("renders sidecar write warnings prominently on the surface", async () => {
     const warning = "master CSV locked — row diverted to demo_results_20260710.csv";
     preview.mockResolvedValue(tinyPreview);
@@ -525,6 +550,25 @@ describe("mandatory ID + duplicate warn-confirm (issue 38)", () => {
     // Back on the ID screen, free to correct the ID.
     expect(screen.getByPlaceholderText(t.idPlaceholder)).toBeTruthy();
     expect(screen.queryByText(t.duplicateTitle)).toBeNull();
+  });
+
+  it("words the duplicate warning station-scoped under Standalone Mode (DATA-SPEC §2.6)", async () => {
+    checkId.mockResolvedValue({
+      ok: true,
+      sessions: 2,
+      error: null,
+      standalone: true,
+      station_id: "S1",
+    });
+    render(<RunFlow config={DEFAULT_STUDY} onExit={() => {}} />);
+
+    await submitId();
+
+    // The count is honest about its reach: this station's local files only.
+    expect(await screen.findByText(t.duplicateTitle)).toBeTruthy();
+    const body = screen.getByRole("alert");
+    expect(body.textContent).toContain("This station has 2 prior session(s) for P001");
+    expect(body.textContent).toContain("the Hub flags them at assembly");
   });
 
   it("stamps the acknowledgment into the session when the RA continues anyway", async () => {

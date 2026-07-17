@@ -24,7 +24,8 @@ export function ReturnSurface({
   write,
   onBack,
 }: ReturnSurfaceProps) {
-  const { outputDir, sessionFileKinds, masterCsvName } = summarizeWriteResult(write);
+  const { outputDir, sessionFileKinds, masterCsvName, standalone, stationId } =
+    summarizeWriteResult(write);
   const balloons = result.raw_metrics?.total_balloons;
   const warnings = write.warnings ?? [];
 
@@ -50,6 +51,12 @@ export function ReturnSurface({
               <dd>{balloons}</dd>
             </div>
           )}
+          {stationId && (
+            <div className="run-return-fact">
+              <dt>Station</dt>
+              <dd>{stationId}</dd>
+            </div>
+          )}
         </dl>
 
         <section className="run-return-data">
@@ -70,6 +77,10 @@ export function ReturnSurface({
                   <>
                     <span className="run-return-path">{masterCsvName}</span> — row appended
                   </>
+                ) : standalone ? (
+                  // Standalone Mode is stated affirmatively (DATA-SPEC §2.4):
+                  // no master CSV on this station is the design, not a failure.
+                  "Not written on this station (Standalone Mode; assembled at the Hub)"
                 ) : (
                   "—"
                 )}

@@ -93,19 +93,25 @@ def _flatten_metrics(metrics: BARTMetrics) -> dict[str, Any]:
     return row
 
 
-def _count_sessions(out_dir: Path, config: TaskConfig, candidate_id: str) -> int:
-    """How many sessions this study has already recorded for ``candidate_id``.
+def _count_sessions(
+    out_dir: Path, config: TaskConfig, candidate_id: str, station_id: str | None
+) -> int:
+    """How many sessions this station has already recorded for ``candidate_id``.
 
     Counts the raw event logs — one per session since v1.0.0 — by exact stem
-    ``[title]_[candidate]_[timestamp]_events.jsonl``. The timestamp is matched
-    strictly (digits + T + Z, no underscores) so an ID that merely shares a
-    prefix with another (``P001`` vs ``P001_2``) is never cross-counted.
+    ``[title](_[station])_[candidate]_[timestamp]_events.jsonl``: with a
+    station ID set the stem carries its segment (DATA-SPEC §2.3), so the count
+    stays station-scoped — a sneakernet-merged sibling folder's files never
+    inflate it. The timestamp is matched strictly (digits + T + Z, no
+    underscores) so an ID that merely shares a prefix with another (``P001``
+    vs ``P001_2``) is never cross-counted.
     """
     if not out_dir.is_dir():
         return 0
+    station_segment = f"_{re.escape(_slug(station_id))}" if station_id else ""
     stem = re.compile(
-        rf"^{re.escape(_slug(config.title))}_{re.escape(candidate_id)}"
-        rf"_\d{{8}}T\d+Z_events\.jsonl$"
+        rf"^{re.escape(_slug(config.title))}{station_segment}"
+        rf"_{re.escape(candidate_id)}_\d{{8}}T\d+Z_events\.jsonl$"
     )
     return sum(1 for p in out_dir.iterdir() if stem.match(p.name))
 
@@ -242,10 +248,16 @@ def check_id(req: CheckIdRequest) -> CheckIdResponse:
     recorded under this ID, and the count feeds the ID screen's warn-confirm.
     """
     config = req.config or DEFAULT_TASK_CONFIG
+    station = load_station()
+    # Every verdict states the deployment mode affirmatively (DATA-SPEC §2.6):
+    # the ID screen words the duplicate warning from these flags — the count
+    # below is station-scoped and local-only; cross-station duplicates are the
+    # Hub's to flag at assembly.
+    mode = {"standalone": config.standalone, "station_id": station.station_id}
     # The blank-station poka-yoke (DATA-SPEC §2.3): a standalone session with
     # no station ID would be unattributable at the Hub, so it never starts.
     # Machine setup, not the participant ID, is what needs fixing here.
-    if config.standalone and not load_station().station_id:
+    if config.standalone and not station.station_id:
         return CheckIdResponse(
             ok=False,
             sessions=0,
@@ -254,11 +266,12 @@ def check_id(req: CheckIdRequest) -> CheckIdResponse:
                 "station ID set. Set the station ID on the study-setup screen "
                 "before running sessions."
             ),
+            **mode,
         )
     candidate_id = req.candidate_id
     if not candidate_id.strip():
         return CheckIdResponse(
-            ok=False, sessions=0, error="Participant ID must not be empty."
+            ok=False, sessions=0, error="Participant ID must not be empty.", **mode
         )
     # The filename slug rules are the single source of truth: an ID the output
     # files would silently rewrite (004/E → 004-E) is rejected up front, so the
@@ -271,11 +284,15 @@ def check_id(req: CheckIdRequest) -> CheckIdResponse:
                 f"Participant ID '{candidate_id}' cannot be used in file names. "
                 f"Use only letters, numbers, dots, underscores, and dashes."
             ),
+            **mode,
         )
     return CheckIdResponse(
         ok=True,
-        sessions=_count_sessions(Path(config.output_dir), config, candidate_id),
+        sessions=_count_sessions(
+            Path(config.output_dir), config, candidate_id, station.station_id
+        ),
         error=None,
+        **mode,
     )
 
 
@@ -361,17 +378,28 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     # (issue 43) skip all of it — a test run must leave the official study
     # files untouched. The condition column exists only for studies that
     # declare conditions, so condition-less studies keep their v1.0.0 sheets
-    # untouched (issue 37).
+    # untouched (issue 37). The response always states the deployment mode
+    # affirmatively (DATA-SPEC §2.4): the return surface derives Standalone
+    # Mode + station from this payload, never from a missing file.
+    receipt = {
+        "events": str(events_path),
+        "metrics": str(metrics_path),
+        "config": str(config_path),
+        "session": str(session_path),
+        "standalone": config.standalone,
+        "station_id": station.station_id,
+    }
     if req.session.practice:
-        return WriteOutputResponse(
-            events=str(events_path),
-            metrics=str(metrics_path),
-            config=str(config_path),
-            session=str(session_path),
-        )
+        return WriteOutputResponse(**receipt)
     provenance_warnings = ensure_provenance(
         out_dir, config, _slug(config.title), station
     )
+    # Standalone Mode disables exactly one thing (DATA-SPEC §2.2): the two
+    # study-wide CSV appends that fragment across machines. The per-session
+    # files above and the provenance files just written stay per-station; the
+    # Hub reassembles the master/trials CSVs from them at collection time.
+    if config.standalone:
+        return WriteOutputResponse(**receipt, warnings=provenance_warnings)
     identity = {
         "timestamp_utc": ts,
         "session_id": req.session.session_id,
@@ -391,10 +419,7 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     )
 
     return WriteOutputResponse(
-        events=str(events_path),
-        metrics=str(metrics_path),
-        config=str(config_path),
-        session=str(session_path),
+        **receipt,
         master_csv=str(master_csv.path),
         trials_csv=str(trials_csv.path),
         warnings=provenance_warnings

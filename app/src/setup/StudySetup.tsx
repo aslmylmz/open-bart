@@ -8,6 +8,8 @@ import { loadStudy, saveStudy, selectOutputDir, type LoadedStudyFile } from "../
 import { isMacPlatform, matchesShortcut, shortcutChip } from "../lib/platform";
 import { EvPreview } from "./EvPreview";
 import { FAMILY_PARAMS } from "./familyParams";
+import { StationBadge } from "./StationBadge";
+import { seedNotice } from "./standaloneNotices";
 import {
   addColor,
   DEFAULT_QC,
@@ -323,6 +325,9 @@ export function StudySetup({
                   />
                 )}
               </h1>
+              {/* Standalone Mode badge (DATA-SPEC §2.4): persistent while the
+                  loaded study declares the mode — never inferred elsewhere. */}
+              {config.standalone && <StationBadge />}
               <div className="setup-bar-actions">
                 <button type="button" className="setup-btn-ghost" onClick={handleLoad}>
                   Load
@@ -422,6 +427,7 @@ export function StudySetup({
                 }
               />
               <FieldError errors={fieldErrors["seed"]} />
+              <SeedNotice standalone={Boolean(config.standalone)} seedSet={config.seed != null} />
             </label>
             <label className="setup-row">
               <span className="setup-row-label">Conditions</span>
@@ -801,4 +807,16 @@ function renderHazardParams(
 function FieldError({ errors }: { errors?: string[] }) {
   if (!errors || errors.length === 0) return null;
   return <p className="setup-field-error">{errors.join("; ")}</p>;
+}
+
+/** The inline, non-blocking seed notice under the seed field (DATA-SPEC §2.5):
+ * a note, not a validation error — it never gates saving or running. */
+function SeedNotice({ standalone, seedSet }: { standalone: boolean; seedSet: boolean }) {
+  const notice = seedNotice(standalone, seedSet);
+  if (!notice) return null;
+  return (
+    <p role="note" className={`setup-field-note is-${notice.tone}`}>
+      {notice.text}
+    </p>
+  );
 }

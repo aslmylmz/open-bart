@@ -117,11 +117,16 @@ export async function validateConfig(config: TaskConfig): Promise<ValidateResult
   return (await response.json()) as ValidateResult;
 }
 
-/** The sidecar's /check-id verdict (mirrors CheckIdResponse, issue 38). */
+/** The sidecar's /check-id verdict (mirrors CheckIdResponse, issue 38).
+ * `sessions` counts this station's local files only; `standalone`/`station_id`
+ * (DATA-SPEC §2.6) let the ID screen say so honestly — cross-station
+ * duplicates are the Hub's to flag at assembly. */
 export interface CheckIdResult {
   ok: boolean;
   sessions: number;
   error: string | null;
+  standalone: boolean;
+  station_id: string | null;
 }
 
 /** Vet a participant ID before starting a session (issue 38): the sidecar (the
@@ -149,7 +154,10 @@ export async function submitSession<T>(payload: SessionPayload, config?: TaskCon
 
 /** The sidecar's /write-output result (mirrors WriteOutputResponse). `warnings`
  * carries recoverable data-integrity notices — a locked master CSV diverted to a
- * timestamped sibling, a schema migration — that the UI must surface (issue 50). */
+ * timestamped sibling, a schema migration — that the UI must surface (issue 50).
+ * `standalone`/`station_id` state the deployment mode affirmatively (DATA-SPEC
+ * §2.4): the return surface derives everything from this payload, never from a
+ * file's absence. */
 export interface WriteOutputResult {
   events: string;
   metrics: string;
@@ -158,6 +166,33 @@ export interface WriteOutputResult {
   master_csv?: string | null;
   trials_csv?: string | null;
   warnings: string[];
+  standalone: boolean;
+  station_id: string | null;
+}
+
+/** This machine's station identity (mirrors StationResponse, DATA-SPEC §2.3):
+ * the per-machine label re-displayed on the study-setup surface, plus the ok /
+ * error verdict when a new label was submitted (a rejected label never
+ * replaces the stored one). */
+export interface StationResult {
+  ok: boolean;
+  station_id: string | null;
+  machine_uuid: string;
+  error?: string | null;
+}
+
+/** GET the per-machine station identity — the study-setup badge's input. */
+export async function fetchStation(): Promise<StationResult> {
+  const response = await fetch(`${resolveApiUrl()}/station`);
+  if (!response.ok) throw new Error(`station returned ${response.status}`);
+  return (await response.json()) as StationResult;
+}
+
+/** Persist a new station label for this machine (entered once at machine
+ * setup). A whitespace-only label clears the setting; an unusable label comes
+ * back ok=false with a readable reason and the stored label untouched. */
+export async function setStationId(stationId: string): Promise<StationResult> {
+  return postJson<StationResult>(`${resolveApiUrl()}/station`, { station_id: stationId });
 }
 
 /** Persist a finished session locally via the sidecar's /write-output (SPEC §13).

@@ -41,8 +41,11 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
   const [error, setError] = useState<string | null>(null);
   // Duplicate-ID warn-confirm (issue 38): number of sessions the entered ID
   // already has (null = no warning showing), and whether the researcher chose
-  // to continue past the warning — stamped into the session's data.
+  // to continue past the warning — stamped into the session's data. Under
+  // Standalone Mode (DATA-SPEC §2.6) the warning wording changes: the count
+  // is this station's local files only, so the copy must say so.
   const [duplicateSessions, setDuplicateSessions] = useState<number | null>(null);
+  const [duplicateStandalone, setDuplicateStandalone] = useState(false);
   const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
   const [idError, setIdError] = useState<string | null>(null);
   const [checkingId, setCheckingId] = useState(false);
@@ -137,6 +140,7 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
       }
       if (verdict.sessions > 0) {
         setDuplicateSessions(verdict.sessions);
+        setDuplicateStandalone(verdict.standalone);
         return;
       }
       setPhase("loading");
@@ -316,7 +320,7 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
               role="alert"
               style={{ fontSize: "1.05rem", lineHeight: 1.6, color: "#374151", margin: "0 0 24px" }}
             >
-              {t.duplicateBody
+              {(duplicateStandalone ? t.duplicateBodyStandalone : t.duplicateBody)
                 .replace("{id}", participantId.trim())
                 .replace("{n}", String(duplicateSessions))}
             </p>

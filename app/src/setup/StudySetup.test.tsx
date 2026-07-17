@@ -7,13 +7,18 @@ import { DEFAULT_STUDY, type TaskConfig } from "../lib/config";
 import { StudySetup } from "./StudySetup";
 import type { StudySnapshot } from "./studyForm";
 
-// The form validates through the sidecar and the embedded EV preview fetches
-// /preview; stub the api module so nothing touches the network.
+// The form validates through the sidecar, the embedded EV preview fetches
+// /preview, and the Standalone badge reads the per-machine station setting;
+// stub the api module so nothing touches the network.
 const validateConfig = vi.fn();
 const preview = vi.fn();
+const fetchStation = vi.fn();
+const setStationId = vi.fn();
 vi.mock("../lib/api", () => ({
   validateConfig: (...args: unknown[]) => validateConfig(...args),
   preview: (...args: unknown[]) => preview(...args),
+  fetchStation: (...args: unknown[]) => fetchStation(...args),
+  setStationId: (...args: unknown[]) => setStationId(...args),
 }));
 
 // Save/load/folder-picking go through native Tauri dialogs — none exist in jsdom.
@@ -56,6 +61,7 @@ function stubPlatform(value: string) {
 beforeEach(() => {
   validateConfig.mockResolvedValue({ ok: true, errors: [] });
   preview.mockResolvedValue({ curves: {} });
+  fetchStation.mockResolvedValue({ ok: true, station_id: "S1", machine_uuid: "uuid-a" });
 });
 
 afterEach(() => {
@@ -577,5 +583,44 @@ describe("Color profile remove — two-step inline confirm", () => {
 
     const button = screen.getByRole<HTMLButtonElement>("button", { name: /^remove$/i });
     expect(button.disabled).toBe(true);
+  });
+});
+
+describe("Standalone Mode surfaces (DATA-SPEC §2.4/§2.5)", () => {
+  const standaloneStudy: TaskConfig = { ...DEFAULT_STUDY, standalone: true };
+
+  it("shows the persistent mode badge with this machine's station", async () => {
+    render(<Harness initial={standaloneStudy} />);
+
+    expect(screen.getByText("Standalone Mode")).toBeTruthy();
+    expect(await screen.findByText("Station: S1")).toBeTruthy();
+  });
+
+  it("shows no badge for a single-station study", () => {
+    render(<Harness initial={DEFAULT_STUDY} />);
+
+    expect(screen.queryByText("Standalone Mode")).toBeNull();
+    expect(fetchStation).not.toHaveBeenCalled();
+  });
+
+  it("warns inline on the seed field under standalone + a fixed seed — a note, not an error", async () => {
+    render(<Harness initial={{ ...standaloneStudy, seed: 42 }} />);
+    await screen.findByText("Station: S1");
+
+    const note = screen.getByRole("note");
+    expect(note.textContent).toContain("identical sequences");
+    expect(note.textContent).toContain("globally unique");
+    // Non-blocking: the warning is not a validation error on the field.
+    expect(screen.getByPlaceholderText("Fresh randomness each run").getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("keeps the seed field quiet with fresh randomness or outside Standalone Mode", async () => {
+    render(<Harness initial={standaloneStudy} />);
+    await screen.findByText("Station: S1");
+    expect(screen.queryByRole("note")).toBeNull();
+    cleanup();
+
+    render(<Harness initial={{ ...DEFAULT_STUDY, seed: 42 }} />);
+    expect(screen.queryByRole("note")).toBeNull();
   });
 });

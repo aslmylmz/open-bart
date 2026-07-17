@@ -150,3 +150,68 @@ def test_provenance_is_unchanged_when_no_station_is_set(tmp_path):
         "platform",
         "seed",
     }
+
+
+def test_standalone_write_skips_the_study_wide_csvs(tmp_path):
+    """Standalone Mode disables exactly one thing (DATA-SPEC §2.2): the two
+    study-wide CSV appends that fragment across machines. The four per-session
+    files — the Hub's ground truth — and all three provenance files are still
+    written per-station, unchanged."""
+    client.post("/station", json={"station_id": "S1"})
+    out = _write_session(tmp_path, {"standalone": True})
+    assert out["master_csv"] is None
+    assert out["trials_csv"] is None
+    assert not list(tmp_path.glob("*_results.csv"))
+    assert not list(tmp_path.glob("*_trials.csv"))
+    for key in ("events", "metrics", "config", "session"):
+        assert Path(out[key]).is_file()
+    assert list(tmp_path.glob("*_study.json"))
+    assert list(tmp_path.glob("*_provenance.json"))
+    assert list(tmp_path.glob("*_data_dictionary.md"))
+
+
+def test_write_output_states_mode_and_station_affirmatively(tmp_path):
+    """Both UI surfaces derive Standalone Mode + station purely from the
+    /write-output payload (DATA-SPEC §2.4) — never from a missing file."""
+    client.post("/station", json={"station_id": "S1"})
+    out = _write_session(tmp_path, {"standalone": True})
+    assert out["standalone"] is True
+    assert out["station_id"] == "S1"
+
+
+def test_write_output_defaults_keep_the_single_station_path(tmp_path):
+    """Default config: live-append stays the canonical path and the payload
+    says so affirmatively (standalone False, no station)."""
+    out = _write_session(tmp_path)
+    assert out["standalone"] is False
+    assert out["station_id"] is None
+    assert out["master_csv"] is not None
+
+
+def test_check_id_counts_sessions_recorded_under_the_station_stem(tmp_path):
+    """With a station set, filename stems carry the station segment (I4) —
+    the local count must keep catching within-station re-runs (§2.6), and the
+    strict stem match must keep an ID that merely shares a prefix with another
+    (P001 vs P001_2) from being cross-counted."""
+    client.post("/station", json={"station_id": "S1"})
+    cfg = DEFAULT_TASK_CONFIG.model_dump()
+    cfg["output_dir"] = str(tmp_path)
+    for _ in range(2):
+        _write_session(tmp_path, candidate_id="P001")
+    _write_session(tmp_path, candidate_id="P001_2")
+    check = client.post("/check-id", json={"candidate_id": "P001", "config": cfg})
+    assert check.json()["sessions"] == 2
+    cousin = client.post("/check-id", json={"candidate_id": "P001_2", "config": cfg})
+    assert cousin.json()["sessions"] == 1
+
+
+def test_check_id_reports_mode_and_station(tmp_path):
+    """CheckIdResponse carries the standalone/station flags (§2.6) so the ID
+    screen can word the duplicate warning honestly — station-scoped, local-only
+    — without inferring the mode from anything else."""
+    client.post("/station", json={"station_id": "S1"})
+    out = _standalone_check()
+    assert out["standalone"] is True
+    assert out["station_id"] == "S1"
+    plain = client.post("/check-id", json={"candidate_id": "P001"}).json()
+    assert plain["standalone"] is False
