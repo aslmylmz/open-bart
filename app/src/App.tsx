@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { type Workspace } from "./components/WorkspaceTabs";
+import { DataHub } from "./hub/DataHub";
 import { DEFAULT_STUDY, type TaskConfig } from "./lib/config";
 import { toggleFullscreen } from "./lib/desktop";
 import { RunFlow } from "./run/RunFlow";
@@ -66,6 +68,11 @@ function prefersReducedMotion(): boolean {
 export function App() {
   const [mode, setMode] = useState<Mode>("setup");
   const [switching, setSwitching] = useState<ModeSwitch | null>(null);
+  // The active researcher workspace (DATA-SPEC §7.1): Study Setup and the Data
+  // Hub are peer tabs of the same shell. It survives run trips (it lives here,
+  // above the surfaces the mode switch swaps) so returning from a participant
+  // session lands back on whichever workspace the researcher left.
+  const [workspace, setWorkspace] = useState<Workspace>("setup");
   const [config, setConfig] = useState<TaskConfig>(DEFAULT_STUDY);
   // The last saved/loaded study file (DESIGN-SPEC §2.1) lives beside the
   // config: a run trip unmounts StudySetup, and the unsaved dot and file
@@ -117,13 +124,12 @@ export function App() {
   // whole setup surface — bands, EV preview slot, and the Run band whose
   // callbacks start the switch here (Test run: the same participant flow, but
   // bannered, stamped, and routed to practice/ — issue 43).
-  const content =
-    mode === "run" || mode === "practice" ? (
-      <RunFlow
-        config={config}
-        practice={mode === "practice"}
-        onExit={() => beginSwitch("setup")}
-      />
+  // The researcher shell is the two peer workspaces (§7.1); the participant
+  // Run flow replaces it whole during a session. The Data Hub is a top-level
+  // workspace, never a mode launched from inside a study.
+  const researcher =
+    workspace === "hub" ? (
+      <DataHub workspace={workspace} onWorkspaceChange={setWorkspace} />
     ) : (
       <StudySetup
         config={config}
@@ -132,7 +138,20 @@ export function App() {
         onSnapshotChange={setSnapshot}
         onTestRun={() => beginSwitch("practice")}
         onStartRun={() => beginSwitch("run")}
+        workspace={workspace}
+        onWorkspaceChange={setWorkspace}
       />
+    );
+
+  const content =
+    mode === "run" || mode === "practice" ? (
+      <RunFlow
+        config={config}
+        practice={mode === "practice"}
+        onExit={() => beginSwitch("setup")}
+      />
+    ) : (
+      researcher
     );
 
   return (

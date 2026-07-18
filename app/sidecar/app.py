@@ -41,6 +41,14 @@ from sidecar.models import (
     WriteOutputResponse,
 )
 from sidecar.emission import flatten_metrics, identity_row
+from sidecar.hub_view import (
+    HubIngestRequest,
+    HubRebuildRequest,
+    HubRebuildResponse,
+    HubView,
+    build_hub_view,
+    perform_rebuild,
+)
 from sidecar.naming import TIMESTAMP, slug as _slug
 from sidecar.provenance import ensure_provenance
 from sidecar.station import load_station, store_station_id
@@ -264,6 +272,27 @@ def check_id(req: CheckIdRequest) -> CheckIdResponse:
         error=None,
         **mode,
     )
+
+
+@app.post("/hub/ingest", response_model=HubView)
+def hub_ingest(req: HubIngestRequest) -> HubView:
+    """Ingest the Data Hub's source folders and rebuild them in memory (I12),
+    returning the whole tab state (DATA-SPEC §7.1–7.4): headline counts, the
+    per-source attribution, the findings by severity group, and the exact file
+    tree a rebuild would write. Writes nothing — this is the live, non-gating
+    ingestion report the band shows as sources are added. The Hub decisions all
+    live in the shared core; this route only projects them for the webview."""
+    return build_hub_view(req.sources, req.mode)
+
+
+@app.post("/hub/rebuild", response_model=HubRebuildResponse)
+def hub_rebuild(req: HubRebuildRequest) -> HubRebuildResponse:
+    """Write the reconstructed study-wide surfaces the Rebuild control triggers
+    (DATA-SPEC §7.4), over the same guarded writer the CLI uses (I10/I11). The
+    ``status`` in the response drives the UI: a prior-rebuild destination comes
+    back ``needs_force`` so the webview can confirm-then-replace, a guarded
+    destination ``refused``, an unidentifiable study ``no_study``."""
+    return perform_rebuild(req.sources, req.out, req.mode, req.force)
 
 
 @app.post("/write-output", response_model=WriteOutputResponse)

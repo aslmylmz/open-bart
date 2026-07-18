@@ -2,6 +2,7 @@ import { FolderOpen, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState, type FocusEvent } from "react";
 
 import { Icon } from "../components/Icon";
+import { WorkspaceTabs, type Workspace } from "../components/WorkspaceTabs";
 import { validateConfig, type ValidateResult } from "../lib/api";
 import { HAZARD_FAMILIES, type HazardFamily, type Language, type TaskConfig } from "../lib/config";
 import { loadStudy, saveStudy, selectOutputDir, type LoadedStudyFile } from "../lib/desktop";
@@ -74,6 +75,11 @@ interface StudySetupProps {
   onSnapshotChange: (snapshot: StudySnapshot) => void;
   onTestRun: () => void;
   onStartRun: () => void;
+  /** The active researcher workspace and the switch to its peer (§7.1). Both
+   * default so the unit harness can mount Study Setup on its own; the App
+   * shell wires them to the real Study Setup / Data Hub tab pair. */
+  workspace?: Workspace;
+  onWorkspaceChange?: (workspace: Workspace) => void;
 }
 
 /** "<prefix>: <reason>" when the error carries a message, "<prefix>." when not. */
@@ -95,6 +101,8 @@ export function StudySetup({
   onSnapshotChange,
   onTestRun,
   onStartRun,
+  workspace = "setup",
+  onWorkspaceChange,
 }: StudySetupProps) {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [strip, setStrip] = useState<ErrorStrip | null>(null);
@@ -329,6 +337,9 @@ export function StudySetup({
                   loaded study declares the mode — never inferred elsewhere. */}
               {config.standalone && <StationBadge />}
               <div className="setup-bar-actions">
+                {onWorkspaceChange && (
+                  <WorkspaceTabs active={workspace} onSelect={onWorkspaceChange} />
+                )}
                 <button type="button" className="setup-btn-ghost" onClick={handleLoad}>
                   Load
                   <kbd className="setup-kbd">{shortcutChip("O", macLike)}</kbd>

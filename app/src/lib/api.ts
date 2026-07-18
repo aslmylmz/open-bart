@@ -87,8 +87,10 @@ function formatDetail(detail: unknown, url: string): string {
 
 /** POST a JSON body to a sidecar endpoint and return the parsed response. On a
  * non-2xx it surfaces the server's `detail`, else names the endpoint. This is the
- * single place the client's HTTP + error policy lives. */
-async function postJson<T>(url: string, body: unknown): Promise<T> {
+ * single place the client's HTTP + error policy lives — the Hub client (hub.ts)
+ * routes through it too, so every endpoint shares the same 422-`detail`
+ * formatting rather than re-deriving it. */
+export async function postJson<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

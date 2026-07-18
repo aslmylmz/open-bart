@@ -35,7 +35,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 import scoring
-from sidecar.hub import IngestionReport, _read_json, drift_fields
+from sidecar.hub import IngestionReport, SessionRecord, _read_json, drift_fields
 from sidecar.provenance import render_dictionary
 from sidecar.rebuild import RebuildResult
 from sidecar.versioned_csv import append_rows
@@ -118,28 +118,44 @@ def _prepare_destination(dest: Path, sources: list[str]) -> bool:
     return replaced
 
 
-def _source_manifest(
+def rebuilt_sessions_by_source(
     report: IngestionReport, result: RebuildResult
-) -> list[dict[str, Any]]:
-    """Per-source session counts for the provenance block and the report:
-    each rebuilt session is attributed to the source root holding the copy
-    that was actually pooled (collapsed duplicates count once)."""
-    events = {
-        record.session_id: Path(record.events_path).resolve()
+) -> dict[str, list[SessionRecord]]:
+    """Each source root mapped to the rebuilt session records attributed to it:
+    a session counts for a source when the pooled copy's ``events`` file lives
+    under that root (collapsed duplicates count once). The single attribution
+    rule behind both the provenance source-manifest below and the Sources-band
+    counts (I12's ``_source_views``), so the two can never disagree about which
+    folder contributed what. Sources are compared resolved; a session under a
+    nested source root counts for each root it lies within, as the manifest has
+    always done."""
+    records = {
+        record.session_id: record
         for partition in report.partitions
         for record in partition.sessions
     }
-    rebuilt = [sid for partition in result.partitions for sid in partition.session_ids]
-    return [
-        {
-            "folder": source,
-            "sessions": sum(
-                1
-                for sid in rebuilt
-                if events[sid].is_relative_to(Path(source).resolve())
-            ),
-        }
+    rebuilt = [
+        records[sid]
+        for partition in result.partitions
+        for sid in partition.session_ids
+    ]
+    return {
+        source: [
+            record
+            for record in rebuilt
+            if Path(record.events_path).resolve().is_relative_to(Path(source).resolve())
+        ]
         for source in report.sources
+    }
+
+
+def _source_manifest(
+    report: IngestionReport, result: RebuildResult
+) -> list[dict[str, Any]]:
+    """Per-source session counts for the provenance block and the report."""
+    return [
+        {"folder": source, "sessions": len(records)}
+        for source, records in rebuilt_sessions_by_source(report, result).items()
     ]
 
 
@@ -236,6 +252,28 @@ def render_report(report: IngestionReport, result: RebuildResult) -> str:
             )
     lines.append("")
     return "\n".join(lines)
+
+
+def planned_files(report: IngestionReport, result: RebuildResult) -> list[str]:
+    """The destination-relative files ``write_rebuild`` will produce, in write
+    order — computed *without* writing, so the UI's Output band (I12) can
+    preview the exact tree a rebuild lands (§7.4). It mirrors ``write_rebuild``
+    file-for-file (provenance first, each partition's surfaces — flat for the
+    single-partition common case, ``partition-N/`` subdirectories otherwise,
+    a CSV only when that partition produced rows — then the shared ingestion
+    report); ``test_planned_files_matches_write_rebuild`` pins the two together
+    so the preview can never promise a file the writer does not deliver."""
+    files = [f"{report.slug}_provenance.json"]
+    multi = len(result.partitions) > 1
+    for index, built in enumerate(result.partitions, start=1):
+        prefix = f"partition-{index}/" if multi else ""
+        if built.results_rows:
+            files.append(f"{prefix}{report.slug}_results.csv")
+        if built.trials_rows:
+            files.append(f"{prefix}{report.slug}_trials.csv")
+        files.append(f"{prefix}{report.slug}_data_dictionary.md")
+    files.append(f"{report.slug}_ingestion_report.md")
+    return files
 
 
 def write_rebuild(

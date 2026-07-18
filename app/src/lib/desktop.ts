@@ -30,11 +30,35 @@ export async function loadStudy(): Promise<LoadedStudyFile | null> {
   return { path: selected, text };
 }
 
-/** Prompt the user to select an output directory via native dialog. */
-export async function selectOutputDir(): Promise<string | null> {
+/** Prompt the user to select a single folder via the native directory dialog;
+ * returns its path, or null if cancelled. The Data Hub's source and
+ * destination pickers and Study Setup's output-dir picker all funnel through
+ * this one native boundary (DATA-SPEC §7.2/§7.4). */
+export async function selectFolder(): Promise<string | null> {
   const selected = await open({ multiple: false, directory: true });
   if (typeof selected !== "string") return null;
   return selected;
+}
+
+/** Prompt the user to select an output directory via native dialog. */
+export async function selectOutputDir(): Promise<string | null> {
+  return selectFolder();
+}
+
+/** Subscribe to native folder drops on the window (DATA-SPEC §7.2): the Data
+ * Hub's Sources band accepts dropped station folders as well as the picker.
+ * The handler gets the dropped paths; the returned function unsubscribes.
+ * Outside Tauri (plain browser, tests) there is no drag-drop channel, so this
+ * resolves to a no-op unsubscribe and the picker remains the only path in. */
+export async function onFolderDrop(
+  handler: (paths: string[]) => void,
+): Promise<() => void> {
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) {
+    return () => {};
+  }
+  return getCurrentWindow().onDragDropEvent((event) => {
+    if (event.payload.type === "drop") handler(event.payload.paths);
+  });
 }
 
 /** Toggle the window between fullscreen (kiosk) and windowed; returns the new state. */

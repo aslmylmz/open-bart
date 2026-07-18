@@ -25,18 +25,32 @@ vi.mock("./lib/api", () => ({
 }));
 
 // The desktop module fronts native Tauri dialogs and window calls, none of
-// which exist in jsdom. Every export App or its children touch must be here.
+// which exist in jsdom. Every export App or its children touch must be here —
+// including the Data Hub's folder pickers and drag-drop channel.
 const saveStudy = vi.fn();
 const loadStudy = vi.fn();
 const selectOutputDir = vi.fn();
+const selectFolder = vi.fn();
+const onFolderDrop = vi.fn();
 const toggleFullscreen = vi.fn();
 const setKioskLock = vi.fn();
 vi.mock("./lib/desktop", () => ({
   saveStudy: (...args: unknown[]) => saveStudy(...args),
   loadStudy: (...args: unknown[]) => loadStudy(...args),
   selectOutputDir: (...args: unknown[]) => selectOutputDir(...args),
+  selectFolder: (...args: unknown[]) => selectFolder(...args),
+  onFolderDrop: (...args: unknown[]) => onFolderDrop(...args),
   toggleFullscreen: (...args: unknown[]) => toggleFullscreen(...args),
   setKioskLock: (...args: unknown[]) => setKioskLock(...args),
+}));
+
+// The Data Hub tab drives the sidecar's /hub/* routes; stub the client so a
+// mount never reaches the network.
+const ingestSources = vi.fn();
+const rebuildHub = vi.fn();
+vi.mock("./lib/hub", () => ({
+  ingestSources: (...args: unknown[]) => ingestSources(...args),
+  rebuildHub: (...args: unknown[]) => rebuildHub(...args),
 }));
 
 const t = taskStrings("en");
@@ -50,6 +64,7 @@ beforeEach(() => {
   loadStudy.mockResolvedValue(null);
   toggleFullscreen.mockResolvedValue(false);
   setKioskLock.mockResolvedValue(undefined);
+  onFolderDrop.mockResolvedValue(() => {});
 });
 
 afterEach(() => {
@@ -191,6 +206,24 @@ describe("Mode switch choreography (issue 06, DESIGN-SPEC §3.1)", () => {
     fireEvent.click(screen.getByRole("button", { name: /back to setup/i }));
     expect(screen.getByRole("button", { name: /start run/i })).toBeTruthy();
     expect(screen.queryByText(t.consentTitle)).toBeNull();
+  });
+});
+
+describe("Researcher workspace tabs (DATA-SPEC §7.1)", () => {
+  it("switches between Study Setup and the Data Hub as peer tabs", async () => {
+    render(<App />);
+    // Study Setup is the default workspace.
+    expect(await screen.findByRole("button", { name: /save/i })).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("tab", { name: /data hub/i }));
+
+    // The Data Hub takes over the researcher shell (its Sources prompt shows);
+    // Study Setup's Save action is gone.
+    expect(await screen.findByText(/add source folders/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /save/i })).toBeNull();
+
+    await userEvent.click(screen.getByRole("tab", { name: /study setup/i }));
+    expect(await screen.findByRole("button", { name: /save/i })).toBeTruthy();
   });
 });
 

@@ -1,0 +1,548 @@
+/* Data Hub tab — Variant B "single console" (DATA-SPEC §7.1–7.4). Reuses
+ * Study Setup's band/rail chrome (loyalty to the Linear Minimal language): a
+ * sticky identity bar over full-width section bands, each pairing a left rail
+ * with a content column. Spacing comes from the token ladder; the one raw
+ * value is the stat numeral's display size, carried from the locked prototype.
+ * Reimplemented from the throwaway prototype (.scratch/multi-station-data/
+ * assets), not copied. */
+
+.hub-page {
+  --hub-col-max: 1036px;
+  --hub-rail-width: 200px;
+  --hub-content-max: 720px;
+
+  min-height: 100vh;
+  padding-bottom: var(--space-48);
+}
+
+/* Identity bar (§7.1): the same sticky chrome as Study Setup, holding the
+ * breadcrumb and the Study Setup | Data Hub tab pair. */
+.hub-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-bg-app);
+}
+
+.hub-bar {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--space-32);
+}
+
+.hub-bar-inner {
+  max-width: var(--hub-col-max);
+  margin: 0 auto;
+  padding: var(--space-12) 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.hub-crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--text-display);
+  font-weight: 600;
+  line-height: var(--leading-title);
+  min-width: 0;
+}
+
+.hub-crumb-root,
+.hub-crumb-sep {
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.hub-crumb-study {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hub-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-shrink: 0;
+}
+
+/* Section bands: identical geometry to Study Setup's, hairline between. */
+.hub-band {
+  padding: 0 var(--space-32);
+}
+
+.hub-band-inner {
+  max-width: var(--hub-col-max);
+  margin: 0 auto;
+  padding: var(--space-48) 0;
+  display: grid;
+  grid-template-columns: var(--hub-rail-width) minmax(0, 1fr);
+  column-gap: var(--space-48);
+  align-items: start;
+}
+
+.hub-band + .hub-band .hub-band-inner {
+  border-top: 1px solid var(--color-border);
+}
+
+.hub-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.hub-rail-title {
+  font-size: var(--text-title);
+  font-weight: 600;
+  line-height: var(--leading-title);
+}
+
+.hub-rail-desc {
+  font-size: var(--text-small);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-body);
+}
+
+.hub-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  max-width: var(--hub-content-max);
+}
+
+@media (max-width: 860px) {
+  .hub-band-inner {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-24);
+  }
+}
+
+/* ── Sources band (§7.2) ─────────────────────────────────────────────────── */
+
+.hub-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  width: 100%;
+  height: auto;
+  padding: var(--space-24);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--text-small);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+
+.hub-drop:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-wash);
+}
+
+.hub-drop b {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.hub-src-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hub-src {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-8) var(--space-12);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-small);
+}
+
+.hub-src-path {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-src-meta {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hub-src-remove {
+  flex-shrink: 0;
+  height: 24px;
+  padding: 0 var(--space-4);
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text-tertiary);
+}
+
+.hub-src-remove:hover {
+  background: var(--color-error-wash);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+/* ── Ingestion-report band (§7.3) ────────────────────────────────────────── */
+
+.hub-empty,
+.hub-scanning {
+  font-size: var(--text-small);
+  color: var(--color-text-tertiary);
+}
+
+.hub-note {
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-sm);
+}
+
+.hub-note.is-held {
+  color: var(--color-error);
+  background: var(--color-error-wash);
+  border: 1px solid var(--color-error);
+}
+
+.hub-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.hub-stat {
+  flex: 1 1 120px;
+  padding: var(--space-12) var(--space-16);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.hub-stat-n {
+  font-family: var(--font-mono);
+  /* The prototype's stat numeral sits above --text-display (18px); no token
+   * matches, so the one raw type size on this surface. */
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-stat-l {
+  margin-top: 2px;
+  font-size: var(--text-micro);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hub-stat.is-ok .hub-stat-n {
+  color: var(--color-success);
+}
+
+.hub-stat.is-err .hub-stat-n {
+  color: var(--color-error);
+}
+
+.hub-stat.is-warn .hub-stat-n {
+  color: var(--color-warning);
+}
+
+.hub-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.hub-acc {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.hub-acc > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  font-size: var(--text-body);
+  cursor: pointer;
+  list-style: none;
+}
+
+.hub-acc > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hub-acc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.hub-acc.held .hub-acc-dot {
+  background: var(--color-error);
+}
+
+.hub-acc.attn .hub-acc-dot {
+  background: var(--color-warning);
+}
+
+.hub-acc.clean .hub-acc-dot {
+  background: var(--color-success);
+}
+
+.hub-acc-label {
+  color: var(--color-text-primary);
+}
+
+.hub-acc-count {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-small);
+}
+
+.hub-acc > summary > svg {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+
+.hub-acc[open] > summary > svg {
+  transform: rotate(90deg);
+}
+
+.hub-acc-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: 0 var(--space-16) var(--space-16);
+}
+
+.hub-find {
+  display: grid;
+  grid-template-columns: 3px 1fr;
+  gap: var(--space-12);
+  align-items: stretch;
+  padding: var(--space-12) var(--space-16);
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.hub-find-stripe {
+  border-radius: 2px;
+  background: var(--color-border-strong);
+}
+
+.hub-acc.held .hub-find-stripe {
+  background: var(--color-error);
+}
+
+.hub-acc.attn .hub-find-stripe {
+  background: var(--color-warning);
+}
+
+.hub-acc.clean .hub-find-stripe {
+  background: var(--color-success);
+}
+
+.hub-find.is-loud .hub-find-stripe {
+  background: var(--color-error);
+}
+
+.hub-find-message {
+  font-size: var(--text-small);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-body);
+}
+
+.hub-find-loud {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+.hub-find-code {
+  display: inline-block;
+  margin-top: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--color-text-tertiary);
+}
+
+/* ── Output band (§7.4) ──────────────────────────────────────────────────── */
+
+.hub-out-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.hub-out-row {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: var(--space-16);
+  align-items: baseline;
+  font-size: var(--text-small);
+}
+
+.hub-out-label {
+  color: var(--color-text-secondary);
+}
+
+.hub-out-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+  color: var(--color-text-primary);
+}
+
+.hub-mono {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.hub-muted {
+  color: var(--color-text-tertiary);
+}
+
+.hub-radio {
+  gap: var(--space-16);
+}
+
+.hub-radio label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.hub-radio label.is-selected {
+  color: var(--color-text-primary);
+}
+
+.hub-radio input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+}
+
+.hub-filetree {
+  width: 100%;
+  padding: var(--space-12);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-app);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+.hub-filetree-root {
+  color: var(--color-text-primary);
+}
+
+.hub-filetree-line {
+  padding-left: var(--space-16);
+  white-space: pre;
+}
+
+.hub-filetree-mark {
+  color: var(--color-accent);
+}
+
+.hub-rebuild {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  flex-wrap: wrap;
+}
+
+.hub-rebuild-status {
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+}
+
+.hub-rebuild-status.is-success {
+  color: var(--color-success);
+}
+
+.hub-rebuild-status.is-warn {
+  color: var(--color-warning);
+}
+
+.hub-rebuild-status.is-error {
+  color: var(--color-error);
+}
+
+/* ── Buttons (mirror Study Setup's control metrics) ──────────────────────── */
+
+.hub-page button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  height: var(--control-height);
+  padding: 0 var(--space-16);
+  font-size: var(--text-body);
+  font-family: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-raised);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.hub-page button:hover {
+  background: var(--color-border);
+  border-color: var(--color-border-strong);
+}
+
+/* The specific button variants are scoped under .hub-page so they outrank the
+ * broad `.hub-page button` base (which would otherwise win on specificity). */
+.hub-page .hub-btn-sm {
+  height: 26px;
+  padding: 0 var(--space-12);
+  font-size: var(--text-micro);
+}
+
+.hub-page .hub-btn-primary {
+  height: 36px;
+  padding: 0 var(--space-24);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.hub-page .hub-btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.hub-page button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,0 +1,36 @@
+/* The segmented Study Setup | Data Hub tab pair (DATA-SPEC §7.1) — a peer
+ * control in both researcher identity bars. Mirrors the prototype's .h-tabs:
+ * a bordered track holding two low-chroma buttons, the active one raised. */
+
+.workspace-tabs {
+  display: flex;
+  gap: var(--space-4);
+  padding: 2px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.workspace-tab {
+  height: 26px;
+  padding: 0 var(--space-12);
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.workspace-tab:hover {
+  color: var(--color-text-primary);
+}
+
+.workspace-tab.is-active {
+  background: var(--color-bg-raised);
+  color: var(--color-text-primary);
+}
