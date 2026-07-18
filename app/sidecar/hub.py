@@ -37,6 +37,7 @@ from typing import Any, Literal, Sequence
 from pydantic import BaseModel, Field
 
 from scoring.config import TaskConfig
+from scoring.projection import MetricsMode
 from scoring.schemas import SessionEnvelope
 from sidecar.naming import SESSION_FILE, TIMESTAMP, slug
 
@@ -163,6 +164,12 @@ class IngestionReport(BaseModel):
     title: str = Field(description="the identified study's title")
     slug: str = Field(description="the study's filename namespace")
     sources: list[str] = Field(description="the source folders as given")
+    configured_mode: MetricsMode = Field(
+        description=(
+            "the study's configured metrics mode (§6.3) — the rebuild default, "
+            "so the reconstructed master matches the live one"
+        )
+    )
     partitions: list[Partition]
     findings: list[HubFinding]
 
@@ -864,6 +871,24 @@ def _flag_study_drift(
         )
 
 
+def _configured_mode(
+    kept: list[SessionRecord], frozen_configs: list[TaskConfig]
+) -> MetricsMode:
+    """The study's configured metrics mode (§6.3) — the rebuild default. The
+    frozen design record wins when one parsed (the same first-sorted file the
+    study identity comes from); else the sessions' own unanimous setting.
+    When neither pins a mode — no design record and the sessions disagree, or
+    nothing was kept — advanced: the lossless superset, chosen over inferring
+    a "latest" from cross-machine clocks (§5.5); the explicit rebuild-time
+    override remains for a researcher who wants classic."""
+    if frozen_configs:
+        return frozen_configs[0].metrics_mode
+    modes = {record.config.metrics_mode for record in kept}
+    if len(modes) == 1:
+        return modes.pop()
+    return "advanced"
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 
@@ -916,6 +941,7 @@ def ingest(sources: Sequence[str | Path]) -> IngestionReport:
         title=title,
         slug=study_slug,
         sources=[str(root) for root in roots],
+        configured_mode=_configured_mode(kept, frozen_configs),
         partitions=partitions,
         findings=findings,
     )

@@ -188,7 +188,7 @@ def _identity_columns(config: TaskConfig) -> list[tuple[str, str | None]]:
 
 
 def _unflattened_fields(config: TaskConfig) -> set[str]:
-    """The ``BARTMetrics`` fields ``_flatten_metrics`` keeps out of the master
+    """The ``BARTMetrics`` fields ``flatten_metrics`` keeps out of the master
     CSV: the nested narrative/per-color structures and the JSON-only dict/list
     fields (``ev_optimal_stops``, ``session_warnings`` — issue 53), plus the
     payout pair for studies that declare no payout (the conditional-column
@@ -220,7 +220,7 @@ def _classic_described(name: str, description: str | None) -> str | None:
 def _master_csv_columns(config: TaskConfig) -> list[tuple[str, str | None]]:
     """Exactly the columns ``write_output`` puts in this study's master CSV:
     identity, then the flat ``BARTMetrics`` scalars, then per-color
-    ``{color}_{field}`` blocks — mirroring ``_flatten_metrics``. In classic
+    ``{color}_{field}`` blocks — mirroring ``flatten_metrics``. In classic
     metrics mode the scalars narrow to the projection's keep-set — annotated
     with their literature names — and Classic is session-level only, so the
     per-color blocks disappear (DATA-SPEC §4.3)."""

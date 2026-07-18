@@ -25,7 +25,6 @@ from scoring.config import DEFAULT_TASK_CONFIG, TaskConfig
 from scoring.projection import project_metrics, project_trial
 from scoring.schemas import (
     AssessmentResponse,
-    BARTMetrics,
     EngineStamp,
     SessionEnvelope,
 )
@@ -41,6 +40,7 @@ from sidecar.models import (
     WriteOutputRequest,
     WriteOutputResponse,
 )
+from sidecar.emission import flatten_metrics, identity_row
 from sidecar.naming import TIMESTAMP, slug as _slug
 from sidecar.provenance import ensure_provenance
 from sidecar.station import load_station, store_station_id
@@ -61,32 +61,6 @@ def _utc_now() -> datetime:
     the real UTC clock.
     """
     return datetime.now(timezone.utc)
-
-
-def _flatten_metrics(metrics: BARTMetrics) -> dict[str, Any]:
-    """One flat, scalar-only mapping of a session's metrics for the master CSV.
-
-    Per-color metrics become ``{color}_{field}`` columns so they load as plain
-    variables in SPSS/R; the nested narrative ``behavioral_profile`` stays
-    JSON-only (not meaningful as spreadsheet cells).
-    """
-    row = metrics.model_dump(mode="json")
-    row.pop("behavioral_profile", None)
-    # Non-scalar fields stay JSON-only (issue 53): in a flat sheet they land as
-    # Python-repr dict/list blobs (invalid JSON, embedded commas) and are
-    # redundant with the scalar {color}_ev_optimal_stop / _efficiency columns.
-    row.pop("ev_optimal_stops", None)
-    row.pop("session_warnings", None)
-    # Payout columns exist only for studies that declare a payout block —
-    # the same present-only-when-configured rule as `condition` (issues 37/41).
-    if row.get("payout_amount") is None:
-        row.pop("payout_amount", None)
-        row.pop("payout_currency", None)
-    for color in row.pop("color_metrics", []):
-        name = color.pop("color")
-        for field, value in color.items():
-            row[f"{name}_{field}"] = value
-    return row
 
 
 def _count_sessions(
@@ -396,15 +370,16 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     # Hub reassembles the master/trials CSVs from them at collection time.
     if config.standalone:
         return WriteOutputResponse(**receipt, warnings=provenance_warnings)
-    identity = {
-        "timestamp_utc": ts,
-        "session_id": req.session.session_id,
-        "candidate_id": req.session.candidate_id,
-        **({"condition": req.session.condition or ""} if config.conditions else {}),
-    }
+    identity = identity_row(
+        timestamp_utc=ts,
+        session_id=req.session.session_id,
+        candidate_id=req.session.candidate_id,
+        condition=req.session.condition,
+        conditions_declared=bool(config.conditions),
+    )
     master_csv = append_row(
         out_dir / f"{_slug(config.title)}_results.csv",
-        {**identity, **project_metrics(_flatten_metrics(metrics), config.metrics_mode)},
+        {**identity, **project_metrics(flatten_metrics(metrics), config.metrics_mode)},
     )
     trials_csv = append_rows(
         out_dir / f"{_slug(config.title)}_trials.csv",

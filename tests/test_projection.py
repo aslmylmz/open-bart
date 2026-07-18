@@ -112,9 +112,9 @@ def test_advanced_projection_is_the_identity():
 def test_classic_master_row_drops_the_color_blocks():
     """The flattened master-CSV row projects by the same rule: the per-color
     ``{color}_*`` columns vanish because they are not in the keep-set."""
-    from sidecar.app import _flatten_metrics
+    from sidecar.emission import flatten_metrics
 
-    row = _flatten_metrics(score_bart(rich_session()))
+    row = flatten_metrics(score_bart(rich_session()))
     classic = project_metrics(row, "classic")
 
     assert set(classic) == (CANON_FIVE | INTEGRITY_TIER) - {
