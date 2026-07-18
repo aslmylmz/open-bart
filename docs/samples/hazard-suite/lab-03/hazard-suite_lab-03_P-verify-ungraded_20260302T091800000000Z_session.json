@@ -1,0 +1,10 @@
+{
+  "session_id": "sess-verify-ungraded",
+  "game_type": "BART_RISK",
+  "candidate_id": "P-verify-ungraded",
+  "condition": null,
+  "duplicate_acknowledged": false,
+  "practice": false,
+  "station_id": "lab-03",
+  "id_source": null
+}

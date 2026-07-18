@@ -67,6 +67,11 @@ exclude_patterns = [
     # toc.not_included warnings and the 0-warning docs gate fails.
     "adr/**",
     "agents/**",
+    # The committed sample dataset (DATA-SPEC §9.5) is *data*, not prose: its
+    # generated data dictionaries and ingestion report are artifacts a reader
+    # opens in the repo, not pages in the manual — and without this the
+    # 0-warning docs gate drowns in toc.not_included for every one of them.
+    "samples/**",
     "standalone/issues/**",
     "standalone/QUALITY-KAIZEN.md",
 ]

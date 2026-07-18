@@ -12,7 +12,6 @@ census, not the wording.
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
 
 import pytest
 
@@ -22,17 +21,8 @@ from sidecar.rebuild import rebuild
 from tests.hub.fixture_builder import (
     build_clean_equivalence,
     build_hazard_suite,
+    tree,
 )
-
-
-def _tree(root: Path) -> dict[str, bytes]:
-    """Every file under ``root`` keyed by its relative path — the surface the
-    determinism guarantee is about."""
-    return {
-        str(path.relative_to(root)): path.read_bytes()
-        for path in sorted(root.rglob("*"))
-        if path.is_file()
-    }
 
 
 def _codes(report) -> dict[str, int]:
@@ -53,10 +43,10 @@ def test_studies_are_byte_reproducible(tmp_path, build):
     by a drift test (I16). Same place, because each session's config snapshot
     records the output directory it was written to."""
     base = tmp_path / "base"
-    first = _tree(build(base).root)
+    first = tree(build(base).root)
     shutil.rmtree(base)
 
-    assert _tree(build(base).root) == first
+    assert tree(build(base).root) == first
 
 
 # ── clean-equivalence: the live-output reference (§9.1) ──────────────────────

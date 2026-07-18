@@ -1,0 +1,15 @@
+{
+  "session_id": "sess-verify-drift",
+  "game_type": "BART_RISK",
+  "candidate_id": "P-verify-drift",
+  "condition": null,
+  "duplicate_acknowledged": false,
+  "practice": false,
+  "station_id": "lab-02",
+  "id_source": null,
+  "engine": {
+    "app_version": "1.0.0",
+    "engine_version": "1.0.0",
+    "platform": "fixture-platform"
+  }
+}

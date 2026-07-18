@@ -74,6 +74,10 @@ class Hazard:
     says: tuple[str, ...] = ()
 
 
+# §9.2 in one place. ``test_samples_snapshot.py`` (I16) imports this table to
+# assert the *committed* sample report itemizes the same rows, so it is the
+# suite's shared census rather than this module's private list — a row edited
+# here changes what both modules claim.
 HAZARDS = (
     Hazard(
         row="2",

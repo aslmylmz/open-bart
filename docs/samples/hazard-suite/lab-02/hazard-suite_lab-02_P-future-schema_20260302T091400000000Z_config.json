@@ -1,0 +1,50 @@
+{
+  "schema_version": "2.0",
+  "title": "hazard-suite",
+  "language": "en",
+  "reward_per_pump": 0.25,
+  "currency": "$",
+  "seed": null,
+  "output_dir": "docs/samples/hazard-suite/lab-02",
+  "colors": [
+    {
+      "name": "purple",
+      "label": "Purple",
+      "display_hex": "#7c3aed",
+      "max_pumps": 128,
+      "trials": 10,
+      "hazard": {
+        "family": "dynamic"
+      }
+    },
+    {
+      "name": "teal",
+      "label": "Teal",
+      "display_hex": "#14b8a6",
+      "max_pumps": 32,
+      "trials": 10,
+      "hazard": {
+        "family": "dynamic"
+      }
+    },
+    {
+      "name": "orange",
+      "label": "Orange",
+      "display_hex": "#f97316",
+      "max_pumps": 8,
+      "trials": 10,
+      "hazard": {
+        "family": "dynamic"
+      }
+    }
+  ],
+  "conditions": [],
+  "qc": {
+    "fast_response_ms": 100.0,
+    "zero_pump_streak": 5
+  },
+  "payout": null,
+  "exit_passcode": null,
+  "standalone": true,
+  "metrics_mode": "advanced"
+}

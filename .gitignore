@@ -28,6 +28,10 @@ data/participants/
 # Allow synthetic data directory
 !data/synthetic/
 !data/synthetic/**
+# Allow the committed sample dataset (DATA-SPEC §9.5): two studies generated
+# by scripts/regenerate_samples.py from the golden fixture — synthetic by
+# construction, and the artifact the paper's fidelity claim points at.
+!docs/samples/**
 
 # ── Script output ─────────────────────────────────────────────────────────
 output/

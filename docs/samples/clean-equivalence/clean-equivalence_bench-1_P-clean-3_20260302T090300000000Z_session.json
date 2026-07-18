@@ -1,0 +1,15 @@
+{
+  "session_id": "sess-clean-3",
+  "game_type": "BART_RISK",
+  "candidate_id": "P-clean-3",
+  "condition": null,
+  "duplicate_acknowledged": false,
+  "practice": false,
+  "station_id": "bench-1",
+  "id_source": null,
+  "engine": {
+    "app_version": "1.1.0",
+    "engine_version": "1.1.0",
+    "platform": "fixture-platform"
+  }
+}

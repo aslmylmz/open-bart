@@ -1,0 +1,9 @@
+{
+  "app_version": "1.1.0",
+  "engine_version": "1.1.0",
+  "metrics_mode": "advanced",
+  "platform": "fixture-platform",
+  "seed": null,
+  "station_id": "bench-1",
+  "machine_uuid": "dddddddd-0000-4000-8000-00000000000d"
+}

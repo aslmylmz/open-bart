@@ -52,6 +52,11 @@ from sidecar.station import StationIdentity
 CLEAN_STUDY = "clean-equivalence"
 HAZARD_STUDY = "hazard-suite"
 
+# Where each build keeps the per-machine settings files it impersonates its
+# stations with. Harness state rather than study data, and named here because
+# whoever commits a build (I16) has to know what to leave out of it.
+MACHINES = "machines"
+
 # The synthetic wall clock: sessions are stamped one minute apart from here, in
 # build order, so every filename stem is unique and reproducible. Nothing in
 # the fixture ever reads the real clock.
@@ -112,6 +117,22 @@ class Fixture:
         planted hazard, and the tests assert on its absence."""
         stem = self.stems[name]
         return stem.with_name(f"{stem.name}_{kind}")
+
+
+def tree(root: Path) -> dict[str, bytes]:
+    """Every file under ``root`` keyed by its path relative to it.
+
+    The surface every claim about a *built* study is stated over: that two
+    builds agree (``test_fixture_builder.py``) and that a build agrees with
+    the committed snapshot (I16). Bytes rather than parsed content, because
+    both claims are byte-equality claims; relative keys, because the two
+    directories being compared never share an absolute path.
+    """
+    return {
+        str(path.relative_to(root)): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
 
 
 # ── Deterministic session content ────────────────────────────────────────────
@@ -314,7 +335,7 @@ def build_clean_equivalence(base: Path) -> Fixture:
     appends here are the gate's reference — they cannot be committed, because
     [T05] §5f requires the *current* ``write_output`` to produce both sides."""
     root = base / CLEAN_STUDY
-    emitter = _Emitter(root, base / "machines", CLEAN_STUDY, standalone=False)
+    emitter = _Emitter(root, base / MACHINES, CLEAN_STUDY, standalone=False)
     bench = Station("", "bench-1", "dddddddd-0000-4000-8000-00000000000d")
     for name in ("clean-1", "clean-2", "clean-3"):
         emitter.write(bench, name)
@@ -346,7 +367,7 @@ def build_hazard_suite(base: Path) -> Fixture:
         f"the running {scoring.__version__}"
     )
     root = base / HAZARD_STUDY
-    emitter = _Emitter(root, base / "machines", HAZARD_STUDY, standalone=True)
+    emitter = _Emitter(root, base / MACHINES, HAZARD_STUDY, standalone=True)
     write = emitter.write
 
     # ── α (lab-01) ───────────────────────────────────────────────────────────

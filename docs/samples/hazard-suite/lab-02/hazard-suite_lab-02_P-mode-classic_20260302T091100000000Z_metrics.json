@@ -1,0 +1,17 @@
+{
+  "average_pumps_adjusted": 6.7,
+  "total_balloons": 30,
+  "total_pumps": 197,
+  "total_explosions": 10,
+  "avg_pumps_all_balloons": 6.5667,
+  "money_collected": 33.5,
+  "session_valid": true,
+  "session_warnings": [],
+  "qc_fast_response_trials": 0,
+  "qc_zero_pump_streak": 0,
+  "qc_flagged": false,
+  "qc_fast_response_ms": 100.0,
+  "qc_zero_pump_streak_threshold": 5,
+  "payout_amount": null,
+  "payout_currency": null
+}

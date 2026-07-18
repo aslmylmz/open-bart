@@ -1,0 +1,15 @@
+{
+  "session_id": "sess-collide-free-c",
+  "game_type": "BART_RISK",
+  "candidate_id": "P-COLLIDE-FREE",
+  "condition": null,
+  "duplicate_acknowledged": false,
+  "practice": false,
+  "station_id": "lab-03",
+  "id_source": null,
+  "engine": {
+    "app_version": "1.1.0",
+    "engine_version": "1.1.0",
+    "platform": "fixture-platform"
+  }
+}
