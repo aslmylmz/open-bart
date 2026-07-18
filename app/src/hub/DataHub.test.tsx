@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { DataHub } from "./DataHub";
+import { DataHub, fileTreeRows, splitPathForDisplay } from "./DataHub";
 import type { HubView } from "../lib/hub";
 
 // The tab drives the sidecar's /hub/* routes and the native folder pickers;
@@ -254,6 +254,57 @@ describe("Output band (§7.4)", () => {
       expect(rebuildHub).toHaveBeenLastCalledWith(["/data/s1"], "/out", undefined, true),
     );
     expect(await screen.findByText(/replaced a prior rebuild/i)).toBeTruthy();
+  });
+});
+
+describe("splitPathForDisplay", () => {
+  it("keeps the last two segments so sibling folders stay distinguishable", () => {
+    // The head is what gets elided; two sources under one long parent must not
+    // render identically.
+    const a = splitPathForDisplay("/very/long/parent/hub-demo/stations");
+    const b = splitPathForDisplay("/very/long/parent/hub-demo/usb-backup");
+    expect(a.tail).toBe("/hub-demo/stations");
+    expect(b.tail).toBe("/hub-demo/usb-backup");
+    expect(a.head).toBe("/very/long/parent");
+  });
+
+  it("leaves a short path whole", () => {
+    expect(splitPathForDisplay("/data")).toEqual({ head: "", tail: "/data" });
+  });
+
+  it("handles Windows separators", () => {
+    expect(splitPathForDisplay("C:\\studies\\hub\\stations").tail).toBe("\\hub\\stations");
+  });
+});
+
+describe("fileTreeRows", () => {
+  it("nests partition files under a directory line as bare filenames", () => {
+    const rows = fileTreeRows([
+      { path: "s_provenance.json", reconstructed: true },
+      { path: "partition-1/s_results.csv", reconstructed: false },
+      { path: "partition-1/s_trials.csv", reconstructed: false },
+      { path: "partition-2/s_results.csv", reconstructed: false },
+      { path: "s_ingestion_report.md", reconstructed: false },
+    ]);
+
+    expect(rows.map((r) => [r.depth, r.label, r.isDir])).toEqual([
+      [1, "s_provenance.json", false],
+      [1, "partition-1/", true],
+      [2, "s_results.csv", false],
+      [2, "s_trials.csv", false],
+      [1, "partition-2/", true],
+      [2, "s_results.csv", false],
+      [1, "s_ingestion_report.md", false],
+    ]);
+    expect(rows[0].reconstructed).toBe(true);
+  });
+
+  it("keeps a flat single-partition tree flat", () => {
+    const rows = fileTreeRows([
+      { path: "s_provenance.json", reconstructed: true },
+      { path: "s_results.csv", reconstructed: false },
+    ]);
+    expect(rows.every((r) => r.depth === 1 && !r.isDir)).toBe(true);
   });
 });
 

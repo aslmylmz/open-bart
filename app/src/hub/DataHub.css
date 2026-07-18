@@ -171,11 +171,26 @@
   font-size: var(--text-small);
 }
 
+/* A source path elides its HEAD, never its tail: the last segments are what
+ * tell two folders under one long parent apart (§7.2). The head shrinks and
+ * ellipses; the tail never shrinks. */
 .hub-src-path {
+  display: flex;
+  min-width: 0;
   font-family: var(--font-mono);
   color: var(--color-text-primary);
+}
+
+.hub-src-path-head {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-tertiary);
+}
+
+.hub-src-path-tail {
+  flex-shrink: 0;
   white-space: nowrap;
 }
 
@@ -465,9 +480,14 @@
   color: var(--color-text-primary);
 }
 
+/* Indent comes from the row's depth (inline padding-left), so a partition's
+ * files nest under their directory line instead of repeating its prefix. */
 .hub-filetree-line {
-  padding-left: var(--space-16);
   white-space: pre;
+}
+
+.hub-filetree-line.is-dir {
+  color: var(--color-text-primary);
 }
 
 .hub-filetree-mark {

@@ -10,6 +10,7 @@ import {
   type HubFindingView,
   type HubGroup,
   type HubMode,
+  type HubPlannedFile,
   type HubRebuildResult,
   type HubView,
 } from "../lib/hub";
@@ -40,6 +41,65 @@ function otherMode(mode: HubMode): HubMode {
 function baseName(path: string): string {
   const parts = path.split(/[/\\]/).filter(Boolean);
   return parts[parts.length - 1] ?? path;
+}
+
+/** Split a path so the row can truncate the *head* and always keep the tail
+ * visible. A source list is read tail-first — two folders under one long
+ * parent are told apart by their last segments, so eliding the end (the plain
+ * CSS default) would render them identical. */
+export function splitPathForDisplay(path: string): { head: string; tail: string } {
+  const sep = path.includes("\\") ? "\\" : "/";
+  const parts = path.split(sep);
+  if (parts.length <= 2) return { head: "", tail: path };
+  return {
+    head: parts.slice(0, -2).join(sep),
+    tail: sep + parts.slice(-2).join(sep),
+  };
+}
+
+/** One line of the Output band's file-tree preview. */
+export interface TreeRow {
+  key: string;
+  /** 1 = directly under the destination root, 2 = inside a partition dir. */
+  depth: number;
+  label: string;
+  reconstructed: boolean;
+  isDir: boolean;
+}
+
+/** Group the writer's flat relative paths into a nested tree: each
+ * `partition-N/` directory becomes its own line and its files are indented
+ * beneath it as bare filenames. Keeps the writer's order (the preview is the
+ * write order) while dropping the repeated directory prefix that would
+ * otherwise push every real filename off the right edge. */
+export function fileTreeRows(files: HubPlannedFile[]): TreeRow[] {
+  const rows: TreeRow[] = [];
+  let currentDir: string | null = null;
+  for (const file of files) {
+    const slash = file.path.indexOf("/");
+    const dir = slash === -1 ? null : file.path.slice(0, slash);
+    const name = slash === -1 ? file.path : file.path.slice(slash + 1);
+    if (dir !== currentDir) {
+      if (dir !== null) {
+        rows.push({
+          key: `dir:${dir}`,
+          depth: 1,
+          label: `${dir}/`,
+          reconstructed: false,
+          isDir: true,
+        });
+      }
+      currentDir = dir;
+    }
+    rows.push({
+      key: file.path,
+      depth: dir === null ? 1 : 2,
+      label: name,
+      reconstructed: file.reconstructed,
+      isDir: false,
+    });
+  }
+  return rows;
 }
 
 /** The Data Hub tab (DATA-SPEC §7.1–7.4), Variant B "single console": the
@@ -197,7 +257,14 @@ export function DataHub({ workspace, onWorkspaceChange }: DataHubProps) {
               <ul className="hub-src-list">
                 {sources.map((folder) => (
                   <li key={folder} className="hub-src">
-                    <span className="hub-src-path">{folder}</span>
+                    <span className="hub-src-path" title={folder}>
+                      <span className="hub-src-path-head">
+                        {splitPathForDisplay(folder).head}
+                      </span>
+                      <span className="hub-src-path-tail">
+                        {splitPathForDisplay(folder).tail}
+                      </span>
+                    </span>
                     <span className="hub-src-meta">{sourceMeta(view, folder)}</span>
                     <button
                       type="button"
@@ -288,10 +355,18 @@ export function DataHub({ workspace, onWorkspaceChange }: DataHubProps) {
                       <div className="hub-filetree-root">
                         {destination ? `${baseName(destination)}/` : `${view.slug}/`}
                       </div>
-                      {view.files.map((file) => (
-                        <div key={file.path} className="hub-filetree-line">
-                          {file.path}
-                          {file.reconstructed && (
+                      {fileTreeRows(view.files).map((row) => (
+                        <div
+                          key={row.key}
+                          className={
+                            row.isDir
+                              ? "hub-filetree-line is-dir"
+                              : "hub-filetree-line"
+                          }
+                          style={{ paddingLeft: `calc(var(--space-16) * ${row.depth})` }}
+                        >
+                          {row.label}
+                          {row.reconstructed && (
                             <span className="hub-filetree-mark"> reconstructed:true</span>
                           )}
                         </div>
