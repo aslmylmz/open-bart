@@ -5,6 +5,11 @@ Run with ``python -m sidecar`` (with ``app/`` on the path). The Tauri shell
 ``/healthz``. Binding the socket here (rather than letting uvicorn pick the port)
 lets us learn the ephemeral port *before* the server starts, so the port handoff
 is race-free.
+
+``python -m sidecar hub …`` dispatches to the ``openbart`` Hub CLI instead
+(``sidecar/cli.py``) — the frozen sidecar binary carries the same subcommand,
+so one binary serves the shell and scripts the Hub. The server imports stay
+inside the serve path: the CLI needs only the scoring core, not FastAPI.
 """
 
 from __future__ import annotations
@@ -14,10 +19,6 @@ import os
 import socket
 import sys
 import threading
-
-import uvicorn
-
-from sidecar.app import app
 
 
 def _exit_when_parent_closes_stdin() -> None:
@@ -38,7 +39,19 @@ def _exit_when_parent_closes_stdin() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="BART offline scoring sidecar")
+    if len(sys.argv) > 1 and sys.argv[1] == "hub":
+        from sidecar.cli import main as cli_main
+
+        raise SystemExit(cli_main(sys.argv[1:]))
+
+    import uvicorn
+
+    from sidecar.app import app
+
+    parser = argparse.ArgumentParser(
+        description="BART offline scoring sidecar",
+        epilog="Subcommand: hub — the Data Hub CLI (see `hub --help`).",
+    )
     parser.add_argument("--host", default="127.0.0.1", help="bind host (localhost only)")
     parser.add_argument("--port", type=int, default=0, help="bind port (0 = ephemeral)")
     args = parser.parse_args()
