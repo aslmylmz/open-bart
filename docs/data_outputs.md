@@ -77,6 +77,13 @@ candidate ID, and a UTC timestamp so nothing is ever overwritten:
 [StudyTitle]_[CandidateID]_[Timestamp]_session.json
 ```
 
+Once a machine has been given a [station label](#standalone-mode-and-the-data-hub)
+it is inserted after the title
+(`[StudyTitle]_[Station]_[CandidateID]_[Timestamp]_…`), so two machines can
+never produce the same filename however their clocks are set. The segment
+follows the label, not the mode: a machine with no label set — the
+single-machine default — writes the filenames shown above, unchanged.
+
 ```{list-table}
 :header-rows: 1
 :widths: 24 76
@@ -97,11 +104,38 @@ candidate ID, and a UTC timestamp so nothing is ever overwritten:
     assigned `condition` (`null` for studies without conditions),
     `duplicate_acknowledged` — `true` when the ID screen warned that this
     participant ID already had recorded sessions and the researcher chose to
-    continue, so accidental ID reuse stays visible in the data — and
-    `practice`, `true` for [Test Run sessions](#test-run-practice-sessions).
-    Keeps the session's identity in the data itself — not just in filenames —
-    so the Master CSV can always be rebuilt from the per-session files.
+    continue, so accidental ID reuse stays visible in the data — `practice`,
+    `true` for [Test Run sessions](#test-run-practice-sessions), the
+    `station_id` that recorded it, and the
+    [`engine` stamp](#the-engine-stamp). Keeps the session's identity in the
+    data itself — not just in filenames — so the Master CSV can always be
+    rebuilt from the per-session files.
 ```
+
+### The engine stamp
+
+Every `*_session.json` carries a nested `engine` block recording what actually
+ran the session:
+
+```json
+"engine": {
+  "app_version": "1.1.0",
+  "engine_version": "1.1.0",
+  "platform": "macOS-15.5-arm64-arm-64bit"
+}
+```
+
+It is written by the sidecar at write time — never supplied by the task — so
+it states the truth about the run rather than a client's claim. The study-level
+`_provenance.json` records the same three facts, but it is refreshed in place
+on an upgrade, which means it can only ever describe the *last* app that
+touched the study. The per-session copy is what lets a mid-study upgrade, or a
+study collected across machines running different versions, still be
+attributed session by session. It is also why the field cannot be added
+retroactively: engine version is a write-time fact, so sessions recorded before
+this stamp existed are permanently unversioned (they read as `null`, and the
+[Data Hub](#standalone-mode-and-the-data-hub) grades them as *ungraded* rather
+than guessing).
 
 ## Test Run (practice) sessions
 
@@ -143,6 +177,15 @@ session** to a single shared spreadsheet in the output directory:
   `session_warnings` list, and the `ev_optimal_stops` mapping. Read them from
   `*_metrics.json`. (The per-color EV-optimal stops are also available as the
   scalar `{color}_ev_optimal_stop` columns.)
+
+In a [multi-station study](#standalone-mode-and-the-data-hub) this file is not
+written as sessions run — one per machine would fragment the dataset. The
+per-session files are still written exactly as above, and the Data Hub builds
+this file under this same name once the folders are collected, so analysis
+scripts run against it unchanged. A multi-station rebuild adds two identity
+columns the live path has no use for: a leading `station_id`, and
+`participant_key` (`S1::P001`) — an unambiguous key for the case where the same
+participant ID was issued on more than one station.
 
 ### Upgrading mid-study: migration and backups
 
@@ -327,3 +370,115 @@ so CLI users of the `scoring` package get exactly the same table.
 | `outcome` | `collected` (banked) or `exploded` (popped) |
 | `trial_earnings` | Pumps × reward when collected; 0 when popped |
 | `mean_latency_between_pumps` | Mean gap between this trial's successive pumps (ms); empty when the trial has fewer than two pumps |
+
+## Metrics mode: Classic and Advanced
+
+Everything documented above is the **Advanced** surface — the default, and the
+full set of metrics the engine derives. A study can instead be configured
+(`metrics_mode: "classic"` in Study Setup) to report the **Classic** surface:
+the canonical Lejuez BART scores and nothing else.
+
+Classic is a **projection, not a second scoring engine**. The engine always
+computes the full metric set; the mode decides which of those columns are
+written. So a Classic column is never a differently-computed column — it is the
+same value under the same name, and the Classic column set is a strict subset
+of the Advanced one. Nothing is lost that cannot be recovered: `*_events.jsonl`
+remains complete raw telemetry, so a Classic study can be re-scored into the
+full Advanced set at any time (the [Data Hub](#standalone-mode-and-the-data-hub)
+does exactly this with a one-flag override).
+
+**The five canon metrics.** These are the published BART scores, kept under
+this project's field names, with the literature name and definition of each
+carried in the generated data dictionary:
+
+| Column | Canonical meaning |
+|--------|-------------------|
+| `average_pumps_adjusted` | The adjusted average pumps (Lejuez et al., 2002) — the primary BART score, computed over unexploded balloons |
+| `total_explosions` | Number of explosions — the **count**, not a rate |
+| `total_pumps` | Total pumps across the session (Lejuez et al., 2003) |
+| `avg_pumps_all_balloons` | Unadjusted average pumps across all balloons, exploded included |
+| `money_collected` | Total earnings from collected balloons |
+
+```{admonition} The adjusted score reproduces a known bias, deliberately
+:class: note
+
+`average_pumps_adjusted` is the canonical estimator **as published**, which is
+biased under right-censoring (Pleskac et al., 2008). Classic mode exists for
+comparability with the published literature, so it reproduces the canonical
+score rather than improving it. The Advanced surface carries the
+censoring-corrected measures alongside.
+```
+
+**Plus an integrity tier.** Classic also keeps `session_valid`,
+`session_warnings`, `total_balloons`, the `qc_*` family, and the `payout_*`
+pair when a payout is configured. A five-column Classic file would strip an
+analyst's only signal of which sessions to trust; the canon defines which
+*metrics* are reported, not whether the dataset says it is sound.
+
+**Dropped in Classic:** every derived behavioral metric (calibration, learning,
+consistency, composites) and all per-color `{color}_*` blocks — Classic is
+session-level only, matching the single-balloon 2003 replication format. From
+the Trials CSV it drops `mean_latency_between_pumps`; the rest of the trial row
+is design and behavior, not a metric, and is kept.
+
+The mode reaches every derived surface uniformly — Master CSV, Trials CSV,
+`*_metrics.json`, and the data dictionary — and is recorded in the frozen
+`study.json`, each session's `config.json`, `_provenance.json`, and the data
+dictionary header. There is no per-row mode column: the mode is constant within
+a file.
+
+Changing mode mid-study **starts a new output lineage** rather than rewriting
+history. Classic → Advanced widens the file under the ordinary
+[migration rules](#upgrading-mid-study-migration-and-backups) (backup, then
+honest blanks in the new columns); Advanced → Classic cannot narrow a file
+in place, so the session lands in a timestamped sibling with a warning. A Hub
+rebuild is not subject to this — it re-projects every session into one chosen
+mode.
+
+## Standalone Mode and the Data Hub
+
+A lab running one participant at a time on one machine needs nothing here.
+**Standalone Mode** is for running many machines at once, where the shared
+Master CSV is the thing that breaks: each station would maintain its own,
+leaving the researcher to concatenate files that may not even be comparable.
+
+Setting `standalone: true` in the study preset changes **exactly one thing
+about what is written**: stations stop appending to the study-wide
+`_results.csv` and `_trials.csv`. Everything else lands exactly as documented
+on this page — the four per-session files *and* all three provenance files, on
+every station. Each station folder stays independently complete and OSF-ready.
+
+The station's own label is a separate per-machine setting (`S1`, `lab-A-03`).
+It is stamped into three places: the filename stem, each `session.json`, and
+`provenance.json` — which also gains a random per-install UUID, so that two
+machines accidentally given the same label can still be told apart.
+
+Collection is by hand — USB, network share, institutional sync; the app never
+uses the network. You then point the **Data Hub** at the assembled folders and
+it rebuilds `_results.csv`, `_trials.csv`, and the data dictionary under their
+usual names, re-scoring every session from its raw events, alongside an
+itemized report of everything it found.
+
+For the workflow itself — turning the mode on, labelling machines, reading the
+ingestion report, the CLI, and what the Hub flags — see
+[Multi-station studies](standalone/multi_station.md). This page stays the
+reference for the resulting files and columns.
+
+## A worked sample dataset
+
+[`docs/samples/`](https://github.com/aslmylmz/open-bart/tree/main/docs/samples)
+holds two small studies produced by the instrument itself and committed to the
+repository, so you can read real output — and a real Hub reconstruction —
+without installing anything:
+
+- **`clean-equivalence/`** — what a study directory looks like: three sessions,
+  every file described on this page, no defects.
+- **`hazard-suite/`** — four station folders as they arrive from the field,
+  with one problem planted per session — including one station left running the
+  task in a different language, which is why the rebuild splits into two
+  partitions — and the `rebuilt/` output the Hub made of them, with its
+  itemized ingestion report.
+
+They are generated, never hand-edited, and a test regenerates and byte-compares
+them on every run — so what is committed is always what today's code emits.
+The sessions are synthetic fixtures, not participant data.

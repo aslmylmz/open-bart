@@ -70,6 +70,7 @@ below is configurable in Study Setup.
 :caption: For researchers
 
 Researcher quickstart <standalone/quickstart>
+Multi-station studies <standalone/multi_station>
 SmartScreen & antivirus <standalone/SMARTSCREEN>
 Kiosk mode & OS lockdown <standalone/KIOSK>
 hazard_families

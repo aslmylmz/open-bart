@@ -106,6 +106,35 @@ macOS/Linux are development platforms; build from source with
 
 ---
 
+## Collecting on many machines at once
+
+A study run on several stations at the same time turns the shared Master CSV
+into a liability: each machine keeps its own, and you cannot tell from the
+files alone whether two of them ran comparable designs. **Standalone Mode**
+(one flag in `study.json`) has stations write only their per-session files,
+each stamped with a station label; you collect the folders by hand — the app
+never uses the network — and the **Data Hub** rebuilds the study-wide outputs
+in one pass.
+
+The Hub re-scores every session from its raw events, so the pooled dataset is
+uniform even if stations upgraded at different times, and it writes the CSVs
+under the same names as the live path, so analysis scripts run against a
+rebuild verbatim. It **never acts silently**: sneakernet duplicates, two
+machines sharing a label, participant IDs reused across stations, stations left
+on a different task configuration, stored scores that disagree with the events
+— each is either resolved and itemized or held back, in a report that is the
+Hub's primary deliverable — and a station that was running a genuinely
+different task is partitioned into its own output set rather than pooled.
+Available as a tab in the app and as `openbart hub <sources…> --out <dir>`.
+
+- **Guide** — [docs/standalone/multi_station.md](docs/standalone/multi_station.md)
+- **File and column reference** — [docs/data_outputs.md](docs/data_outputs.md)
+- **Worked sample dataset** — [docs/samples/](docs/samples/): a real study
+  directory, plus a four-station study with one problem planted per session and
+  [the Hub's report on it](docs/samples/hazard-suite/rebuilt/hazard-suite_ingestion_report.md)
+
+---
+
 ## The science: a hazard structure worth configuring
 
 The classic BART draws one burst point uniformly from [1, N]; the EV-optimal
@@ -226,8 +255,9 @@ open-bart/
 │   ├── plot_hazard_families.py     EV curves across all 11 families (MC overlay)
 │   └── generate_synthetic.py       Synthetic participant datasets
 ├── docs/                           Sphinx documentation (Read the Docs)
-├── docs/standalone/                Researcher quickstart, SmartScreen, Windows verify
-├── paper/                          JOSS paper draft
+├── docs/standalone/                Researcher quickstart, multi-station, SmartScreen
+├── docs/samples/                   Committed sample datasets + a Hub reconstruction
+├── paper/                          Manuscript drafts
 ├── tests/                          pytest suites (engine, config, sidecar, verification)
 └── pyproject.toml                  Package metadata + extras ([scripts], [sidecar], …)
 ```
@@ -245,7 +275,9 @@ pip install -r docs/requirements.txt
 sphinx-build -b html docs docs/_build/html
 ```
 
-The Journal of Open Source Software paper draft is in [paper/](paper/).
+Manuscript drafts are in [paper/](paper/): the short software paper
+([paper.md](paper/paper.md)) and the multi-station deployment section
+([multi-station-section.md](paper/multi-station-section.md)).
 
 ---
 
