@@ -40,6 +40,17 @@ from sidecar.naming import TIMESTAMP
 from sidecar.station import StationIdentity
 
 
+def _utc_now() -> datetime:
+    """The clock a superseded study config is recorded under (DATA-SPEC §9.5).
+
+    The same module-level seam ``write_output`` and the Hub writer carry, for
+    the same reason: the golden-fixture builder plants several designs in one
+    folder, so this file's name must be reproducible too. Production always
+    runs the real UTC clock.
+    """
+    return datetime.now(timezone.utc)
+
+
 def ensure_provenance(
     out_dir: Path,
     config: TaskConfig,
@@ -111,7 +122,7 @@ def _freeze_study_config(path: Path, config: TaskConfig) -> None:
     ]
     if any(_records(p, current) for p in [path, *copies]):
         return
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    ts = _utc_now().strftime("%Y%m%dT%H%M%S%fZ")
     path.with_name(f"{path.stem}_{ts}.json").write_text(
         config.model_dump_json(indent=2), encoding="utf-8"
     )
