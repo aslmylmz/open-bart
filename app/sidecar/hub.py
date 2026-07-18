@@ -770,6 +770,17 @@ def _fingerprint(breaking: dict[str, Any]) -> str:
     ).hexdigest()[:12]
 
 
+def drift_fields(partition: Partition, main: Partition) -> list[str]:
+    """The pooling-breaking fields on which ``partition`` split from the main
+    set — one vocabulary for the ingest finding here and the output writer's
+    partition lines (I10), so the two can never name the drift differently."""
+    return [
+        name
+        for name in partition.breaking
+        if partition.breaking[name] != main.breaking[name]
+    ]
+
+
 def _partition(
     kept: list[SessionRecord], findings: list[HubFinding]
 ) -> list[Partition]:
@@ -792,11 +803,7 @@ def _partition(
         key=lambda p: (-len(p.sessions), order.index(p.fingerprint)),
     )
     for extra in result[1:]:
-        fields = [
-            name
-            for name in extra.breaking
-            if extra.breaking[name] != result[0].breaking[name]
-        ]
+        fields = drift_fields(extra, result[0])
         findings.append(
             HubFinding(
                 code="config_drift_partition",

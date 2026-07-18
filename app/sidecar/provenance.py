@@ -62,7 +62,7 @@ def ensure_provenance(
         (
             out_dir / f"{slug}_data_dictionary.md",
             lambda path, config: _write_if_changed(
-                path, _render_dictionary(config, slug)
+                path, render_dictionary(config, slug)
             ),
         ),
     ]
@@ -273,11 +273,13 @@ def _model_table(model: type[BaseModel], skip: set[str] = frozenset()) -> str:
     )
 
 
-def _render_dictionary(config: TaskConfig, slug: str) -> str:
+def render_dictionary(config: TaskConfig, slug: str) -> str:
     """The study's data dictionary, generated from the scoring models so a
     column added in code appears here without being documented twice. The
     header states the study's metrics mode in both modes (DATA-SPEC §4.5);
-    in classic mode every section documents only what the projection emits."""
+    in classic mode every section documents only what the projection emits.
+    Public because the Hub output writer (I10) mirrors this exact surface
+    into a rebuild — same renderer, never a parallel one (§6.5)."""
     classic = config.metrics_mode == "classic"
     if classic:
         mode_note = (
