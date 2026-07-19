@@ -38,6 +38,7 @@ import scoring
 from sidecar.hub import IngestionReport, SessionRecord, _read_json, drift_fields
 from sidecar.provenance import render_dictionary
 from sidecar.rebuild import RebuildResult
+from sidecar.textio import write_utf8
 from sidecar.versioned_csv import append_rows
 
 
@@ -293,8 +294,9 @@ def write_rebuild(
     dest = Path(destination)
     replaced = _prepare_destination(dest, report.sources)
     files: list[str] = []
-    (dest / f"{report.slug}_provenance.json").write_text(
-        json.dumps(_provenance(report, result), indent=2), encoding="utf-8"
+    write_utf8(
+        dest / f"{report.slug}_provenance.json",
+        json.dumps(_provenance(report, result), indent=2),
     )
     files.append(f"{report.slug}_provenance.json")
     multi = len(result.partitions) > 1
@@ -314,12 +316,13 @@ def write_rebuild(
         config = source.sessions[0].config.model_copy(
             update={"metrics_mode": result.mode}
         )
-        (folder / f"{report.slug}_data_dictionary.md").write_text(
-            render_dictionary(config, report.slug), encoding="utf-8"
+        write_utf8(
+            folder / f"{report.slug}_data_dictionary.md",
+            render_dictionary(config, report.slug),
         )
         files.append(f"{prefix}{report.slug}_data_dictionary.md")
-    (dest / f"{report.slug}_ingestion_report.md").write_text(
-        render_report(report, result), encoding="utf-8"
+    write_utf8(
+        dest / f"{report.slug}_ingestion_report.md", render_report(report, result)
     )
     files.append(f"{report.slug}_ingestion_report.md")
     return RebuildReceipt(

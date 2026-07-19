@@ -155,3 +155,32 @@ def test_the_samples_record_every_path_posix_separated(fresh: Path):
     ]
 
     assert backslashed == []
+
+
+def test_the_samples_use_one_line_ending_per_format_everywhere(fresh: Path):
+    """The other half of host-independence. A sample's line ending must be a
+    property of its *format*, not of the machine that built it: LF for the
+    JSON and Markdown (written through ``sidecar.textio``), CRLF for the CSVs
+    (``csv.writer``'s RFC 4180 row terminator, which is the same on every
+    platform).
+
+    Python text mode used to decide this per host, so a Windows build differed
+    from a POSIX one and the drift guard held there only because Git's
+    ``core.autocrlf=true`` smudge happened to undo it — the guard passed for a
+    reason unrelated to the claim it makes. Asserting the endings directly
+    states the contract instead of relying on that coincidence.
+    """
+    wrong = []
+    for path in sorted(fresh.rglob("*")):
+        if not path.is_file():
+            continue
+        raw = path.read_bytes()
+        name = str(path.relative_to(fresh))
+        if path.suffix in {".json", ".md", ".jsonl"}:
+            if b"\r" in raw:
+                wrong.append(f"{name}: CR in a text sample (expected LF only)")
+        elif path.name.endswith(("_results.csv", "_trials.csv")):
+            if raw.count(b"\r\n") != raw.count(b"\n"):
+                wrong.append(f"{name}: csv.writer output must be CRLF throughout")
+
+    assert wrong == []

@@ -38,6 +38,7 @@ from scoring.schemas import (
 )
 from sidecar.naming import TIMESTAMP
 from sidecar.station import StationIdentity
+from sidecar.textio import write_utf8
 
 
 def _utc_now() -> datetime:
@@ -98,7 +99,7 @@ def _write_if_changed(path: Path, text: str) -> None:
             return
     except OSError:
         pass
-    path.write_text(text, encoding="utf-8")
+    write_utf8(path, text)
 
 
 def _freeze_study_config(path: Path, config: TaskConfig) -> None:
@@ -113,7 +114,7 @@ def _freeze_study_config(path: Path, config: TaskConfig) -> None:
     """
     current = config.model_dump(mode="json")
     if not path.exists():
-        path.write_text(config.model_dump_json(indent=2), encoding="utf-8")
+        write_utf8(path, config.model_dump_json(indent=2))
         return
     copies = [
         p
@@ -123,8 +124,8 @@ def _freeze_study_config(path: Path, config: TaskConfig) -> None:
     if any(_records(p, current) for p in [path, *copies]):
         return
     ts = _utc_now().strftime("%Y%m%dT%H%M%S%fZ")
-    path.with_name(f"{path.stem}_{ts}.json").write_text(
-        config.model_dump_json(indent=2), encoding="utf-8"
+    write_utf8(
+        path.with_name(f"{path.stem}_{ts}.json"), config.model_dump_json(indent=2)
     )
 
 

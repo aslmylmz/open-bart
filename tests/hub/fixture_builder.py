@@ -48,6 +48,7 @@ from sidecar import app as app_module, provenance
 from sidecar.models import WriteOutputRequest, WriteOutputResponse
 from sidecar.naming import slug
 from sidecar.station import StationIdentity
+from sidecar.textio import open_utf8, write_utf8
 
 CLEAN_STUDY = "clean-equivalence"
 HAZARD_STUDY = "hazard-suite"
@@ -208,11 +209,11 @@ def _as_station(machines: Path, station: Station) -> Iterator[None]:
     machine even when two of them share a label."""
     machines.mkdir(parents=True, exist_ok=True)
     path = machines / f"{station.machine_uuid}.json"
-    path.write_text(
+    write_utf8(
+        path,
         StationIdentity(
             station_id=station.label, machine_uuid=station.machine_uuid
         ).model_dump_json(indent=2),
-        encoding="utf-8",
     )
     previous = os.environ.get("BART_STATION_FILE")
     os.environ["BART_STATION_FILE"] = str(path)
@@ -289,7 +290,7 @@ class _Emitter:
 def _rewrite_json(path: Path, data: dict[str, object]) -> None:
     """Put a file back after damaging it — the shape the emission path writes
     its JSON in, so only the planted change distinguishes the file."""
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    write_utf8(path, json.dumps(data, indent=2))
 
 
 def _strip_engine_stamp(path: Path) -> None:
@@ -385,7 +386,7 @@ def build_hazard_suite(base: Path) -> Fixture:
     # the Hub must never guess which copy is authoritative.
     divergent = write(ALPHA, "dup-divergent")
     twin_events = _copy_session(divergent, root / ALPHA_PRIME.folder)
-    with twin_events.open("a", encoding="utf-8") as fh:
+    with open_utf8(twin_events, "a") as fh:
         fh.write(
             GameEvent(
                 timestamp=99999.0, type="pump", payload=EventPayload(color="teal")
@@ -407,7 +408,7 @@ def build_hazard_suite(base: Path) -> Fixture:
     removed_events = write(ALPHA, "missing-events")
     Path(removed_events.events).unlink()
     truncated = write(ALPHA, "truncated-json")
-    Path(truncated.config).write_text('{"incomplete":', encoding="utf-8")
+    write_utf8(Path(truncated.config), '{"incomplete":')
 
     # ── α′ (a second machine also labeled lab-01) ────────────────────────────
     # row 6: its own session gives the folder a provenance record claiming the
@@ -451,8 +452,9 @@ def build_hazard_suite(base: Path) -> Fixture:
 
     # The loose foreign export: the Hub must resist parsing it and simply say
     # it skipped it, proving the §10 boundary.
-    (root / GAMMA.folder / "bart_export.csv").write_text(
-        "subjID,trial,pumps,exploded\n1001,1,12,0\n1001,2,8,1\n", encoding="utf-8"
+    write_utf8(
+        root / GAMMA.folder / "bart_export.csv",
+        "subjID,trial,pumps,exploded\n1001,1,12,0\n1001,2,8,1\n",
     )
 
     fixture = emitter.fixture

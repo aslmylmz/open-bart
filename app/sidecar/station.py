@@ -28,6 +28,7 @@ import uuid
 from pathlib import Path
 
 from pydantic import BaseModel
+from sidecar.textio import write_utf8
 
 
 class StationIdentity(BaseModel):
@@ -95,4 +96,4 @@ def store_station_id(station_id: str | None) -> StationIdentity:
 
 def _persist(path: Path, identity: StationIdentity) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(identity.model_dump_json(indent=2), encoding="utf-8")
+    write_utf8(path, identity.model_dump_json(indent=2))

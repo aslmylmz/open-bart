@@ -1,19 +1,15 @@
 # The committed sample dataset (docs/samples/, DATA-SPEC §9.5) is compared
-# byte-for-byte against a fresh build by the I16 drift guard, so what Git does
-# to those bytes on checkout has to match what the builder writes.
+# byte-for-byte against a fresh build by the I16 drift guard, so Git must hand
+# the working tree exactly the bytes the blob holds — no line-ending rewriting
+# in either direction.
 #
-# Two producers, two rules:
-#
-#   *_results.csv / *_trials.csv come from `csv.writer`, which terminates rows
-#   with a literal CRLF on every platform (RFC 4180). Those bytes are in the
-#   blob already, so a Windows checkout under core.autocrlf=true — the GitHub
-#   runner default — would smudge each LF again and hand the guard \r\r\n.
-#   Pinned below.
-#
-#   Everything else under docs/samples/ (the .json and .md snapshots, and
-#   lab-03/bart_export.csv, a hand-written foreign-format fixture) is written
-#   through Python text mode, which emits the platform's own line ending. Those
-#   must stay ordinary text so the checkout matches the machine running the
-#   guard — pinning them would freeze LF against a CRLF build and fail.
-docs/samples/**/*_results.csv -text
-docs/samples/**/*_trials.csv -text
+# This is safe to state for the whole tree because the builder is now
+# deterministic about line endings on its own: everything text goes through
+# `sidecar.textio`, which writes LF on every platform, and the two CSV families
+# come from `csv.writer`, whose CRLF row terminator is part of RFC 4180 rather
+# than a property of the host. Before that, the .json and .md samples emitted
+# the platform's own ending, and the guard passed on Windows only because
+# core.autocrlf=true happened to smudge the checkout back into agreement with
+# the build -- so `autocrlf=false` failed, and pinning them here would have
+# failed too. Neither is true now: the bytes are the same everywhere.
+docs/samples/** -text

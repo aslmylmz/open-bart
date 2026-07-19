@@ -52,6 +52,7 @@ from sidecar.hub_view import (
 from sidecar.naming import TIMESTAMP, slug as _slug
 from sidecar.provenance import ensure_provenance
 from sidecar.station import load_station, store_station_id
+from sidecar.textio import open_utf8, write_utf8
 from sidecar.versioned_csv import append_row, append_rows
 
 # The station label lands in every output filename, so it obeys the same slug
@@ -330,7 +331,7 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     config_path = out_dir / f"{stem}_config.json"
     session_path = out_dir / f"{stem}_session.json"
 
-    with events_path.open("w", encoding="utf-8") as fh:
+    with open_utf8(events_path) as fh:
         for event in req.session.events:
             fh.write(event.model_dump_json() + "\n")
 
@@ -340,15 +341,15 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
     # (DATA-SPEC §4.1). The raw event log above stays the complete session
     # either way.
     metrics = score_bart(req.session.events, config)
-    metrics_path.write_text(
+    write_utf8(
+        metrics_path,
         json.dumps(
             project_metrics(metrics.model_dump(mode="json"), config.metrics_mode),
             indent=2,
             ensure_ascii=False,
         ),
-        encoding="utf-8",
     )
-    config_path.write_text(config.model_dump_json(indent=2), encoding="utf-8")
+    write_utf8(config_path, config.model_dump_json(indent=2))
 
     # The session envelope (DATA-SPEC §3): identity + design assignment +
     # per-session provenance in a per-session file, so the master CSV stays
@@ -375,7 +376,7 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
             platform=platform.platform(),
         ),
     )
-    session_path.write_text(envelope.model_dump_json(indent=2), encoding="utf-8")
+    write_utf8(session_path, envelope.model_dump_json(indent=2))
 
     # The study-wide files — provenance (issue 42), master CSV, trials CSV —
     # are written together here: one decision point, and practice sessions
