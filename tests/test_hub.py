@@ -304,6 +304,53 @@ def test_generated_id_collision_gets_its_own_louder_line(tmp_path, monkeypatch):
     assert _pooled_ids(report) == ["s-001", "s-002"]
 
 
+def test_the_generated_tier_fires_on_ids_the_stations_really_generated(
+    tmp_path, monkeypatch
+):
+    """The seam I18 exists for, crossed end to end without planting anything.
+
+    The tests above stamp `id_source` onto the envelope by hand, which proves
+    the Hub reads the field but not that anything ever writes it. Here two
+    stations running a study with `auto_participant_id` on submit through
+    `/write-output` exactly as the ID screen's Generate button would, and the
+    envelopes carry `generated` because the emission path put it there.
+    """
+    auto = {"auto_participant_id": True}
+    _use_station(monkeypatch, tmp_path, "a", "S1")
+    a = _write(tmp_path / "s1", auto, session_id="s-001", candidate_id="384715926",
+               id_source="generated")
+    _use_station(monkeypatch, tmp_path, "b", "S2")
+    b = _write(tmp_path / "s2", auto, session_id="s-002", candidate_id="384715926",
+               id_source="generated")
+    # Nothing was edited after the fact: the stations wrote this themselves.
+    for written in (a, b):
+        envelope = json.loads(Path(written["session"]).read_text(encoding="utf-8"))
+        assert envelope["id_source"] == "generated"
+
+    report = ingest([tmp_path / "s1", tmp_path / "s2"])
+    assert _the(report, "generated_id_collision").loud
+    assert _pooled_ids(report) == ["s-001", "s-002"]
+
+
+def test_a_study_without_the_option_cannot_produce_the_generated_tier(
+    tmp_path, monkeypatch
+):
+    """The gate, from the Hub's end. `write_output` drops `id_source` unless
+    the study enabled the option (§3.2), so a client claiming `generated` in a
+    study that never offered Generate cannot manufacture the louder line — it
+    collides like any pair of hand-typed IDs."""
+    _use_station(monkeypatch, tmp_path, "a", "S1")
+    _write(tmp_path / "s1", session_id="s-001", candidate_id="384715926",
+           id_source="generated")
+    _use_station(monkeypatch, tmp_path, "b", "S2")
+    _write(tmp_path / "s2", session_id="s-002", candidate_id="384715926",
+           id_source="generated")
+
+    report = ingest([tmp_path / "s1", tmp_path / "s2"])
+    assert _findings(report, "generated_id_collision") == []
+    assert _the(report, "id_collision")
+
+
 def test_generated_vs_manual_collision_is_the_ordinary_line(
     tmp_path, monkeypatch
 ):
