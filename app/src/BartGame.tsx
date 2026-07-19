@@ -152,7 +152,15 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        const payload = buildSessionPayload(sessionIdRef.current, candidateId, eventLogRef.current, condition, duplicateAcknowledged, practice, idSource);
+        const payload = buildSessionPayload({
+            sessionId: sessionIdRef.current,
+            candidateId,
+            events: eventLogRef.current,
+            condition,
+            duplicateAcknowledged,
+            practice,
+            idSource,
+        });
         try {
             const data = await submitSession<AssessmentResult>(payload, config);
 

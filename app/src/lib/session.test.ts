@@ -7,7 +7,11 @@ describe("buildSessionPayload", () => {
     const events = [
       { timestamp: 1, type: "pump" as const, payload: { color: "teal" } },
     ];
-    const payload = buildSessionPayload("sess-1", "cand-1", events);
+    const payload = buildSessionPayload({
+      sessionId: "sess-1",
+      candidateId: "cand-1",
+      events,
+    });
     expect(payload).toEqual({
       session_id: "sess-1",
       game_type: "BART_RISK",
@@ -24,7 +28,12 @@ describe("buildSessionPayload", () => {
     const events = [
       { timestamp: 1, type: "pump" as const, payload: { color: "teal" } },
     ];
-    const payload = buildSessionPayload("sess-1", "cand-1", events, "experimental");
+    const payload = buildSessionPayload({
+      sessionId: "sess-1",
+      candidateId: "cand-1",
+      events,
+      condition: "experimental",
+    });
     expect(payload.condition).toBe("experimental");
   });
 
@@ -32,7 +41,12 @@ describe("buildSessionPayload", () => {
     const events = [
       { timestamp: 1, type: "pump" as const, payload: { color: "teal" } },
     ];
-    const payload = buildSessionPayload("sess-1", "cand-1", events, null, true);
+    const payload = buildSessionPayload({
+      sessionId: "sess-1",
+      candidateId: "cand-1",
+      events,
+      duplicateAcknowledged: true,
+    });
     expect(payload.duplicate_acknowledged).toBe(true);
   });
 
@@ -40,7 +54,12 @@ describe("buildSessionPayload", () => {
     const events = [
       { timestamp: 1, type: "pump" as const, payload: { color: "teal" } },
     ];
-    const payload = buildSessionPayload("sess-1", "TEST", events, null, false, true);
+    const payload = buildSessionPayload({
+      sessionId: "sess-1",
+      candidateId: "TEST",
+      events,
+      practice: true,
+    });
     expect(payload.practice).toBe(true);
   });
 });

@@ -23,15 +23,27 @@ export interface SessionPayload {
   events: GameEvent[];
 }
 
-export function buildSessionPayload(
-  sessionId: string,
-  candidateId: string,
-  events: GameEvent[],
-  condition: string | null = null,
+/** What the run screen knows at submit time, in client naming. Field semantics
+ * are documented on the wire shape above; this interface only renames them. */
+export interface SessionInput {
+  sessionId: string;
+  candidateId: string;
+  events: GameEvent[];
+  condition?: string | null;
+  duplicateAcknowledged?: boolean;
+  practice?: boolean;
+  idSource?: IdSource | null;
+}
+
+export function buildSessionPayload({
+  sessionId,
+  candidateId,
+  events,
+  condition = null,
   duplicateAcknowledged = false,
   practice = false,
-  idSource: IdSource | null = null,
-): SessionPayload {
+  idSource = null,
+}: SessionInput): SessionPayload {
   return {
     session_id: sessionId,
     game_type: "BART_RISK",
