@@ -65,11 +65,13 @@ def test_view_attributes_stations_and_sessions_per_source(tmp_path, monkeypatch)
 
     view = build_hub_view([str(tmp_path / "s1"), str(tmp_path / "s2")])
 
+    # Keyed on the POSIX form the Hub records, not the platform's — the
+    # band renders what `IngestionReport.sources` carries.
     by_folder = {src.folder: src for src in view.sources}
-    assert by_folder[str(tmp_path / "s1")].stations == 1
-    assert by_folder[str(tmp_path / "s1")].sessions == 2
-    assert by_folder[str(tmp_path / "s2")].stations == 1
-    assert by_folder[str(tmp_path / "s2")].sessions == 1
+    assert by_folder[(tmp_path / "s1").as_posix()].stations == 1
+    assert by_folder[(tmp_path / "s1").as_posix()].sessions == 2
+    assert by_folder[(tmp_path / "s2").as_posix()].stations == 1
+    assert by_folder[(tmp_path / "s2").as_posix()].sessions == 1
 
 
 def test_view_collapsed_duplicate_counts_its_source_once(tmp_path, monkeypatch):

@@ -177,9 +177,12 @@ def test_provenance_carries_the_reconstruction_block(tmp_path, monkeypatch):
     assert record["rebuild_mode"] == "advanced"
     assert record["rebuild_mode_source"] == "configured"
     assert record["rebuild_timestamp_utc"]
+    # POSIX-separated, not native: these strings are archival (they ship in
+    # the provenance beside the rebuilt data), so the Hub states them one way
+    # on every platform — see `hub.show_path`.
     assert record["source_manifest"] == [
-        {"folder": str(tmp_path / "s1"), "sessions": 2},
-        {"folder": str(tmp_path / "s2"), "sessions": 1},
+        {"folder": (tmp_path / "s1").as_posix(), "sessions": 2},
+        {"folder": (tmp_path / "s2").as_posix(), "sessions": 1},
     ]
     assert record["ingestion_report"] == f"{SLUG}_ingestion_report.md"
 
@@ -272,7 +275,7 @@ def test_ingestion_report_itemizes_every_group(tmp_path, monkeypatch):
     assert f"# Ingestion Report — {report.title}" in text
     assert "2 session(s) rebuilt · 1 held · 1 attention · 1 partition(s)" in text
     assert "Rebuild mode: `advanced`" in text
-    assert str(tmp_path / "s1") in text
+    assert (tmp_path / "s1").as_posix() in text
     assert "## Held — excluded until resolved" in text
     assert _the(report, "missing_events").message in text
     assert "## Attention — pooled, but itemized" in text
