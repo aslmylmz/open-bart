@@ -255,7 +255,11 @@ class _Emitter:
         config = {
             **DEFAULT_TASK_CONFIG.model_dump(mode="json"),
             "title": self.title,
-            "output_dir": str(out_dir),
+            # POSIX-separated, not the platform's: this string is frozen into
+            # every committed config snapshot, so `str()` would make the
+            # samples reproducible only on the OS family that built them and
+            # the I16 drift guard would fail on Windows.
+            "output_dir": out_dir.as_posix(),
             "standalone": self.standalone,
             **config_over,
         }

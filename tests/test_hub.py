@@ -543,6 +543,10 @@ def test_missing_events_is_held(tmp_path, monkeypatch):
 def test_unreadable_events_holds_only_that_session(tmp_path, monkeypatch):
     """Ground truth present but inaccessible is the same loss as missing
     events — held per session, and one bad file never aborts the ingest."""
+    # Windows has no geteuid and no POSIX permission bits: chmod(0o000) there
+    # leaves the file readable, so the unreadable case cannot be staged at all.
+    if not hasattr(os, "geteuid"):
+        pytest.skip("POSIX permission bits required to stage an unreadable file")
     if os.geteuid() == 0:
         pytest.skip("permission bits don't bind as root")
     _use_station(monkeypatch, tmp_path, "a", "S1")

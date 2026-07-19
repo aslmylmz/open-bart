@@ -14,6 +14,14 @@ on:
       - "scoring/**"
       - "pyproject.toml"
       - ".github/workflows/sidecar-windows.yml"
+      # The suite this workflow runs is itself cross-platform surface: the I16
+      # drift guard compares committed bytes to a fresh Windows build, and the
+      # samples it reads are governed by .gitattributes. Both were outside the
+      # filter above, which is how this gate sat red from I8 to I18 while every
+      # test-only and docs-only commit sailed past it.
+      - "tests/**"
+      - "docs/samples/**"
+      - ".gitattributes"
   workflow_dispatch:
 
 jobs:
