@@ -8,8 +8,8 @@
   "station_id": "lab-03",
   "id_source": null,
   "engine": {
-    "app_version": "1.1.0",
-    "engine_version": "1.1.0",
+    "app_version": "1.2.0",
+    "engine_version": "1.2.0",
     "platform": "fixture-platform"
   }
 }

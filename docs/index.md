@@ -118,7 +118,7 @@ If you use this instrument in your research, please cite the archived
 release (see [CITATION.cff](https://github.com/aslmylmz/open-bart/blob/main/CITATION.cff)):
 
 > Yılmaz, A. S. (2026). *Dynamic Hazard Rate BART: A Configurable Offline
-> Desktop Instrument for the Balloon Analogue Risk Task* (Version 1.1.0)
+> Desktop Instrument for the Balloon Analogue Risk Task* (Version 1.2.0)
 > [Computer software]. <https://doi.org/10.5281/zenodo.20592164>
 
 ## License

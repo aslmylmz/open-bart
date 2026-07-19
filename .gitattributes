@@ -1,12 +1,19 @@
 # The committed sample dataset (docs/samples/, DATA-SPEC §9.5) is compared
-# byte-for-byte against a fresh build by the I16 drift guard, so Git must not
-# rewrite it on the way in or out of the working tree.
+# byte-for-byte against a fresh build by the I16 drift guard, so what Git does
+# to those bytes on checkout has to match what the builder writes.
 #
-# Only the CSVs need pinning. `csv.writer` terminates rows with a literal CRLF
-# on every platform (RFC 4180), so those bytes are already in the blob; on a
-# Windows checkout with core.autocrlf=true — the GitHub runner default — Git
-# would smudge each LF again and hand the guard \r\r\n. The .json and .md
-# samples are written through Python text mode, which emits the platform's own
-# line ending, so they must keep travelling as ordinary text and match whatever
-# the machine running the guard produces.
-docs/samples/**/*.csv -text
+# Two producers, two rules:
+#
+#   *_results.csv / *_trials.csv come from `csv.writer`, which terminates rows
+#   with a literal CRLF on every platform (RFC 4180). Those bytes are in the
+#   blob already, so a Windows checkout under core.autocrlf=true — the GitHub
+#   runner default — would smudge each LF again and hand the guard \r\r\n.
+#   Pinned below.
+#
+#   Everything else under docs/samples/ (the .json and .md snapshots, and
+#   lab-03/bart_export.csv, a hand-written foreign-format fixture) is written
+#   through Python text mode, which emits the platform's own line ending. Those
+#   must stay ordinary text so the checkout matches the machine running the
+#   guard — pinning them would freeze LF against a CRLF build and fail.
+docs/samples/**/*_results.csv -text
+docs/samples/**/*_trials.csv -text
