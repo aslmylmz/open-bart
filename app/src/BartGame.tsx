@@ -13,6 +13,7 @@ import {
   initialState,
 } from "./lib/taskEngine";
 import { type AssessmentResult, Debrief } from "./run/Debrief";
+import type { IdSource } from "./run/participantId";
 import { type Balloon, buildSequence, deriveRunSeed, mulberry32 } from "./run/sequence";
 // The participant control classes (.btn-*-participant, .input-participant)
 // live in the run-frame sheet; imported here too so this surface never
@@ -56,6 +57,9 @@ interface BartGameProps {
     /** True for Test Run sessions (issue 43) — stamped into the payload so the
      * sidecar routes the files to practice/ and skips the study-wide CSVs. */
     practice?: boolean;
+    /** Which path produced `candidateId` on the ID screen (DATA-SPEC §3.2) —
+     * carried through to the session payload so the sidecar can record it. */
+    idSource?: IdSource | null;
     /** Fired once the session is scored AND persisted (issue 49's order): the
      * scored result plus the sidecar's write receipt, which the researcher-side
      * return surface (issue 06) reports from. */
@@ -65,7 +69,7 @@ interface BartGameProps {
     onExit?: () => void;
 }
 
-export default function BartGame({ config, hazards, candidateId, condition = null, duplicateAcknowledged = false, practice = false, onComplete, onExit }: BartGameProps) {
+export default function BartGame({ config, hazards, candidateId, condition = null, duplicateAcknowledged = false, practice = false, idSource = null, onComplete, onExit }: BartGameProps) {
     const eventLogRef = useRef<GameEvent[]>([]);
     const sessionIdRef = useRef(crypto.randomUUID());
     const sequenceRef = useRef<Balloon[]>([]);
@@ -148,7 +152,7 @@ export default function BartGame({ config, hazards, candidateId, condition = nul
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        const payload = buildSessionPayload(sessionIdRef.current, candidateId, eventLogRef.current, condition, duplicateAcknowledged, practice);
+        const payload = buildSessionPayload(sessionIdRef.current, candidateId, eventLogRef.current, condition, duplicateAcknowledged, practice, idSource);
         try {
             const data = await submitSession<AssessmentResult>(payload, config);
 

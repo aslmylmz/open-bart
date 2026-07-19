@@ -106,8 +106,9 @@ single-machine default — writes the filenames shown above, unchanged.
     participant ID already had recorded sessions and the researcher chose to
     continue, so accidental ID reuse stays visible in the data — `practice`,
     `true` for [Test Run sessions](#test-run-practice-sessions), the
-    `station_id` that recorded it, and the
-    [`engine` stamp](#the-engine-stamp). Keeps the session's identity in the
+    `station_id` that recorded it, the
+    [`id_source`](#auto-generated-participant-ids) of the participant ID, and
+    the [`engine` stamp](#the-engine-stamp). Keeps the session's identity in the
     data itself — not just in filenames — so the Master CSV can always be
     rebuilt from the per-session files.
 ```
@@ -136,6 +137,45 @@ retroactively: engine version is a write-time fact, so sessions recorded before
 this stamp existed are permanently unversioned (they read as `null`, and the
 [Data Hub](#standalone-mode-and-the-data-hub) grades them as *ungraded* rather
 than guessing).
+
+### Auto-generated participant IDs
+
+Set `"auto_participant_id": true` in the study preset and the participant-ID
+screen gains a **Generate** button, which fills the field with a random
+nine-digit number (`482719300`). It is off by default, and independent of
+[Standalone Mode](#standalone-mode-and-the-data-hub) — a multi-station study
+that hands out its own roster IDs should leave it off.
+
+The point is collision resistance across machines that cannot see each other.
+Nine digits puts the chance that two participants in a pooled sample of 1000
+share an ID at about 0.055%, so a collision the [Data Hub](#standalone-mode-and-the-data-hub)
+reports is a real anomaly — duplicated data or a broken generator — rather
+than routine ID messiness. It also settles the fixed-seed hazard: two
+participants with the same ID on different machines would replay the same
+balloon sequence, and globally unique IDs make that impossible. The Study
+Setup screen's seed warning says so, downgrading to an informational note when
+the option is on.
+
+The format is deliberately plain. A bare integer is shape-identical to the
+`subjID` convention that hBayesDM, PEBL, and Inquisit already expect, so a
+generated ID needs no translation on the way into an analysis pipeline; the
+first digit is never zero, because Excel and SPSS strip leading zeros on
+import and break the join against your own records.
+
+Nothing about it is mandatory. The field stays editable — regenerate by
+tapping again, or clear it and type your own — because `candidate_id` is your
+external join key to consent, payment, and screening records, and a forced
+random number would destroy that. Each session records which path the ID
+actually came from:
+
+```json
+"id_source": "generated"
+```
+
+`"generated"` or `"manual"`, and `null` for studies that never offered the
+button (where every ID is hand-typed anyway) or for data recorded before the
+option existed. This is what lets the Hub tell a near-impossible collision
+between two *generated* IDs from an ordinary hand-typed duplicate.
 
 ## Test Run (practice) sessions
 

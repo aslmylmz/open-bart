@@ -191,10 +191,12 @@ def test_v10_study_json_loads_with_default_deployment_flags():
     v1["schema_version"] = "1.0"  # exactly what a v1.0.0 file contains
     v1.pop("standalone", None)
     v1.pop("metrics_mode", None)
+    v1.pop("auto_participant_id", None)
 
     loaded = TaskConfig.model_validate(v1)
     assert loaded.standalone is False
     assert loaded.metrics_mode == "advanced"
+    assert loaded.auto_participant_id is False
     assert loaded.schema_version == "1.0"  # documentary, not load-bearing
 
 
@@ -208,6 +210,17 @@ def test_deployment_flags_ride_the_freeze_path():
     frozen = json.loads(DEFAULT_TASK_CONFIG.model_dump_json())
     assert frozen["standalone"] is False
     assert frozen["metrics_mode"] == "advanced"
+    assert frozen["auto_participant_id"] is False
+
+
+def test_auto_participant_id_is_independent_of_standalone():
+    """DATA-SPEC §3.2: the auto-ID poka-yoke is opt-in per study and
+    deliberately *not* coupled to Standalone Mode — multi-station roster
+    studies hand out meaningful central IDs and want them."""
+    v1 = DEFAULT_TASK_CONFIG.model_dump()
+    on = TaskConfig.model_validate({**v1, "auto_participant_id": True})
+    assert on.auto_participant_id is True
+    assert on.standalone is False
 
 
 def test_metrics_mode_admits_only_the_two_modes():

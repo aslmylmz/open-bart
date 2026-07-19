@@ -65,6 +65,34 @@ times cannot be attributed session by session. The stamp is unbackfillable by
 nature — engine version is a write-time fact — which is why it ships before
 data collection rather than after.
 
+**Reduced at the source, where that is possible without cost.** One hazard —
+the same participant identifier issued independently on two stations — admits
+a partial station-side remedy that does not depend on any station knowing what
+the others have done. An optional per-study setting offers the operator a
+generated identifier drawn uniformly from a nine-digit space, wide enough that
+a collision within a pooled sample of realistic size (~0.055% at N = 1000) is
+an anomaly worth investigating rather than an expected event. The design is
+deliberately conservative in three respects. It is opt-in and never mandatory,
+because the participant identifier is the researcher's external join key to
+consent, payment, and screening records, and a forced random value would
+destroy that role; the field therefore remains editable and manual entry
+remains unconstrained. It is independent of the deployment flag, since
+multi-station studies frequently distribute meaningful identifiers from a
+central roster. And it does not replace detection: the generated value is
+recorded with a per-session marker of whether the identifier was generated or
+typed, which makes the assembly-time collision signal exact rather than
+approximate — a collision between two *generated* identifiers is
+near-impossible by chance and is reported distinctly from ordinary identifier
+reuse. The same measure also defuses a reproducibility hazard: because the
+balloon sequence is derived from the pair (study seed, participant
+identifier), two participants sharing an identifier under a fixed seed would
+otherwise receive identical sequences and would not constitute independent
+observations. [Backed by: `TaskConfig.auto_participant_id`;
+`app/src/run/participantId.ts`; the `id_source` field on the session envelope;
+the `generated_id_collision` finding in the Hub; the seed-notice downgrade in
+Study Setup. The 0.055% figure is a birthday-problem calculation over 9·10⁸
+values at N = 1000, not a measured result — state it as such.]
+
 **Non-destructive resolution.** Where a conflict is detected, the architecture
 adds information rather than removing it. A participant identifier appearing
 on two stations is never rewritten; an unambiguous composite key is added

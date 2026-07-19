@@ -127,6 +127,13 @@ Hub's primary deliverable — and a station that was running a genuinely
 different task is partitioned into its own output set rather than pooled.
 Available as a tab in the app and as `openbart hub <sources…> --out <dir>`.
 
+Cross-station ID collisions are the one hazard also worth attacking at the
+source: an optional study flag (`auto_participant_id`) puts a **Generate**
+button on the participant-ID screen that hands out random nine-digit IDs, wide
+enough that a duplicate is an anomaly rather than an expectation. It is off by
+default and the field stays editable — the participant ID is your join key to
+consent and payment records, so the app never takes it over.
+
 - **Guide** — [docs/standalone/multi_station.md](docs/standalone/multi_station.md)
 - **File and column reference** — [docs/data_outputs.md](docs/data_outputs.md)
 - **Worked sample dataset** — [docs/samples/](docs/samples/): a real study

@@ -135,6 +135,16 @@ class GameSession(BaseModel):
             "official data"
         ),
     )
+    id_source: Optional[Literal["generated", "manual"]] = Field(
+        default=None,
+        description=(
+            "which path produced candidate_id on the ID screen — the Generate "
+            "button or the keyboard (DATA-SPEC §3.2). Only the client knows, "
+            "so only the client can report it; write_output records it on the "
+            "envelope for studies that enable auto_participant_id and ignores "
+            "it otherwise, where every ID is hand-typed anyway"
+        ),
+    )
     events: list[GameEvent] = Field(
         ...,
         min_length=1,

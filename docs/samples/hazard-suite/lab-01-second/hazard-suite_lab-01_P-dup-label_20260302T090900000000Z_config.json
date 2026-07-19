@@ -46,5 +46,6 @@
   "payout": null,
   "exit_passcode": null,
   "standalone": true,
-  "metrics_mode": "advanced"
+  "metrics_mode": "advanced",
+  "auto_participant_id": false
 }

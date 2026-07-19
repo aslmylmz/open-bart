@@ -614,6 +614,19 @@ describe("Standalone Mode surfaces (DATA-SPEC §2.4/§2.5)", () => {
     expect(screen.getByPlaceholderText("Fresh randomness each run").getAttribute("aria-invalid")).toBeNull();
   });
 
+  it("downgrades that warning to an informational note under auto-generated IDs (DATA-SPEC §3.2)", async () => {
+    // The poka-yoke has addressed the hazard the warning flags: globally
+    // unique IDs mean two stations can no longer replay the same sequence.
+    render(
+      <Harness initial={{ ...standaloneStudy, seed: 42, auto_participant_id: true }} />,
+    );
+    await screen.findByText("Station: S1");
+
+    const note = screen.getByRole("note");
+    expect(note.textContent).toContain("independent across stations");
+    expect(note.className).toContain("is-info");
+  });
+
   it("keeps the seed field quiet with fresh randomness or outside Standalone Mode", async () => {
     render(<Harness initial={standaloneStudy} />);
     await screen.findByText("Station: S1");

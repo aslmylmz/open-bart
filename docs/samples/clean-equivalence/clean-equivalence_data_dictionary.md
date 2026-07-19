@@ -197,6 +197,7 @@ The exact study configuration this session ran under — the same shape as the f
 | `exit_passcode` | optional in-app kiosk lock (issue 44): while a session runs, every exit path asks for this passcode. Stored in study.json as deterrence, not security — it stops a curious participant, not an attacker with the preset file. Absent means exits are ungated — the v1.0.0 behavior |
 | `standalone` | multi-station deployment mode: when true, stations write only per-session files — no live master-CSV appends — and the Hub rebuilds study-level outputs. Deliberately a config field, not a per-machine app setting, so every station of a study agrees by construction. Default off is the v1.0.0 single-station behavior |
 | `metrics_mode` | reported metrics surface: the engine always computes the full advanced metrics; 'classic' projects every output (master CSV, trials CSV, metrics.json, data dictionary) down to the classic BART canon. Default 'advanced' is the v1.0.0 behavior |
+| `auto_participant_id` | offer a Generate button on the ID screen that fills in a random 9-digit participant ID (DATA-SPEC §3.2) — an opt-in poka-yoke against cross-station ID collisions, and against the identical sequences two same-ID participants would otherwise see under a fixed seed. The field stays editable and manual entry stays freeform: the ID remains the researcher's external join key, never a mandatory random one. Deliberately independent of standalone. Default off is the v1.0.0 behavior |
 
 Each `colors` entry:
 

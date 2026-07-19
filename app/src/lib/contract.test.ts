@@ -56,6 +56,7 @@ const TASK_CONFIG: Record<keyof TaskConfig, true> = {
   payout: true,
   standalone: true,
   metrics_mode: true,
+  auto_participant_id: true,
 };
 
 const COLOR_PROFILE: Record<keyof ColorProfile, true> = {
@@ -84,6 +85,7 @@ const SESSION_PAYLOAD: Record<keyof SessionPayload, true> = {
   condition: true,
   duplicate_acknowledged: true,
   practice: true,
+  id_source: true,
   events: true,
 };
 

@@ -15,6 +15,7 @@ describe("buildSessionPayload", () => {
       condition: null,
       duplicate_acknowledged: false,
       practice: false,
+      id_source: null,
       events,
     });
   });

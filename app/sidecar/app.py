@@ -364,6 +364,11 @@ def write_output(req: WriteOutputRequest) -> WriteOutputResponse:
         duplicate_acknowledged=req.session.duplicate_acknowledged,
         practice=req.session.practice,
         station_id=station.station_id,
+        # Which path produced the ID (DATA-SPEC §3.2) is a client-side fact,
+        # recorded only for studies that offer the Generate button: with the
+        # toggle off every ID is hand-typed, so the field would carry no
+        # information and the envelope stays byte-identical to older data.
+        id_source=req.session.id_source if config.auto_participant_id else None,
         engine=EngineStamp(
             app_version=__version__,
             engine_version=__version__,

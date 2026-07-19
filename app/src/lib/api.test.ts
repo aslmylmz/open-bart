@@ -70,6 +70,7 @@ describe("persistSession", () => {
       condition: null,
       duplicate_acknowledged: false,
       practice: false,
+      id_source: null,
       events: [],
     });
 
@@ -85,6 +86,7 @@ describe("persistSession", () => {
         condition: null,
         duplicate_acknowledged: false,
         practice: false,
+        id_source: null,
         events: [],
       },
     });
@@ -191,6 +193,7 @@ describe("submitSession", () => {
     condition: null,
     duplicate_acknowledged: false,
     practice: false,
+    id_source: null,
     events: [],
   };
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { DEFAULT_STUDY } from "../lib/config";
+import { DEFAULT_STUDY, type TaskConfig } from "../lib/config";
 import { taskStrings } from "../lib/i18n";
 import { RunFlow } from "./RunFlow";
 
@@ -606,5 +606,111 @@ describe("mandatory ID + duplicate warn-confirm (issue 38)", () => {
     // Still on the ID screen; no dialog, no task start.
     expect(screen.getByPlaceholderText(t.idPlaceholder)).toBeTruthy();
     expect(preview).not.toHaveBeenCalled();
+  });
+});
+
+describe("auto-generated participant ID (DATA-SPEC §3.2)", () => {
+  const autoStudy = { ...tinyStudy, auto_participant_id: true };
+
+  async function reachIdScreen(config: TaskConfig = autoStudy) {
+    render(<RunFlow config={config} onExit={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: t.consentAgree }));
+  }
+
+  it("offers no Generate button unless the study opts in", async () => {
+    // Default off means the ID screen is byte-identical to today's.
+    await reachIdScreen(tinyStudy);
+    expect(screen.queryByRole("button", { name: t.idGenerate })).toBeNull();
+  });
+
+  it("fills the field with a 9-digit ID that stays editable", async () => {
+    await reachIdScreen();
+    const input = screen.getByPlaceholderText<HTMLInputElement>(t.idPlaceholder);
+
+    await userEvent.click(screen.getByRole("button", { name: t.idGenerate }));
+    const first = input.value;
+    expect(first).toMatch(/^[1-9][0-9]{8}$/);
+
+    // Regenerate = tap again; the field is not frozen by having been filled.
+    await userEvent.click(screen.getByRole("button", { name: t.idGenerate }));
+    expect(input.value).toMatch(/^[1-9][0-9]{8}$/);
+
+    await userEvent.clear(input);
+    await userEvent.type(input, "P001");
+    expect(input.value).toBe("P001");
+  });
+
+  it("submits a generated ID as candidate_id, stamped id_source generated", async () => {
+    preview.mockResolvedValue(tinyPreview);
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({});
+
+    await reachIdScreen();
+    await userEvent.click(screen.getByRole("button", { name: t.idGenerate }));
+    const generated = screen.getByPlaceholderText<HTMLInputElement>(t.idPlaceholder).value;
+    await userEvent.click(screen.getByRole("button", { name: t.idContinue }));
+
+    // One code path: the generated value goes through the same /check-id vet
+    // and the same payload field as anything hand-typed.
+    expect(checkId).toHaveBeenCalledWith(generated, autoStudy);
+
+    await userEvent.click(await screen.findByRole("button", { name: t.startButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    await waitFor(() => expect(submitSession).toHaveBeenCalledTimes(1));
+    const [payload] = submitSession.mock.calls[0] as [
+      { candidate_id: string; id_source: string | null },
+    ];
+    expect(payload.candidate_id).toBe(generated);
+    expect(payload.id_source).toBe("generated");
+  });
+
+  it("reports an edited ID as manual, not as the generated one it started from", async () => {
+    preview.mockResolvedValue(tinyPreview);
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({});
+
+    await reachIdScreen();
+    const input = screen.getByPlaceholderText<HTMLInputElement>(t.idPlaceholder);
+    await userEvent.click(screen.getByRole("button", { name: t.idGenerate }));
+    await userEvent.clear(input);
+    await userEvent.type(input, "P001");
+    await userEvent.click(screen.getByRole("button", { name: t.idContinue }));
+
+    await userEvent.click(await screen.findByRole("button", { name: t.startButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    await waitFor(() => expect(submitSession).toHaveBeenCalledTimes(1));
+    const [payload] = submitSession.mock.calls[0] as [
+      { candidate_id: string; id_source: string | null },
+    ];
+    expect(payload.candidate_id).toBe("P001");
+    expect(payload.id_source).toBe("manual");
+  });
+
+  it("leaves id_source null for a study that never offered Generate", async () => {
+    preview.mockResolvedValue(tinyPreview);
+    submitSession.mockResolvedValue({ session_id: "s-1" });
+    persistSession.mockResolvedValue({});
+
+    await reachIdScreen(tinyStudy);
+    await userEvent.type(screen.getByPlaceholderText(t.idPlaceholder), "P001");
+    await userEvent.click(screen.getByRole("button", { name: t.idContinue }));
+
+    await userEvent.click(await screen.findByRole("button", { name: t.startButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.pumpButton }));
+    await userEvent.click(screen.getByRole("button", { name: t.collectButton }));
+    await screen.findByText(t.finishedTitle, undefined, { timeout: 3000 });
+    await userEvent.click(screen.getByRole("button", { name: t.seeResults }));
+
+    await waitFor(() => expect(submitSession).toHaveBeenCalledTimes(1));
+    const [payload] = submitSession.mock.calls[0] as [{ id_source: string | null }];
+    expect(payload.id_source).toBeNull();
   });
 });

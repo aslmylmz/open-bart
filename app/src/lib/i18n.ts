@@ -17,6 +17,11 @@ export interface TaskStrings {
   idPrompt: string;
   idPlaceholder: string;
   idContinue: string;
+  /** The Generate affordance beside the ID field, shown only for studies with
+   * `auto_participant_id` on (DATA-SPEC §3.2). The field stays editable, so
+   * the hint explains the ID can still be replaced by hand. */
+  idGenerate: string;
+  idGenerateHint: string;
   // Condition assignment (issue 37; shown only when the study declares conditions)
   conditionLabel: string;
   conditionPlaceholder: string;
@@ -93,6 +98,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
     idPrompt: "Participant ID",
     idPlaceholder: "e.g. P001",
     idContinue: "Start task",
+    idGenerate: "Generate",
+    idGenerateHint: "Generates a random ID. You can edit it or type your own.",
     conditionLabel: "Condition",
     conditionPlaceholder: "Select a condition…",
     duplicateTitle: "This ID already has data",
@@ -147,6 +154,8 @@ export const STRINGS: Record<Language, TaskStrings> = {
     idPrompt: "Katılımcı Kimliği",
     idPlaceholder: "örn. P001",
     idContinue: "Göreve Başla",
+    idGenerate: "Oluştur",
+    idGenerateHint: "Rastgele bir kimlik oluşturur. Düzenleyebilir veya kendiniz yazabilirsiniz.",
     conditionLabel: "Koşul",
     conditionPlaceholder: "Bir koşul seçin…",
     duplicateTitle: "Bu kimliğin zaten kaydı var",

@@ -7,6 +7,7 @@ import { setKioskLock } from "../lib/desktop";
 import { taskStrings } from "../lib/i18n";
 import type { AssessmentResult } from "./Debrief";
 import { cardStyle, centerStyle, headingStyle, pagePosture } from "./participantStyles";
+import { generateParticipantId, type IdSource } from "./participantId";
 import { ReturnSurface } from "./ReturnSurface";
 import "./RunFlow.css";
 
@@ -49,6 +50,13 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
   const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
   const [idError, setIdError] = useState<string | null>(null);
   const [checkingId, setCheckingId] = useState(false);
+  // Auto-generated participant ID (DATA-SPEC §3.2), opt-in per study. The
+  // Generate button and the keyboard write the same one field; this tracks
+  // which of them last did, so the session can report it honestly — editing a
+  // generated ID makes it manual again, because the value is no longer the
+  // one the generator produced.
+  const autoParticipantId = Boolean(config.auto_participant_id);
+  const [idSource, setIdSource] = useState<IdSource>("manual");
   // Kiosk in-app lock (issue 44): while the study declares an exit_passcode,
   // every mid-session exit path funnels through the passcode prompt below.
   const [lockPromptOpen, setLockPromptOpen] = useState(false);
@@ -284,6 +292,7 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
           condition={condition || null}
           duplicateAcknowledged={duplicateAcknowledged}
           practice={practice}
+          idSource={autoParticipantId ? idSource : null}
           onComplete={(result, write) => setCompletion({ result, write })}
           onExit={requestExit}
         />
@@ -349,22 +358,49 @@ export function RunFlow({ config, onExit, practice = false }: RunFlowProps) {
         {phase === "id" && duplicateSessions === null && (
           <div style={cardStyle}>
             <h1 style={headingStyle}>{t.idPrompt}</h1>
-            <input
-              className="input-participant"
-              style={{
-                width: "100%",
-                fontSize: "1.05rem",
-                padding: "12px 14px",
-                textAlign: "center",
-                marginBottom: 20,
-              }}
-              value={participantId}
-              placeholder={t.idPlaceholder}
-              onChange={(e) => {
-                setParticipantId(e.target.value);
-                setIdError(null);
-              }}
-            />
+            {/* The Generate affordance (DATA-SPEC §3.2) sits *beside* the
+                field, not over it: offered only when the study opts in, and
+                filling the same input the researcher can still edit or
+                retype. Without the option the row is a bare input — today's
+                screen, unchanged. */}
+            <div style={{ display: "flex", gap: 8, marginBottom: autoParticipantId ? 8 : 20 }}>
+              <input
+                className="input-participant"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: "1.05rem",
+                  padding: "12px 14px",
+                  textAlign: "center",
+                }}
+                value={participantId}
+                placeholder={t.idPlaceholder}
+                onChange={(e) => {
+                  setParticipantId(e.target.value);
+                  setIdSource("manual");
+                  setIdError(null);
+                }}
+              />
+              {autoParticipantId && (
+                <button
+                  type="button"
+                  className="btn-ghost-participant"
+                  style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+                  onClick={() => {
+                    setParticipantId(generateParticipantId());
+                    setIdSource("generated");
+                    setIdError(null);
+                  }}
+                >
+                  {t.idGenerate}
+                </button>
+              )}
+            </div>
+            {autoParticipantId && (
+              <p style={{ margin: "0 0 20px", fontSize: "0.9rem", color: "#6b7280" }}>
+                {t.idGenerateHint}
+              </p>
+            )}
             {idError && (
               <p role="alert" style={{ color: "#b91c1c", margin: "0 0 16px", fontSize: "0.95rem" }}>
                 {idError}

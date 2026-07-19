@@ -13,6 +13,7 @@
     "duplicate_acknowledged",
     "events",
     "game_type",
+    "id_source",
     "practice",
     "session_id"
   ],
@@ -74,6 +75,7 @@
     "zero_pump_streak"
   ],
   "TaskConfig": [
+    "auto_participant_id",
     "colors",
     "conditions",
     "currency",

@@ -170,6 +170,11 @@ export interface TaskConfig {
    * metrics; "classic" projects every output down to the classic BART canon.
    * Optional: absent means "advanced" — the v1.0.0 behavior. */
   metrics_mode?: "classic" | "advanced";
+  /** Offer a Generate button on the ID screen that fills in a random 9-digit
+   * participant ID (DATA-SPEC §3.2) — an opt-in guard against cross-station
+   * ID collisions. The field stays editable and manual entry stays freeform.
+   * Independent of `standalone`. Optional: absent means off (v1.0.0). */
+  auto_participant_id?: boolean;
 }
 
 /** The validated default study: the original 128/32/8 dynamic hazard, $0.25/pump.

@@ -66,7 +66,30 @@ independent observations. Study Setup warns about this inline whenever
 Standalone Mode and a fixed seed are on together. Keep participant IDs globally
 unique across stations, or leave the seed unset. The Hub flags it loudly if it
 happens anyway.
+
+If you have no external ID scheme to keep unique, the study option below does
+it for you and the warning downgrades to a note.
 :::
+
+### Optional: let the app generate participant IDs
+
+Keeping IDs unique across machines that cannot see each other is exactly the
+kind of thing people get wrong at 9am with a queue of participants. Setting
+`"auto_participant_id": true` in the study preset puts a **Generate** button
+on the participant-ID screen; it fills the field with a random nine-digit
+number, and the space is wide enough (~0.055% collision at a pooled N of 1000)
+that a duplicate is an anomaly rather than an expectation.
+
+It is off by default and independent of Standalone Mode — plenty of
+multi-station studies hand out meaningful central IDs from a roster and should
+leave it alone. When it is on, the field stays editable: regenerate by tapping
+again, or clear it and type your own, because the participant ID is your join
+key to consent and payment records and the app should never take it away from
+you. Each session records which path its ID came from (`id_source`), which is
+what lets the Hub distinguish a near-impossible collision between two
+generated IDs — reported in its own louder line — from ordinary hand-typed ID
+reuse. See [Auto-generated participant IDs](../data_outputs.md#auto-generated-participant-ids)
+for the format and the reasoning.
 
 ## 3. Run participants as usual
 
@@ -187,6 +210,7 @@ either included cleanly or its departure is named. In brief:
 | The same session ID with **different** contents in two folders | **Held.** The Hub will not guess which copy is authoritative |
 | Two machines sharing a station label | **Attention** — their data cannot be told apart by label |
 | The same participant ID on more than one station | Pooled, never rewritten; an unambiguous `participant_key` (`S1::P001`) column is added. **Loud** if both ran the same fixed seed — those sessions are not independent |
+| Two **auto-generated** participant IDs colliding across stations | Pooled like any collision, but reported on its own **loud** line — near-impossible by chance, so it points at duplicated data or a broken generator |
 | A station running a *different task design* (hazard curves, reward, conditions, payout, language) | **Partitioned** into a separate output set — pooling incomparable tasks is the one thing worse than stopping |
 | A station differing only in seed, currency, or schema version | Flagged, still pooled |
 | Only `output_dir` differs | Ignored |

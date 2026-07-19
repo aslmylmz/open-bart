@@ -163,6 +163,20 @@ class TaskConfig(BaseModel):
         ),
     )
 
+    auto_participant_id: bool = Field(
+        default=False,
+        description=(
+            "offer a Generate button on the ID screen that fills in a random "
+            "9-digit participant ID (DATA-SPEC §3.2) — an opt-in poka-yoke "
+            "against cross-station ID collisions, and against the identical "
+            "sequences two same-ID participants would otherwise see under a "
+            "fixed seed. The field stays editable and manual entry stays "
+            "freeform: the ID remains the researcher's external join key, "
+            "never a mandatory random one. Deliberately independent of "
+            "standalone. Default off is the v1.0.0 behavior"
+        ),
+    )
+
     _curves: dict[str, BalloonCurve] = PrivateAttr(default_factory=dict)
 
     @field_validator("conditions")

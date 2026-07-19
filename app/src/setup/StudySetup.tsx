@@ -438,7 +438,11 @@ export function StudySetup({
                 }
               />
               <FieldError errors={fieldErrors["seed"]} />
-              <SeedNotice standalone={Boolean(config.standalone)} seedSet={config.seed != null} />
+              <SeedNotice
+                standalone={Boolean(config.standalone)}
+                seedSet={config.seed != null}
+                autoParticipantId={Boolean(config.auto_participant_id)}
+              />
             </label>
             <label className="setup-row">
               <span className="setup-row-label">Conditions</span>
@@ -822,8 +826,16 @@ function FieldError({ errors }: { errors?: string[] }) {
 
 /** The inline, non-blocking seed notice under the seed field (DATA-SPEC §2.5):
  * a note, not a validation error — it never gates saving or running. */
-function SeedNotice({ standalone, seedSet }: { standalone: boolean; seedSet: boolean }) {
-  const notice = seedNotice(standalone, seedSet);
+function SeedNotice({
+  standalone,
+  seedSet,
+  autoParticipantId,
+}: {
+  standalone: boolean;
+  seedSet: boolean;
+  autoParticipantId: boolean;
+}) {
+  const notice = seedNotice(standalone, seedSet, autoParticipantId);
   if (!notice) return null;
   return (
     <p role="note" className={`setup-field-note is-${notice.tone}`}>
