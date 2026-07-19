@@ -156,6 +156,19 @@ class Partition(BaseModel):
     )
 
 
+def show_path(path: Path) -> str:
+    """A path as it appears in a finding, POSIX-separated.
+
+    Findings are archival, not just live UI: their messages and `paths` are
+    rendered into the ingestion report that ships beside a rebuilt dataset. A
+    platform separator would make the same rebuild emit different bytes on
+    Windows than on macOS, which the DATA-SPEC §9.5 byte-identity claim cannot
+    afford. Forward slashes are valid on Windows, so nothing is lost by
+    stating every recorded path one way.
+    """
+    return Path(path).as_posix()
+
+
 class IngestionReport(BaseModel):
     """The Hub's primary deliverable: every pooled session by partition, and
     every departure as an itemized finding. I9 slots its verify-grading rows
@@ -163,7 +176,17 @@ class IngestionReport(BaseModel):
 
     title: str = Field(description="the identified study's title")
     slug: str = Field(description="the study's filename namespace")
-    sources: list[str] = Field(description="the source folders as given")
+    sources: list[str] = Field(
+        description=(
+            "the source folders, POSIX-separated. These strings are archival: "
+            "they name the inputs in the reconstruction provenance and the "
+            "ingestion report, both of which ship with the rebuilt dataset. "
+            "Rendering them with the platform separator would make the same "
+            "rebuild produce different bytes on Windows than on macOS, which "
+            "the DATA-SPEC §9.5 byte-identity claim cannot afford; forward "
+            "slashes are valid on Windows too"
+        )
+    )
     configured_mode: MetricsMode = Field(
         description=(
             "the study's configured metrics mode (§6.3) — the rebuild default, "
@@ -264,8 +287,8 @@ def _scan(roots: list[Path], findings: list[HubFinding]) -> _Scan:
                 HubFinding(
                     code="empty_source",
                     group="info",
-                    message=f"no recognizable study data in source: {root}",
-                    paths=[str(root)],
+                    message=f"no recognizable study data in source: {show_path(root)}",
+                    paths=[show_path(root)],
                 )
             )
     scan.sets = [sets[key] for key in sorted(sets)]
@@ -286,9 +309,9 @@ def _read_station(
                 group="info",
                 message=(
                     f"provenance record unreadable — machine attribution "
-                    f"degraded: {path}"
+                    f"degraded: {show_path(path)}"
                 ),
-                paths=[str(path)],
+                paths=[show_path(path)],
             )
         )
         return
@@ -315,8 +338,8 @@ def _identify(
                 HubFinding(
                     code="study_file_unreadable",
                     group="info",
-                    message=f"frozen study config unreadable or invalid: {path}",
-                    paths=[str(path)],
+                    message=f"frozen study config unreadable or invalid: {show_path(path)}",
+                    paths=[show_path(path)],
                 )
             )
             continue
@@ -370,7 +393,7 @@ def _load(scan: _Scan, findings: list[HubFinding]) -> list[_Loaded]:
                         f"only station/candidate/timestamp, not session_id or "
                         f"condition: {file_set.stem}"
                     ),
-                    paths=[str(file_set.directory)],
+                    paths=[show_path(file_set.directory)],
                 )
             )
             continue
@@ -399,7 +422,7 @@ def _load(scan: _Scan, findings: list[HubFinding]) -> list[_Loaded]:
                     group="held",
                     message=f"held: no events, cannot re-score — {label}",
                     session_ids=[envelope.session_id],
-                    paths=[str(file_set.directory)],
+                    paths=[show_path(file_set.directory)],
                 )
             )
             continue
@@ -440,7 +463,7 @@ def _dedupe(loaded: list[_Loaded], findings: list[HubFinding]) -> list[_Loaded]:
             collapsed_sets += 1
             collapsed_copies += len(copies) - 1
         else:
-            folders = ", ".join(str(c.file_set.directory) for c in copies)
+            folders = ", ".join(show_path(c.file_set.directory) for c in copies)
             findings.append(
                 HubFinding(
                     code="divergent_duplicate",
@@ -451,7 +474,7 @@ def _dedupe(loaded: list[_Loaded], findings: list[HubFinding]) -> list[_Loaded]:
                         f"assembly"
                     ),
                     session_ids=[session_id],
-                    paths=[str(c.file_set.directory) for c in copies],
+                    paths=[show_path(c.file_set.directory) for c in copies],
                 )
             )
     if collapsed_sets:
@@ -947,7 +970,7 @@ def ingest(sources: Sequence[str | Path]) -> IngestionReport:
     return IngestionReport(
         title=title,
         slug=study_slug,
-        sources=[str(root) for root in roots],
+        sources=[root.as_posix() for root in roots],
         configured_mode=_configured_mode(kept, frozen_configs),
         partitions=partitions,
         findings=findings,

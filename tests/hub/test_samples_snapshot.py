@@ -132,3 +132,26 @@ def test_the_samples_leak_no_machine_paths(fresh: Path):
     ]
 
     assert leaked == []
+
+
+def test_the_samples_record_every_path_posix_separated(fresh: Path):
+    """The sibling of the leak guard, and the reason the drift guard was red
+    on Windows from I8 to I18. Three producers write a path into a committed
+    artifact — the frozen `output_dir`, the reconstruction's source manifest,
+    and the finding messages in the ingestion report — and each stringified a
+    `Path`, so a Windows build recorded `docs\\samples\\…` against the
+    committed `docs/samples/…` and every byte comparison failed at once.
+
+    Asserting it here turns that into a named failure naming the file, rather
+    than a byte-diff a reader has to decode. It passes trivially on POSIX,
+    which is the point: the machine it can fail on is the one that regressed.
+    """
+    backslashed = [
+        f"{path.relative_to(fresh)}: {line.strip()}"
+        for path in sorted(fresh.rglob("*"))
+        if path.is_file() and path.suffix in {".json", ".md"}
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+        if "\\" in line and "samples" in line
+    ]
+
+    assert backslashed == []
