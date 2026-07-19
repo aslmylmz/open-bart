@@ -1,6 +1,6 @@
 # Ingestion Report — hazard-suite
 
-Reconstructed by the Data Hub (version 1.2.0) on 2026-03-02 12:00 UTC. The Hub never acts silently: every session was included cleanly, or its departure is itemized below.
+Reconstructed by the Data Hub (version 1.2.1) on 2026-03-02 12:00 UTC. The Hub never acts silently: every session was included cleanly, or its departure is itemized below.
 
 Rebuild mode: `advanced` (the study's configured mode).
 
@@ -34,7 +34,7 @@ Holds affect only the listed sessions; the rebuild proceeded on the rest.
 - **`config_drift_partition`** config drift: language → partition (1 session(s) split from the main set)
 - **`config_drift_notable`** config drift: seed (777 vs None) — sessions pooled
 - **`config_drift_notable`** config drift: currency ('$' vs 'TRY') — sessions pooled
-- ⚠ **`verify_corruption`** stored metrics differ from re-score under the same engine 1.2.0 — identical engine on identical events must reproduce; possible corruption or tampering — lab-01 · P-verify-corrupt · 20260302T090600000000Z
+- ⚠ **`verify_corruption`** stored metrics differ from re-score under the same engine 1.2.1 — identical engine on identical events must reproduce; possible corruption or tampering — lab-01 · P-verify-corrupt · 20260302T090600000000Z
 - **`verify_ungraded`** stored metrics differ from re-score with no engine stamp (pre-stamp data) — cannot grade drift vs corruption; re-scored values used — lab-03 · P-verify-ungraded · 20260302T091800000000Z
 
 ## Clean / informational
@@ -42,7 +42,7 @@ Holds affect only the listed sessions; the rebuild proceeded on the rest.
 - **`identical_duplicates_collapsed`** collapsed 1 identical duplicate file-set(s) (1 extra file copies)
 - **`missing_metrics`** stored metrics absent; re-scored, no verify — lab-02 · P-missing-metrics · 20260302T091500000000Z
 - **`foreign_files`** skipped 1 unrecognized file(s)
-- **`verify_engine_drift`** stored metrics differ from re-score — benign engine drift (1.0.0 → 1.2.0); re-scored values used — lab-02 · P-verify-drift · 20260302T091300000000Z
+- **`verify_engine_drift`** stored metrics differ from re-score — benign engine drift (1.0.0 → 1.2.1); re-scored values used — lab-02 · P-verify-drift · 20260302T091300000000Z
 
 ## Partitions
 
