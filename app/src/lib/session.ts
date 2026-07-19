@@ -25,7 +25,7 @@ export interface SessionPayload {
 
 /** What the run screen knows at submit time, in client naming. Field semantics
  * are documented on the wire shape above; this interface only renames them. */
-export interface SessionInput {
+interface SessionInput {
   sessionId: string;
   candidateId: string;
   events: GameEvent[];

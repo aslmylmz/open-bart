@@ -62,4 +62,30 @@ describe("buildSessionPayload", () => {
     });
     expect(payload.practice).toBe(true);
   });
+
+  it("records that the Generate button produced the ID (DATA-SPEC §3.2)", () => {
+    const events = [
+      { timestamp: 1, type: "pump" as const, payload: { color: "teal" } },
+    ];
+    const payload = buildSessionPayload({
+      sessionId: "sess-1",
+      candidateId: "482910375",
+      events,
+      idSource: "generated",
+    });
+    expect(payload.id_source).toBe("generated");
+  });
+
+  it("records that the ID was typed rather than generated", () => {
+    const events = [
+      { timestamp: 1, type: "pump" as const, payload: { color: "teal" } },
+    ];
+    const payload = buildSessionPayload({
+      sessionId: "sess-1",
+      candidateId: "cand-1",
+      events,
+      idSource: "manual",
+    });
+    expect(payload.id_source).toBe("manual");
+  });
 });
