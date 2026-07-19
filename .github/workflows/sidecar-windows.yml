@@ -8,7 +8,10 @@ name: Sidecar (Windows freeze)
 
 on:
   push:
-    branches: [feat/standalone-instrument]
+    # main included since v1.2.0: the multi-station work merged there, so the
+    # release branch is now where a Windows regression would land unseen. The
+    # feature branch stays listed because that is where the work is staged.
+    branches: [main, feat/standalone-instrument]
     paths:
       - "app/sidecar/**"
       - "scoring/**"
