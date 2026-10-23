@@ -1,14 +1,14 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using these metadata."
-title: "Dynamic Hazard Rate BART: A Configurable Offline Desktop Instrument for the Balloon Analogue Risk Task"
+title: "OpenBART: A Configurable Offline Desktop Instrument for the Balloon Analogue Risk Task (Dynamic Hazard Rate BART)"
 abstract: >-
   An open-source desktop instrument for administering, scoring, and exporting
   Balloon Analogue Risk Task (BART) sessions without code and without a
   network connection. Researchers design studies in a point-and-click
   interface, choosing per balloon color from a curated library of eleven
-  parameterized hazard families — the flagship dynamic hazard rate
-  (P(burst at pump k) = k / N, optimum near sqrt(N)) alongside the classic
-  uniform model and nine others — with a live expected-value preview. Each
+  parameterized hazard families — OpenBART's flagship Dynamic Hazard Rate
+  (k/N) model (P(burst at pump k) = k / N, optimum near sqrt(N)) alongside
+  the classic uniform model and nine others — with a live expected-value preview. Each
   configuration's EV-optimal stop is computed numerically and verified by
   seeded Monte Carlo simulation. Sessions are scored locally by a Python
   engine (40+ psychometric metrics) into per-session telemetry files and a
@@ -19,8 +19,8 @@ authors:
     family-names: "Yılmaz"
     orcid: "https://orcid.org/0009-0000-2866-5774"
     affiliation: "Middle East Technical University"
-version: "1.2.1"
-date-released: "2026-07-19"
+version: "1.2.2"
+date-released: "2026-10-23"
 license: MIT
 repository-code: "https://github.com/aslmylmz/open-bart"
 url: "https://open-bart.readthedocs.io"

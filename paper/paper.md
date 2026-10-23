@@ -1,5 +1,5 @@
 ---
-title: 'Dynamic Hazard Rate BART: a configurable, offline desktop instrument for calibration-sensitive behavioral risk assessment'
+title: 'OpenBART: A Configurable Offline Desktop Instrument for the Balloon Analogue Risk Task (Dynamic Hazard Rate BART)'
 tags:
   - Python
   - React
@@ -30,7 +30,7 @@ near $N/2$ — so far above typical behavior that pump counts and earnings
 become nearly collinear, and the task indexes gross risk exposure rather
 than the *calibration* of risk to reward [@frey2017].
 
-**Dynamic Hazard Rate BART** is an open-source desktop instrument that makes
+**OpenBART** is an open-source desktop instrument that makes
 the hazard structure itself an experimental design choice. A researcher
 designs a study in a point-and-click interface — selecting, per balloon
 color, one of eleven parameterized hazard families grounded in survival
@@ -65,7 +65,7 @@ structure systematically shapes the behavioral profiles it can measure
 [@diplinio2022], and cognitive models of the task make the stopping problem
 central [@wallsten2005; @pleskac2008] — yet deployed implementations almost
 universally hard-code one hazard, so comparing or replicating hazard
-structures means rebuilding the task. Dynamic Hazard Rate BART treats the
+structures means rebuilding the task. OpenBART treats the
 hazard as a first-class, validated configuration axis: parameters only,
 never code, with the classic design included as a baseline.
 

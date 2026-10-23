@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "open-bart"
 dynamic = ["version"]
-description = "Dynamic Hazard Rate BART: a configurable, EV-calibrated Balloon Analogue Risk Task scoring engine and instrument."
+description = "OpenBART: a configurable, EV-calibrated Balloon Analogue Risk Task scoring engine and offline desktop instrument."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

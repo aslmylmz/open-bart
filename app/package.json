@@ -1,9 +1,9 @@
 {
   "name": "bart-standalone-app",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.2.2",
   "type": "module",
-  "description": "Offline Vite SPA for the Dynamic Hazard Rate BART (participant task UI).",
+  "description": "Offline Vite SPA for OpenBART (participant task UI).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

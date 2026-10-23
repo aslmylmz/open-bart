@@ -1,7 +1,7 @@
 [package]
 name = "bart-instrument"
-version = "1.2.1"
-description = "Offline desktop shell for the Dynamic Hazard Rate BART"
+version = "1.2.2"
+description = "Offline desktop shell for OpenBART"
 edition = "2021"
 rust-version = "1.77"
 
