@@ -182,7 +182,7 @@ export interface TaskConfig {
  * editing and downstream issues (14–16) have a known-good starting config. */
 export const DEFAULT_STUDY: TaskConfig = {
   schema_version: "1.1",
-  title: "Dynamic Hazard Rate BART (default dynamic study)",
+  title: "OpenBART default dynamic study",
   language: "en",
   reward_per_pump: 0.25,
   currency: "$",

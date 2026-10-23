@@ -1,4 +1,4 @@
-# Dynamic Hazard Rate BART
+# OpenBART
 
 **A configurable, offline desktop instrument for the Balloon Analogue Risk Task.**
 
@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation Status](https://readthedocs.org/projects/open-bart/badge/?version=latest)](https://open-bart.readthedocs.io/en/latest/?badge=latest)
 
-Dynamic Hazard Rate BART lets a research lab administer, score, and export
+OpenBART lets a research lab administer, score, and export
 [Balloon Analogue Risk Task](https://doi.org/10.1037/1076-898X.8.2.75) (BART)
 sessions **without writing code and without a network connection**. A
 researcher designs a study in a point-and-click Study Setup screen — choosing
@@ -117,8 +117,8 @@ references
 If you use this instrument in your research, please cite the archived
 release (see [CITATION.cff](https://github.com/aslmylmz/open-bart/blob/main/CITATION.cff)):
 
-> Yılmaz, A. S. (2026). *Dynamic Hazard Rate BART: A Configurable Offline
-> Desktop Instrument for the Balloon Analogue Risk Task* (Version 1.2.1)
+> Yılmaz, A. S. (2026). *OpenBART: A Configurable Offline Desktop Instrument
+> for the Balloon Analogue Risk Task (Dynamic Hazard Rate BART)* (Version 1.2.2)
 > [Computer software]. <https://doi.org/10.5281/zenodo.20592164>
 
 ## License

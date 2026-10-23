@@ -228,7 +228,7 @@ class TaskConfig(BaseModel):
 
 # The validated default study: the original 128/32/8 dynamic hazard, $0.25/pump.
 DEFAULT_TASK_CONFIG = TaskConfig(
-    title="Dynamic Hazard Rate BART (default dynamic study)",
+    title="OpenBART default dynamic study",
     language="en",
     reward_per_pump=0.25,
     colors=[

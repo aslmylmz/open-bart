@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="app/src-tauri/icons/128x128@2x.png" width="88" height="88" alt="Dynamic Hazard Rate BART app icon">
+  <img src="app/src-tauri/icons/128x128@2x.png" width="88" height="88" alt="OpenBART app icon">
 </p>
 
-<h1 align="center">OpenBART</h1>
+# OpenBART: A Configurable Offline Desktop Instrument for the Balloon Analogue Risk Task (Dynamic Hazard Rate BART)
 
 <p align="center"><strong>A configurable, offline desktop instrument for the Balloon Analogue Risk Task</strong></p>
 
@@ -15,7 +15,7 @@
 
 ![The Study Setup screen — point-and-click study design with a live expected-value preview, in a dark researcher posture](docs/screenshots/01-study-setup.png)
 
-Dynamic Hazard Rate BART is an open-source desktop application that lets a
+OpenBART is an open-source desktop application that lets a
 research lab administer, score, and export Balloon Analogue Risk Task sessions
 **without writing any code and without a network connection**. A researcher
 designs a study in a point-and-click Study Setup screen — choosing from a
@@ -25,9 +25,9 @@ conventional BART flow (Consent → ID → Gameplay → Debrief). Every session 
 scored locally by a bundled Python engine (40+ psychometric metrics) and
 written to per-session files plus a shared **Master CSV** ready for SPSS or R.
 
-The flagship paradigm is the **dynamic hazard rate**: at each pump *k* the
-balloon bursts with probability *k / N*, which moves the EV-optimal stopping
-point from the classic N/2 down to a psychologically attainable ≈ √N. The
+**OpenBART's flagship Dynamic Hazard Rate (k/N) model** sets the burst
+probability at each pump *k* to *k / N*, moving the EV-optimal stopping point
+from the classic N/2 down to a psychologically attainable ≈ √N. The
 classic uniform (Lejuez) BART and nine other hazard models are available as
 configuration choices, so traditional baselines and replications run on the
 same instrument.
@@ -52,8 +52,8 @@ OpenBART provides a **point-and-click GUI desktop application** for Windows that
 
 ## A look at the instrument
 
-The whole workflow — design a study, validate it, run participants, and confirm
-the data — happens in one offline window.
+The whole workflow — design a study, validate it, run participants, confirm the
+data, and assemble it across stations — happens in one offline window.
 
 **Design and preview.** A live expected-value curve for every color profile
 updates as you edit; the dashed marker is the EV-optimal stop.
@@ -74,6 +74,13 @@ pump to earn, collect to bank — with balloon progress and running total in vie
 output directory, the per-session files, and the appended Master CSV row.
 
 ![Return surface — a session-complete screen confirming the output directory, session files, and the Master CSV row](docs/screenshots/05-return-surface.png)
+
+**Assemble across stations.** When a study runs on several machines, the Data Hub
+reads the station folders side by side and reports what it found — what will
+rebuild cleanly, what is held back, and what is merely flagged — before writing
+anything.
+
+![Data Hub — four station folders ingested into one report, with counts for sessions that will rebuild, are held, and are flagged](docs/screenshots/06-data-hub.png)
 
 > **Windows:** the instrument ships as a Windows-first installer. A Windows-11
 > Study Setup screenshot for platform parity is pending a maintainer capture.
@@ -157,6 +164,8 @@ consent and payment records, so the app never takes it over.
 ---
 
 ## The science: a hazard structure worth configuring
+
+### Dynamic Hazard Rate BART: the ≈√N EV-optimal stopping proof
 
 The classic BART draws one burst point uniformly from [1, N]; the EV-optimal
 strategy (N/2 pumps) sits so far above typical behavior that pump count and
@@ -370,10 +379,10 @@ If you use this instrument in your research, please cite (see
 ```bibtex
 @software{yilmaz2026bart,
   author    = {Y{\i}lmaz, Ahmet Selim},
-  title     = {Dynamic Hazard Rate BART: A Configurable Offline Desktop
-               Instrument for the Balloon Analogue Risk Task},
+  title     = {OpenBART: A Configurable Offline Desktop Instrument for the
+               Balloon Analogue Risk Task (Dynamic Hazard Rate BART)},
   year      = {2026},
-  version   = {1.0.0},
+  version   = {1.2.2},
   doi       = {10.5281/zenodo.20592164},
   url       = {https://github.com/aslmylmz/open-bart}
 }

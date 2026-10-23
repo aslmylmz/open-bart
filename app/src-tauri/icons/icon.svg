@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Dynamic Hazard Rate BART — app icon master (DESIGN-SPEC §4).
+  OpenBART — app icon master (DESIGN-SPEC §4).
   1024px source for `tauri icon`; the generated set in this directory is
   derived, never hand-edited. Colors are the §1.2 token literals:
   field #08090b (bg-app), field edge #232426 (border), mark #e7e8ea

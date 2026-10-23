@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in the Dynamic Hazard Rate BART. Contributions,
+Thanks for your interest in OpenBART. Contributions,
 bug reports, and feature requests are all welcome.
 
 ## Code of Conduct

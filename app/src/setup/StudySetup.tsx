@@ -664,7 +664,7 @@ export function StudySetup({
                     >
                       {HAZARD_FAMILIES.map((family) => (
                         <option key={family} value={family}>
-                          {family}
+                          {family === "dynamic" ? "Dynamic (k/N)" : family}
                         </option>
                       ))}
                     </select>

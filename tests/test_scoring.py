@@ -1,4 +1,4 @@
-"""Tests for the Dynamic Hazard Rate BART scoring engine.
+"""Tests for the OpenBART scoring engine.
 
 Run with ``pytest`` from the repository root.
 """

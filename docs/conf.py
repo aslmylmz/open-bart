@@ -1,4 +1,4 @@
-"""Sphinx configuration for the Dynamic Hazard Rate BART documentation."""
+"""Sphinx configuration for the OpenBART documentation."""
 
 from __future__ import annotations
 
@@ -12,12 +12,12 @@ sys.path.insert(0, _REPO_ROOT)
 
 # ── Project information ──────────────────────────────────────────────────────
 
-project = "Dynamic Hazard Rate BART"
+project = "OpenBART"
 author = "Ahmet Selim Yılmaz"
 copyright = "2026, Ahmet Selim Yılmaz"  # noqa: A001
 
 # The full version, including alpha/beta/rc tags.
-release = "1.2.1"
+release = "1.2.2"
 version = "1.1"
 
 # ── General configuration ────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ intersphinx_mapping = {
 # ── HTML output ──────────────────────────────────────────────────────────────
 
 html_theme = "furo"
-html_title = "Dynamic Hazard Rate BART"
+html_title = "OpenBART"
 html_show_sourcelink = True
 
 html_theme_options = {
