@@ -2,7 +2,7 @@
   <img src="app/src-tauri/icons/128x128@2x.png" width="88" height="88" alt="OpenBART app icon">
 </p>
 
-<p align="center"># OpenBART</p>
+# OpenBART
 
 <p align="center"><strong>A configurable, offline desktop instrument for the Balloon Analogue Risk Task</strong></p>
 
