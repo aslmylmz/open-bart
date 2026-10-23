@@ -2,7 +2,7 @@
   <img src="app/src-tauri/icons/128x128@2x.png" width="88" height="88" alt="Dynamic Hazard Rate BART app icon">
 </p>
 
-<h1 align="center">Dynamic Hazard Rate BART</h1>
+<h1 align="center">Open BART</h1>
 
 <p align="center"><strong>A configurable, offline desktop instrument for the Balloon Analogue Risk Task</strong></p>
 
@@ -35,6 +35,20 @@ same instrument.
 Developed for a research program at Middle East Technical University (METU).
 
 ---
+## Why OpenBART? (Comparison with PsychoPy, Inquisit, PEBL, and jsPsych)
+
+Researchers and students looking for a **free, no-code Balloon Analogue Risk Task (BART) software** typically face a trade-off between expensive commercial licenses (Millisecond Inquisit, E-Prime) and script-heavy toolkits that require programming and manual CSV cleaning (PsychoPy, PEBL, jsPsych). 
+
+OpenBART provides a **point-and-click GUI desktop application** for Windows that requires **zero coding** and **zero internet connection**:
+
+| Feature | OpenBART | Millisecond Inquisit | PsychoPy / PEBL | Browser Scripts (jsPsych) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Cost & License** | **Free (MIT Open Source)** | Commercial ($$$) | Free (Open Source) | Free |
+| **Coding Required** | **None (Point-and-Click GUI)** | Scripting (`<iqx>`) | Python / PEBL code | JavaScript / HTML |
+| **Hazard Models** | **11 Families (Dynamic $k/N$, Lejuez Uniform, Weibull, etc.)** | Uniform (Lejuez) | Uniform (Lejuez) | Uniform (Lejuez) |
+| **SPSS / R Export** | **40+ Auto-Scored Metrics (Master CSV)** | Raw trial logs | Raw trial logs | Raw JSON/CSV |
+| **Multi-PC Lab Hub** | **Built-in (`openbart hub` audit & merge)** | Manual file merge | Manual file merge | Requires web server |
+| **Offline / IRB Safe** | **100% Offline + Passcode Kiosk Mode** | Offline option | Offline | Requires network/hosting |
 
 ## A look at the instrument
 
