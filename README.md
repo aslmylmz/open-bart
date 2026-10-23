@@ -11,6 +11,7 @@
   <a href="https://github.com/aslmylmz/open-bart/releases/latest"><img src="https://img.shields.io/github/v/release/aslmylmz/open-bart" alt="Latest release"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://open-bart.readthedocs.io/en/latest/?badge=latest"><img src="https://readthedocs.org/projects/open-bart/badge/?version=latest" alt="Documentation Status"></a>
+  <a href="https://doi.org/10.5281/zenodo.23598069"><img src="https://img.shields.io/badge/Working_Paper-10.5281%2Fzenodo.23598069-007ec6" alt="Working Paper DOI"></a>
 </p>
 
 ![The Study Setup screen — point-and-click study design with a live expected-value preview, in a dark researcher posture](docs/screenshots/01-study-setup.png)
